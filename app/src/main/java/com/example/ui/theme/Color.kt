@@ -1,0 +1,26 @@
+package com.example.ui.theme
+
+import androidx.compose.ui.graphics.Color
+
+// Iconic Live Broadcast Styling Palette (Vibrant Coral Pink & Royal Gold)
+val ElectricPink = Color(0xFFFF2A6D)
+val HotCoral = Color(0xFFFF5E36)
+val SunsetRed = Color(0xFFFF1356)
+val NeonPurple = Color(0xFF8A2BE2)
+val NeonPink = Color(0xFFFF2A85)
+val NeonCyan = Color(0xFF00E5FF)
+val ElectricViolet = Color(0xFFA855F7)
+val DeepVioletDark = Color(0xFF0C0817)
+val SurfaceDark = Color(0xFF140E24)
+val SurfaceCardDark = Color(0xFF1C1433)
+val BorderPurple = Color(0xFF352054)
+val AmberGold = Color(0xFFFFB800)
+val RoyalGold = Color(0xFFFFD700)
+val LiveGreen = Color(0xFF00E676)
+val TextPrimary = Color(0xFFFBF9FF)
+val TextSecondary = Color(0xFFB5A6CC)
+val MaleBlue = Color(0xFF29B6F6)
+val FemalePink = Color(0xFFFF4081)
+val PKRed = Color(0xFFFF1744)
+val PKBlue = Color(0xFF2979FF)
+val SeatEmpty = Color(0xFF251A40)

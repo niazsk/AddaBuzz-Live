@@ -1,0 +1,6 @@
+{
+  "name": "AddaBuzz Live",
+  "description": "Real-time broadcast live streaming, interactive chat, gifts, multiplayer games, admin dashboard and wallet",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
