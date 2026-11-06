@@ -68,7 +68,7 @@ fun StartBroadcastScreen(
                     modifier = Modifier.size(90.dp)
                 )
                 Text(
-                    text = if (uiState.isFrontCamera) "Front Camera (1080p 60fps Active)" else "Back Camera (1080p 60fps Active)",
+                    text = if (uiState.isFrontCamera) "Front camera active" else "Back camera active",
                     color = TextSecondary,
                     fontSize = 13.sp
                 )
