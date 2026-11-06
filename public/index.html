@@ -364,6 +364,31 @@
     padding:4px 11px;background:#0f1b17;white-space:nowrap}
   #abzapp .az-toast{position:absolute;left:50%;bottom:28px;transform:translateX(-50%);z-index:42;background:#1c1433;
     border:1px solid #ff2a6d;border-radius:11px;padding:10px 16px;font-size:12px;box-shadow:0 10px 30px #000000a0}
+  #abzapp .az-bar{height:8px;border-radius:999px;background:#241738;border:1px solid #352054;overflow:hidden;margin:6px 0 2px}
+  #abzapp .az-bar i{display:block;height:100%;background:linear-gradient(90deg,#ff2a6d,#a855f7)}
+  #abzapp .az-gender{font-size:15px;margin-left:6px;vertical-align:2px}
+  #abzapp .az-gender.m{color:#29b6f6}
+  #abzapp .az-gender.f{color:#ff4081}
+  #abzapp .az-neonname{color:#00e5ff;text-shadow:0 0 10px #00e5ff88}
+  #abzapp .az-own{font-size:10px;font-weight:800;letter-spacing:.5px;color:#7CFDB2;border:1px solid #2c5c46;border-radius:999px;padding:2px 8px}
+  #abzapp .az-own.lock{color:#b5a6cc;border-color:#352054}
+  #abzapp .az-mini{display:inline-block;font-size:11px;font-weight:700;color:#cbb9e8;background:#1b1230;
+    border:1px solid #3a2560;border-radius:8px;padding:5px 10px;margin:2px 4px 2px 0}
+  #abzapp .az-mini.sel{border-color:#ff2a6d;color:#ff2a6d}
+  #abzapp .az-ta{width:100%;min-height:70px;resize:vertical;background:#140e24;border:1px solid #352054;border-radius:11px;
+    color:#fbf9ff;font:inherit;font-size:12.5px;padding:10px 12px;margin-top:8px}
+  #abzapp .az-row .sc button{margin:0}
+  #abzapp .az-row .sc{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+  #abzapp .az-chip.ghostchip{background:#1c1433;color:#cbb9e8;border-color:#3a2560}
+  #abzapp button.az-pfav{border:0;padding:0;cursor:pointer;font:inherit;background-color:#1c1433}
+  #abzapp .az-gift:disabled{opacity:.4;cursor:not-allowed}
+  #abzapp .az-modal{max-height:86vh;overflow-y:auto}
+  #abzapp .az-who.neonname{color:#00e5ff;text-shadow:0 0 8px #00e5ff77}
+  #abzapp .az-rocket{position:absolute;left:8%;bottom:12%;z-index:43;font-size:34px;pointer-events:none;animation:azFly 1.6s ease-out forwards}
+  @keyframes azFly{0%{transform:translate(0,0) scale(.6);opacity:0}25%{opacity:1}100%{transform:translate(60vw,-55vh) scale(1.35);opacity:0}}
+  #abzapp .az-xrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
+  #abzapp .az-xrow .grow{flex:1}
+  #abzapp .az-mnote{font-size:11px;color:#8f7fb2;margin-top:10px;border-top:1px dashed #33215a;padding-top:9px}
 </style>
 
 <script>
@@ -413,9 +438,179 @@
 
   var st = { rooms: [], cur: null, view: 'home', filter: 'live', chat: [], sideRoom: '', rankType: 'star', rankPeriod: 'Daily',
     coins: 18500, points: 520000, tier: 0, method: 'bKash', wpreset: 0, wmethod: 'bKash', follow: {}, likes: 0, pkTimer: 128, msgCount: 0,
-    mode: 'desktop', theme: 'dark', gtype: 0, gq: 0 };
+    mode: 'desktop', theme: 'dark', gtype: 0, lang: 'en', live: null, rkMetric: 'pts' };
 
   var studio = null;
+
+  /* ---------- profile store (kept on the device, survives reload) ---------- */
+  var PFKEY = 'abzpf';
+  var PF = null;
+  var AVATARS = [
+    'photo-1534528741775-53994a69daeb', 'photo-1492562080023-ab3db95bfbce', 'photo-1494790108377-be9c29b29330',
+    'photo-1517841905240-472988babdf9', 'photo-1500648767791-00dcc994a43e', 'photo-1507003211169-0a1dd7228f2d'
+  ];
+  var STORE = [
+    ['Rocket Entry', '\u{1F680}', 2500, 'entry', 'Join every live room with a rocket fly-by', 'gear'],
+    ['Neon Nickname', '\u{1F3A8}', 1200, 'neon', 'Your name glows neon in chat and on your profile', 'gear'],
+    ['VIP +1 Pass', '\u{1F451}', 9900, 'vip', 'Adds one VIP level to your badge, chat and Go Live card', 'use'],
+    ['Charm Card', '\u{1F48E}', 3000, 'charm', 'Spend inside a live room to add 500 charm to the host', 'use'],
+    ['Golden Mic Ring', '\u{1F3A4}', 5500, 'mic', 'Priority mic marker on your broadcast card', 'gear'],
+    ['Gift Crate', '\u{1F381}', 12000, 'crate', 'Opens instantly for +500 trading diamonds', 'use']
+  ];
+  var TASKS = [
+    ['Send 5 room messages', 'msgs', 5, 500],
+    ['Send a gift to a host', 'gifts', 1, 300],
+    ['Tap the stage 20 times', 'likes', 20, 200],
+    ['Play 3 mini games', 'games', 3, 400],
+    ['Follow 2 hosts', 'follows', 2, 350],
+    ['Boost a PK battle', 'boosts', 1, 600],
+    ['Top up once', 'topups', 1, 1000],
+    ['Start your own broadcast', 'broadcasts', 1, 1500]
+  ];
+  var MEDALS = [
+    ['\u{1F44B}', 'First Hello', 'msgs', 1], ['\u{1F4AC}', 'Chatterbox', 'msgs', 50],
+    ['\u{1F381}', 'Gift Giver', 'gifts', 1], ['\u{1F4B0}', 'Big Spender', 'spent', 10000],
+    ['\u2764\uFE0F', 'Stage Lover', 'likes', 100], ['\u2694\uFE0F', 'PK Supporter', 'boosts', 1],
+    ['\u{1F91D}', 'Networker', 'follows', 2], ['\u{1F3B2}', 'High Roller', 'games', 3],
+    ['\u{1F3A4}', 'On Air', 'broadcasts', 1], ['\u{1F465}', 'Club Founder', 'clubs', 1]
+  ];
+  var HONOR = [['Bronze', 0, 800], ['Silver', 3000, 2000], ['Gold', 8000, 5000],
+    ['Platinum', 15000, 9000], ['Diamond', 25000, 20000], ['Crown', 40000, 45000]];
+  var AGENCIES = [
+    ['AddaBuzz HQ', 'AGENCY_HQ_01', 128, 4820000],
+    ['Diamond Star Agency', 'AGENCY_DHAKA_77', 86, 2950000],
+    ['Skyline Entertainment', 'AGENCY_SKY_12', 61, 1870000],
+    ['Bengal Beats', 'AGENCY_BBG_08', 44, 1210000]
+  ];
+  var REWARD_TIERS = [['5 hosts signed', 5, 25000, 0], ['250K agency points', 0, 0, 400], ['12 hosts signed', 12, 90000, 0], ['1M agency points', 0, 0, 1500]];
+  var TRADE_RATE = 100;
+
+  function defaultAgents() {
+    return [
+      { n: 'Stella Malone', i: '40218873', g: 'FEMALE', l: 29, p: 320000, s: 'ACTIVE' },
+      { n: 'Tanvir Rahman', i: '51882340', g: 'MALE', l: 34, p: 512000, s: 'ACTIVE' },
+      { n: 'Nadia Rose', i: '60331987', g: 'FEMALE', l: 21, p: 148000, s: 'SUSPENDED' }
+    ];
+  }
+  function pfKey() { var o = st.auth || {}; return PFKEY + ':' + (o.e || 'guest'); }
+  function defaultsPF() {
+    return {
+      name: ME.name, gender: 'MALE', bio: ME.bio, av: 0, lang: 'en',
+      coins: 18500, points: 520000, diamonds: ME.diamonds || 18500, vip: ME.vipLevel,
+      stats: { msgs: 0, gifts: 0, likes: 0, topups: 0, games: 0, boosts: 0, follows: 0, broadcasts: 0, spent: 0, clubs: 0 },
+      inv: {}, gear: {}, claims: {}, clubs: {}, agents: defaultAgents(), invites: [], receipts: [], apply: null, hosG: 'MALE', payout: 'bKash',
+      e2ee: ME.e2eeEnabled !== false, twof: true, publicProfile: true
+    };
+  }
+  function loadPF() {
+    var d = defaultsPF(), o = null;
+    try { o = JSON.parse(localStorage.getItem(pfKey())); } catch (e) { o = null; }
+    if (!o || typeof o !== 'object' || !o.stats) { PF = d; savePF(); return; }
+    for (var k in d) if (!Object.prototype.hasOwnProperty.call(o, k)) o[k] = d[k];
+    for (var s in d.stats) if (!Object.prototype.hasOwnProperty.call(o.stats, s)) o.stats[s] = d.stats[s];
+    if (!o.agents || !o.agents.length) o.agents = d.agents;
+    PF = o;
+  }
+  function savePF() { if (!PF) return; try { localStorage.setItem(pfKey(), JSON.stringify(PF)); } catch (e) {} }
+  function statOf(k) {
+    if (!PF) return 0;
+    if (k === 'clubs') return Object.keys(PF.clubs || {}).length;
+    return Number(PF.stats[k]) || 0;
+  }
+  function bumpStat(k, n) {
+    if (!PF) return;
+    PF.stats[k] = (Number(PF.stats[k]) || 0) + (n || 1);
+    if (k !== 'likes' || PF.stats.likes % 10 === 0) savePF();
+  }
+  function spendCoins(n) { PF.coins = st.coins = Math.max(0, (Number(st.coins) || 0) - n); savePF(); renderWallet(); }
+  function earnCoins(n) { PF.coins = st.coins = (Number(st.coins) || 0) + n; savePF(); renderWallet(); }
+  function applyPF() {
+    ME.name = String(PF.name || ME.name);
+    ME.gender = PF.gender === 'FEMALE' ? 'FEMALE' : 'MALE';
+    ME.bio = String(PF.bio || ME.bio);
+    ME.vipLevel = Math.max(1, Number(PF.vip) || 1);
+    ME.diamonds = Math.max(0, Number(PF.diamonds) || 0);
+    ME.e2eeEnabled = !!PF.e2ee;
+    st.coins = Math.max(0, Number(PF.coins) || 0);
+    st.points = Math.max(0, Number(PF.points) || 0);
+    st.lang = PF.lang === 'bn' ? 'bn' : 'en';
+    AVATAR = 'https://images.unsplash.com/' + (AVATARS[Number(PF.av) || 0] || AVATARS[0]) + '?auto=format&fit=crop&q=80&w=300';
+    renderWallet();
+  }
+  function agencyPoints() {
+    var t = 0, a = PF.agents || [];
+    for (var i = 0; i < a.length; i++) t += Number(a[i].p) || 0;
+    return t;
+  }
+  function honorScore() {
+    return (Number(ME.level) || 0) * 1000 + statOf('gifts') * 200 + statOf('msgs') * 20 +
+      statOf('broadcasts') * 1500 + statOf('boosts') * 300;
+  }
+  function honorIdx() {
+    var s = honorScore(), i;
+    for (i = HONOR.length - 1; i >= 0; i--) if (s >= HONOR[i][1]) return i;
+    return 0;
+  }
+  function inviteCode() {
+    var id = String(ME.idNum || '00000000');
+    return 'ABZ' + id.slice(-4) + String(ME.name || 'AB').replace(/[^A-Za-z]/g, '').slice(0, 2).toUpperCase();
+  }
+  function liveTime(sec) {
+    sec = Math.max(0, Math.floor(sec));
+    var hh = Math.floor(sec / 3600), mm = Math.floor((sec % 3600) / 60), ss = sec % 60;
+    function p(n) { return (n < 10 ? '0' : '') + n; }
+    return (hh ? p(hh) + ':' : '') + p(mm) + ':' + p(ss);
+  }
+
+  /* ---------- interface language ---------- */
+  var LEX = {
+    en: {},
+    bn: {
+      'Home': '\u09B9\u09CB\u09AE', 'Go Live': '\u09B2\u09BE\u0987\u09AD \u0995\u09B0\u09C1\u09A8', 'Chat': '\u099A\u09CD\u09AF\u09BE\u099F',
+      'Rank': '\u09B0\u09CD\u09AF\u09BE\u0982\u0995', 'Profile': '\u09AA\u09CD\u09B0\u09CB\u09AB\u09BF\u09B2', 'Tasks': '\u099F\u09BE\u09B8\u09CD\u0995',
+      'rooms live': '\u09B0\u09C1\u09AE \u09B2\u09BE\u0987\u09AD', 'Desktop': '\u09A1\u09C7\u09B8\u09CD\u0995\u099F\u09AA', 'Phone': '\u09AB\u09CB\u09A8',
+      'Coins Balance': '\u0995\u09B0\u09C7\u0982\u09B8\u09BF \u09AC\u09CD\u09AF\u09BE\u09B2\u09C7\u09A8\u09CD\u09B8', 'Host Points': '\u09B9\u09CB\u09B8\u09CD\u099F \u09AA\u09DF\u09C7\u09A8\u09CD\u099F\u09B8',
+      'Top Up': '\u099F\u09AA \u0986\u09AA', 'Withdraw': '\u0989\u0987\u09A5\u09A1\u09B0', 'Reward': '\u09B0\u09BF\u0993\u09AF\u09BC\u09BE\u09B0\u09CD\u09A1',
+      'Games': '\u0997\u09C7\u09AE', 'Store': '\u09B8\u09CD\u099F\u09CB\u09B0', 'Invite': '\u0986\u09AE\u09A8\u09CD\u09A4\u09CD\u09B0\u09A3',
+      'Honor Level': '\u09B8\u09AE\u09CD\u09AE\u09BE\u09A8 \u09B2\u09C7\u09AD\u09C7\u09B2', 'Fan Club': '\u09AB\u09CD\u09AF\u09BE\u09A8 \u0995\u09CD\u09B2\u09BE\u09AC',
+      'Medal Wall': '\u09AE\u09C7\u09A1\u09BE\u09B2 \u0993\u09DF\u09BE\u09B2', 'Agent Management': '\u098F\u099C\u09C7\u09A8\u09CD\u099F \u09AE\u09CD\u09AF\u09BE\u09A8\u09C7\u099C\u09AE\u09C7\u09A8\u09CD\u099F',
+      'Agent': '\u098F\u099C\u09C7\u09A8\u09CD\u099F', 'Add Host': '\u09B9\u09CB\u09B8\u09CD\u099F \u09AF\u09CB\u0997', 'Invite Agent': '\u098F\u099C\u09C7\u09A8\u09CD\u099F \u0986\u09AE\u09A8\u09CD\u09A4\u09CD\u09B0\u09A3',
+      'Coins Trading': '\u0995\u09DF\u09C7\u09A8 \u099F\u09CD\u09B0\u09C7\u09A1\u09BF\u0982', 'Agent Rewards': '\u098F\u099C\u09C7\u09A8\u09CD\u099F \u09B0\u09BF\u0993\u09AF\u09BC\u09BE\u09B0\u09CD\u09A1',
+      'Agent Ranking': '\u098F\u099C\u09C7\u09A8\u09CD\u099F \u09B0\u09CD\u09AF\u09BE\u0982\u0995\u09BF\u0982', 'Diamond Agent': '\u09A1\u09BE\u0987\u09AE\u09A8\u09CD\u09A1 \u098F\u099C\u09C7\u09A8\u09CD\u099F',
+      'Super Agent & Admin': '\u09B8\u09C1\u09AA\u09BE\u09B0 \u098F\u099C\u09C7\u09A8\u09CD\u099F \u0993 \u0985\u09CD\u09AF\u09BE\u09A1\u09AE\u09BF\u09A8', 'Agency': '\u098F\u099C\u09C7\u09A8\u09CD\u09B8\u09BF',
+      'Viewer access': '\u09AD\u09BF\u0989\u09DF\u09BE\u09B0 \u0985\u09CD\u09DF\u09BE\u0995\u09CD\u09B8\u09C7\u09B8', 'Apply to open an agency': '\u098F\u099C\u09C7\u09A8\u09CD\u09B8\u09BF \u0996\u09C1\u099F\u09A4\u09C7 \u0986\u09AC\u09C7\u09A6\u09A8',
+      'Staff sign-in is issued by AddaBuzz HQ': 'Staff \u0986\u0987\u09A1\u09BF AddaBuzz HQ \u09A5\u09C7\u0995\u09C7 \u0987\u09B8\u09CD\u09DF\u09C1 \u09B9\u09DF',
+      'Daily Tasks & Rewards Center': '\u09A6\u09C8\u09A8\u09BF\u0995 \u099F\u09BE\u09B8\u09CD\u0995 \u0993 \u09B0\u09BF\u0993\u09AF\u09BC\u09BE\u09B0\u09CD\u09A1',
+      'Edit Profile & Gender Icon': '\u09AA\u09CD\u09B0\u09CB\u09AB\u09BF\u09B2 \u0993 \u099C\u09C7\u09A8\u09CD\u09A1\u09BE\u09B0 \u0986\u0987\u0995\u09A8',
+      'Security, E2EE & Data Backup': '\u09A8\u09BF\u09B0\u09BE\u09AA\u09A4\u09CD\u09A4\u09BE, E2EE \u0993 \u09A1\u09C7\u099F\u09BE \u09AC\u09CD\u09AF\u09BE\u0995\u0986\u09AA',
+      'Switch Language': '\u09AD\u09BE\u09B7\u09BE \u09AA\u09B0\u09BF\u09AC\u09B0\u09CD\u09A4\u09A8', 'Dark / Neon Theme Mode': '\u09A1\u09BE\u09B0\u09CD\u0995 / \u09A8\u09BF\u09DF\u09A8 \u09A5\u09BF\u09AE',
+      'Log Out': '\u09B2\u0997 \u0986\u0989\u099F', 'Accounts': '\u0986\u0995\u09BE\u0989\u09A8\u09CD\u099F', 'Following': '\u09AB\u09B2\u09CB\u09DF\u09BF\u0982',
+      'Followers': '\u09AB\u09B2\u09CB\u09DF\u09BE\u09B0', 'Host Grade': '\u09B9\u09CB\u09B8\u09CD\u099F \u0997\u09CD\u09B0\u09C7\u09A1', 'Buy': '\u0995\u09BF\u09A8\u09C1\u09A8',
+      'Own': '\u09AE\u09BE\u09B2\u09BF\u0995\u09BE\u09A8\u09BE', 'Use': '\u09AC\u09CD\u09AF\u09AC\u09B9\u09BE\u09B0', 'On': '\u099A\u09BE\u09B2\u09C1', 'Off': '\u09AC\u09A8\u09CD\u09A7',
+      'Join': '\u09AF\u09CB\u0997 \u09A6\u09BF\u09A8', 'Leave': '\u099B\u09BE\u09DC\u09A8', 'Claim': '\u09A8\u09BF\u09A8', 'Locked': '\u09B2\u0995',
+      'Earned': '\u0985\u09B0\u09CD\u099C\u09BF\u09A4', 'Save': '\u09B8\u0982\u09B0\u0995\u09CD\u09B7\u09A3', 'Cancel': '\u09AC\u09BE\u09A4\u09BF\u09B2',
+      'Copy': '\u0995\u09AA\u09BF', 'Reload': '\u09B0\u09BF\u09B2\u09CB\u09A1', 'Start': '\u09B6\u09C1\u09B0\u09C1', 'Stop': '\u09A5\u09BE\u09AE\u09BE\u09A8',
+      'Studio loading': '\u09B8\u09CD\u099F\u09C1\u09A1\u09BF\u0993 \u09B2\u09CB\u09A1 \u09B9\u099A\u09CD\u099B\u09C7', 'Studio ready': '\u09B8\u09CD\u099F\u09C1\u09A1\u09BF\u0993 \u09AA\u09CD\u09B0\u09B8\u09CD\u09A4\u09C1\u09A4',
+      'Mode': '\u09AE\u09CB\u09A1', 'Format': '\u09AB\u09B0\u09AE\u09BE\u099F', 'Category': '\u0995\u09BE\u099F\u09BE\u0997\u09CB\u09B0\u09BF', 'Title': '\u09B6\u09BF\u09B0\u09CB\u09A8\u09BE\u09AE',
+      'Seats': '\u0986\u09B8\u09A8', 'Mic ring': '\u09AE\u09BF\u0995 \u09B0\u09BF\u0982', 'Not enough coins': '\u09AF\u09A5\u09C7\u09B7\u09CD\u099F \u0995\u09B0\u09C7\u09A8\u09CD\u09B8 \u09A8\u09C7\u09DF'
+    }
+  };
+  function T(s) { var d = LEX[st.lang]; return (d && d[s]) || s; }
+  function applyLang() {
+    var spans = document.querySelectorAll('#abzapp .az-tab span');
+    var map = { home: 'Home', golive: 'Go Live', messages: 'Chat', rank: 'Rank', profile: 'Profile' };
+    for (var i = 0; i < spans.length; i++) {
+      var dv = spans[i].parentNode.getAttribute('data-view');
+      if (map[dv]) spans[i].textContent = T(map[dv]);
+    }
+    var tp = document.querySelector('#abzapp .az-pill.ghost');
+    if (tp) tp.innerHTML = '\u{1F381} ' + T('Tasks');
+    var ds = document.querySelectorAll('#abzapp .az-mode');
+    for (var j = 0; j < ds.length; j++) {
+      var isPhone = ds[j].getAttribute('data-act') === 'mphone';
+      ds[j].textContent = (isPhone ? '\u{1F4F1} ' : '\u{1F5A5}\uFE0F ') + T(isPhone ? 'Phone' : 'Desktop');
+    }
+  }
 
   function applyMode() {
     var a = document.getElementById('abzapp');
@@ -516,6 +711,7 @@
       chip.hidden = false;
     }
     var lg = document.getElementById('az-login'); if (lg) lg.hidden = true;
+    loadPF(); applyPF();
     render();
   }
   function startSession(o) {
@@ -533,6 +729,8 @@
     var lg = document.getElementById('az-login'); if (lg) lg.hidden = false;
     closeModal();
     st.view = 'home';
+    loadPF(); applyPF();
+    render();
   }
   function doLogin() {
     var em = document.getElementById('az-email'), pw = document.getElementById('az-pass'), btn = document.getElementById('az-lbtn');
@@ -555,7 +753,7 @@
   }
   function openSignUp() {
     var h = '<div class="az-mtop"><h3>\u{1F54A} Create a viewer account</h3><button type="button" class="az-x" data-act="close">\u2715</button></div>' +
-      '<p class="tip">Staff (Admin / Super Agent) logins are issued by the agency \u2014 you cannot self-register them here. A viewer profile works on this web mirror only; the Android build registers it through Firebase Auth.</p>' +
+      '<p class="tip">Staff (Admin / Super Agent) logins are issued by the agency \u2014 you cannot self-register them here. A viewer profile is created for this web app; the mobile app uses the same ID.</p>' +
       '<div class="az-field" style="margin-top:8px"><span class="az-fico">\u{1F464}</span><input id="az-su-name" placeholder="Display name" aria-label="Display name" /></div>' +
       '<div class="az-field"><span class="az-fico">&#9993;</span><input id="az-su-mail" type="email" placeholder="Email address" aria-label="Email address" /></div>' +
       '<div class="az-field"><span class="az-fico">&#128273;</span><input id="az-su-pass" type="password" placeholder="Password" aria-label="Password" /></div>' +
@@ -574,7 +772,7 @@
   }
   function openAccounts() {
     var h = '<div class="az-mtop"><h3>\u{1F3DB}\uFE0F Sign-in roles</h3><button type="button" class="az-x" data-act="close">\u2715</button></div>' +
-      '<p class="tip">This web mirror only keeps a SHA-256 password challenge in the page \u2014 Firebase Auth in the Android app is the real source of truth. Ask AddaBuzz HQ for the password of an ID.</p><div class="az-kv">' +
+      '<p class="tip">Sign-in is verified by a SHA-256 password challenge in this page. AddaBuzz HQ issues staff IDs \u2014 ask for the password of an ID.</p><div class="az-kv">' +
       kv('Admin \u00b7 AddaBuzz HQ', 'fayselsk@gmail.com') +
       kv('Super Agent \u00b7 Diamond Star', 'ranababu78@gmail.com') +
       kv('This session', ME.name + ' \u00b7 ' + roleLabel(ME.role)) +
@@ -655,7 +853,7 @@
         list.push(f);
       }
       st.rooms = list;
-      status('live \u00b7 Firestore streaming', true);
+      status('live \u00b7 rooms streaming', true);
       var on = document.getElementById('az-onsite');
       if (on) on.textContent = list.length;
       renderWallet();
@@ -687,7 +885,7 @@
         if (!f.text) continue;
         var cls = f.isGift ? ' gift' : (f.isSystem ? ' sys' : '');
         var vip = f.vipLevel ? '<span class="az-vip">VIP ' + esc(f.vipLevel) + '</span>' : '';
-        var who = f.isSystem ? '' : '<span class="az-who ' + (f.gender === 'MALE' ? 'm' : 'f') + '">' + vip + esc(f.user || 'guest') + ':</span>';
+        var who = f.isSystem ? '' : '<span class="az-who ' + (f.gender === 'MALE' ? 'm' : 'f') + (f.neon ? ' neonname' : '') + '">' + vip + esc(f.user || 'guest') + ':</span>';
         var body = f.isGift ? (esc(f.giftIcon || '') + ' ' + esc(f.text)) : esc(f.text);
         rows += '<div class="az-m' + cls + '">' + who + '<span class="az-txt">' + body + '</span></div>';
       }
@@ -702,7 +900,9 @@
   function sendChat(text, gift, price) {
     if (!st.cur || !text) return;
     if (price && price > st.coins) { toast('Not enough coins \u2014 open Top Up'); openWallet('topup'); return; }
-    if (price) st.coins -= price;
+    if (price) spendCoins(price);
+    bumpStat('msgs', 1);
+    if (gift) { bumpStat('gifts', 1); if (price) { PF.stats.spent = (Number(PF.stats.spent) || 0) + price; savePF(); } }
     var fields = {
       user: { stringValue: ME.name },
       text: { stringValue: String(text).slice(0, 200) },
@@ -712,6 +912,7 @@
       isSystem: { booleanValue: false },
       isGift: { booleanValue: !!gift },
       giftIcon: { stringValue: gift || '' },
+      neon: { booleanValue: !!(PF && PF.gear && PF.gear.neon) },
       createdAt: { timestampValue: new Date().toISOString() }
     };
     var docId = 'w' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -721,7 +922,8 @@
     if (box) {
       var div = document.createElement('div');
       div.className = 'az-m' + (gift ? ' gift' : '');
-      div.innerHTML = (gift ? '' : '<span class="az-who m">' + esc(ME.name) + ':</span>') +
+      div.innerHTML = (gift ? '' : '<span class="az-who ' + (ME.gender === 'MALE' ? 'm' : 'f') +
+        (PF.gear.neon ? ' neonname' : '') + '">' + esc(ME.name) + ':</span>') +
         '<span class="az-txt">' + esc((gift ? gift + ' ' : '') + text) + '</span>';
       box.appendChild(div);
       box.scrollTop = box.scrollHeight;
@@ -743,7 +945,8 @@
     if (!r || !r.pkBattle) return;
     var cost = 500;
     if (st.coins < cost) { toast('Need ' + cost + ' coins to boost'); openWallet('topup'); return; }
-    st.coins -= cost; renderWallet();
+    spendCoins(cost);
+    bumpStat('boosts', 1);
     var next = (Number(r.pkBattle.leftScore) || 0) + cost;
     write(ROOMS + '/' + st.cur + '?key=' + KEY, 'PATCH',
       { fields: { pkBattle: { mapValue: { fields: { leftScore: { integerValue: String(next) } } } } },
@@ -756,6 +959,7 @@
     if (!r) return;
     var on = !st.follow[r.docId];
     st.follow[r.docId] = on;
+    if (on) bumpStat('follows', 1);
     write(ROOMS + '/' + r.docId + '?key=' + KEY, 'PATCH',
       { fields: { isFollowing: { booleanValue: on } }, mask: { fieldPaths: ['isFollowing'] }, currentDocument: {} },
       function () { renderStage(); });
@@ -931,18 +1135,586 @@
     return h;
   }
 
+  /* ---------- shared modal pieces ---------- */
+  function mHead(t) {
+    return '<div class="az-mtop"><h3>' + esc(t) + '</h3><button type="button" class="az-x" data-act="close">\u2715</button></div>';
+  }
+  function bar(p) {
+    p = Number(p); if (!(p > 0)) p = 0; if (p > 1) p = 1;
+    return '<div class="az-bar"><i style="width:' + Math.round(p * 100) + '%"></i></div>';
+  }
+  function mini(act, label, sel) {
+    return '<button type="button" class="az-mini' + (sel ? ' sel' : '') + '" data-act="' + act + '">' + esc(label) + '</button>';
+  }
+  function claimCell(key, reached, act) {
+    if (PF.claims[key]) return '<span class="az-own">\u2713</span>';
+    if (reached) return '<button type="button" class="az-pfbtn" data-act="' + act + '">' + T('Claim') + '</button>';
+    return '<span class="az-own lock">' + T('Locked') + '</span>';
+  }
+  function rewardRow(ic, title, sub, prog, cell) {
+    return '<div class="az-row"><span class="no">' + ic + '</span><div class="nm"><b>' + esc(title) + '</b>' +
+      '<small>' + esc(sub) + '</small>' + bar(prog) + '</div><span class="sc">' + cell + '</span></div>';
+  }
+  function copyText(txt, msg) {
+    var ok = function () { toast(msg || 'Copied to clipboard'); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(txt).then(ok, function () { legacyCopy(txt, ok); });
+    } else legacyCopy(txt, ok);
+  }
+  function legacyCopy(txt, ok) {
+    var ta = document.createElement('textarea');
+    ta.value = txt; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.left = '-9999px';
+    document.body.appendChild(ta); ta.select();
+    try { if (document.execCommand('copy')) ok(); else toast('Copy blocked \u00b7 ' + txt); }
+    catch (e) { toast('Copy blocked \u00b7 ' + txt); }
+    document.body.removeChild(ta);
+  }
+
+  /* ---------- profile page screens ---------- */
+  function openPfnav(name) {
+    if (name === 'Store') return openStore();
+    if (name === 'Invite') return openInvite();
+    if (name === 'Honor Level') return openHonor();
+    if (name === 'Fan Club') return openFanClub();
+    if (name === 'Medal Wall') return openMedals();
+    if (name === 'Edit Profile') return openEditProfile();
+    if (name === 'Language') return openLanguage();
+    if (name === 'Agent') return openAgents();
+    if (name === 'Add Host') return openAddHost();
+    if (name === 'Invite Agent') return openInviteAgent();
+    if (name === 'Coins Trading') return openTrading();
+    if (name === 'Agent Rewards') return openAgentRewards();
+    if (name === 'Agent Ranking') return openAgentRanking();
+    if (name === 'Diamond Agent') return openDiamondAgent();
+    if (name === 'Agency apply') return openAgencyApply();
+    if (name === 'Withdraw') return openWallet('withdraw');
+    if (name === 'Top Up') return openWallet('topup');
+    toast(name + ' \u00b7 not wired yet');
+  }
+  function claimTask(i) {
+    var t = TASKS[i];
+    if (!t || PF.claims['task' + i]) return;
+    if (statOf(t[1]) < t[2]) { toast('Finish the task first'); return; }
+    PF.claims['task' + i] = 1; savePF(); earnCoins(t[3]); openTasks();
+    toast('\u{1F381} +' + money(t[3]) + ' coins claimed');
+  }
+  function claimHonor(i) {
+    var t = HONOR[i];
+    if (!t || PF.claims['hon' + i]) return;
+    if (honorScore() < t[1]) { toast('Tier not reached yet'); return; }
+    PF.claims['hon' + i] = 1; savePF(); earnCoins(t[2]); openHonor();
+    toast('\u{1F3C5} ' + t[0] + ' reward \u00b7 +' + money(t[2]) + ' coins');
+  }
+  function claimInvite(n) {
+    var steps = inviteSteps(), idx = -1;
+    for (var i = 0; i < steps.length; i++) if (steps[i][0] === n) idx = i;
+    if (idx < 0 || PF.claims['inv' + n]) return;
+    if ((PF.invites || []).length < n) { toast('Not enough invites logged yet'); return; }
+    PF.claims['inv' + n] = 1; savePF(); earnCoins(steps[idx][1]); openInvite();
+    toast('\u{1F465} +' + money(steps[idx][1]) + ' coins for ' + n + ' invites');
+  }
+  function medalInfo(i) {
+    var m = MEDALS[i];
+    if (!m) return;
+    toast('\u{1F396}\uFE0F ' + m[1] + ' \u00b7 ' + statOf(m[2]) + ' / ' + m[3] + ' \u00b7 tracks ' + m[2]);
+  }
+
+  function downloadBackup() {
+    var payload = { app: 'AddaBuzz Live', exportedAt: new Date().toISOString(), account: st.auth || {}, profile: PF };
+    var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = 'addabuzz-profile-' + inviteCode() + '.json';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+    toast('\u{1F4E5} Backup file downloaded');
+  }
+  function wipeDevice() {
+    if (!PF._wipeArmed) {
+      PF._wipeArmed = 1; savePF(); openSecurity();
+      toast('\u26A0\uFE0F Tap Clear device data again to confirm');
+      return;
+    }
+    try { localStorage.removeItem(pfKey()); localStorage.removeItem('abzauth'); } catch (e) {}
+    toast('Device data cleared \u00b7 reloading');
+    setTimeout(function () { location.reload(); }, 700);
+  }
+  function rocketFx() {
+    if (!PF || !PF.gear || !PF.gear.entry) return;
+    var a = document.getElementById('abzapp');
+    if (!a) return;
+    var r = document.createElement('div');
+    r.className = 'az-rocket';
+    r.textContent = '\u{1F680}';
+    a.appendChild(r);
+    setTimeout(function () { if (r.parentNode) r.parentNode.removeChild(r); }, 1700);
+  }
+  function openSecurity() {
+    var a = st.auth || {};
+    var h = mHead('\u{1F6E1}\uFE0F ' + T('Security, E2EE & Data Backup')) +
+      '<div class="az-methods">' +
+      mini('sec:e2ee', 'End-to-end chat \u00b7 ' + (PF.e2ee ? 'ON' : 'OFF'), PF.e2ee) +
+      mini('sec:twof', 'Two-factor \u00b7 ' + (PF.twof ? 'ON' : 'OFF'), PF.twof) +
+      mini('sec:public', 'Public room list \u00b7 ' + (PF.publicProfile === false ? 'HIDDEN' : 'VISIBLE'), PF.publicProfile !== false) +
+      '</div><div class="az-kv" style="grid-template-columns:1fr 1fr;margin-top:12px">' +
+      kv('Role', roleLabel(ME.role)) + kv('Signed in as', a.e || 'guest session') +
+      kv('Session started', a.at ? new Date(a.at).toLocaleString() : 'this visit') +
+      kv('Agency', ME.agencyName) + kv('Agency code', ME.agencyCode) + kv('Device data', 'profile, wallet, gear, invites') +
+      '</div><div class="az-xrow" style="margin-top:12px">' +
+      mini('dlbackup', '\u{1F4E5} Download backup') + mini('wipe', '\u{1F5D1}\uFE0F Clear device data') + '</div>' +
+      '<div class="az-mnote">Chat encryption keys and this backup stay on the device you are using now.</div>';
+    openModal(h);
+  }
+  function openTasks() {
+    var h = mHead('\u{1F381} ' + T('Daily Tasks & Rewards Center')) +
+      '<p class="tip">Progress comes from what you actually do in the app \u00b7 \u{1F7E1} ' + money(st.coins) + '</p>';
+    for (var i = 0; i < TASKS.length; i++) {
+      var t = TASKS[i], have = statOf(t[1]), need = t[2];
+      h += rewardRow('\u2705', t[0], Math.min(have, need) + ' / ' + need + ' \u00b7 reward \u{1F7E1} ' + money(t[3]),
+        have / need, claimCell('task' + i, have >= need, 'claim:' + i));
+    }
+    openModal(h);
+  }
+
+  function openStore() {
+    var h = mHead('\u{1F6CD}\uFE0F ' + T('Store')) +
+      '<p class="tip">\u{1F7E1} ' + money(st.coins) + ' \u00b7 \u{1F48E} ' + money(PF.diamonds) +
+      ' \u00b7 gear stays equipped after refresh</p>';
+    for (var i = 0; i < STORE.length; i++) {
+      var s = STORE[i], own = Number(PF.inv[s[3]]) || 0, cell;
+      if (s[4] === 'gear' && own) {
+        cell = '<button type="button" class="az-pfbtn" data-act="gear:' + s[3] + '">' +
+          (PF.gear[s[3]] ? T('On') : T('Off')) + '</button>';
+      } else {
+        cell = '<button type="button" class="az-pfbtn" data-act="buy:' + i + '">' + T('Buy') + ' \u{1F7E1} ' + money(s[2]) + '</button>';
+        if (s[3] === 'charm' && own) cell += '<button type="button" class="az-pfbtn" data-act="use:charm">Use x' + own + '</button>';
+      }
+      h += '<div class="az-row"><span class="no">' + s[1] + '</span><div class="nm"><b>' + esc(s[0]) +
+        (own ? ' <span class="az-own">' + own + '</span>' : '') + '</b><small>' + esc(s[5]) + '</small></div>' +
+        '<span class="sc">' + cell + '</span></div>';
+    }
+    openModal(h);
+  }
+
+  function buyItem(i) {
+    var s = STORE[i];
+    if (!s) return;
+    if (s[4] === 'gear' && Number(PF.inv[s[3]])) { setGear(s[3]); return; }
+    if (st.coins < s[2]) { toast(T('Not enough coins')); openWallet('topup'); return; }
+    spendCoins(s[2]);
+    PF.inv[s[3]] = (Number(PF.inv[s[3]]) || 0) + 1;
+    PF.stats.spent = (Number(PF.stats.spent) || 0) + s[2];
+    if (s[3] === 'vip') { PF.vip = (Number(PF.vip) || 1) + 1; ME.vipLevel = PF.vip; }
+    if (s[3] === 'crate') { PF.diamonds = (Number(PF.diamonds) || 0) + 500; ME.diamonds = PF.diamonds; }
+    if (s[4] === 'gear') PF.gear[s[3]] = 1;
+    savePF(); renderWallet(); openStore(); render();
+    toast('\u2705 ' + s[0] + (s[4] === 'gear' ? ' equipped' : ' purchased'));
+  }
+  function setGear(key) {
+    PF.gear[key] = PF.gear[key] ? 0 : 1;
+    savePF(); openStore(); render();
+    toast(key + (PF.gear[key] ? ' \u00b7 on' : ' \u00b7 off'));
+  }
+  function useCharmCard() {
+    if (!(Number(PF.inv.charm) > 0)) { toast('No Charm Card \u00b7 buy one in the Store'); openStore(); return; }
+    if (!st.cur) { toast('Open a live room first'); return; }
+    PF.inv.charm -= 1; savePF();
+    bump('charmScore', 500);
+    var r = roomById(st.cur);
+    toast('\u{1F48E} +500 charm for ' + (r && r.name ? r.name : 'the host'));
+    openStore();
+  }
+
+  function inviteSteps() { return [[1, 1000], [5, 6000], [20, 25000]]; }
+  function openInvite() {
+    var code = inviteCode(), link = 'https://addabuzzlive.blogspot.com/?ref=' + encodeURIComponent(code);
+    var n = (PF.invites || []).length, h = mHead('\u{1F465} ' + T('Invite')) +
+      '<div class="az-kv" style="grid-template-columns:1fr 1fr">' + kv('Your invite code', code) +
+      kv('Friends logged', n) + '</div>' +
+      '<div class="az-xrow">' + mini('copycode', T('Copy') + ' code') + mini('copylink', T('Copy') + ' link') +
+      mini('sharewa', 'WhatsApp') + mini('addinv', '+ Log a friend') + '</div>';
+    var steps = inviteSteps();
+    for (var i = 0; i < steps.length; i++) {
+      var need = steps[i][0];
+      h += rewardRow('\u{1F381}', need + ' invite' + (need > 1 ? 's' : '') + ' reward',
+        '\u{1F7E1} ' + money(steps[i][1]) + ' \u00b7 ' + Math.min(n, need) + ' / ' + need, n / need,
+        claimCell('inv' + need, n >= need, 'claiminv:' + need));
+    }
+    h += '<div class="az-mnote">Link: ' + esc(link) + '</div>';
+    openModal(h);
+  }
+  function addInvite() {
+    openModal(mHead('\u{1F465} Log an invited friend') +
+      '<p class="tip">Keeps a local record so invite rewards unlock.</p>' +
+      '<div class="az-field" style="margin-top:8px"><span class="az-fico">\u{1F464}</span><input id="az-in-name" maxlength="24" placeholder="Friend display name" aria-label="Friend display name" /></div>' +
+      '<div class="az-field"><span class="az-fico">\u{1F194}</span><input id="az-in-id" maxlength="8" placeholder="Their 8-digit ID" aria-label="Friend ID" inputmode="numeric" /></div>' +
+      '<button type="button" class="az-cta" data-act="saveinv">SAVE INVITE</button>');
+  }
+  function saveInvite() {
+    var n = document.getElementById('az-in-name'), i = document.getElementById('az-in-id');
+    var name = String(n && n.value || '').trim(), id = String(i && i.value || '').trim();
+    if (name.length < 2) { toast('Enter the friend name'); if (n) n.focus(); return; }
+    if (!/^\d{8}$/.test(id)) { toast('ID must be 8 digits'); if (i) i.focus(); return; }
+    for (var k = 0; k < PF.invites.length; k++) if (PF.invites[k].i === id) { toast('Already logged'); return; }
+    PF.invites.push({ c: inviteCode(), n: name, i: id, t: new Date().toISOString().slice(0, 10) });
+    savePF(); openInvite(); toast('\u{1F465} ' + name + ' logged under ' + inviteCode());
+  }
+
+  function openHonor() {
+    var idx = honorIdx(), score = honorScore(), cur = HONOR[idx], next = HONOR[idx + 1];
+    var h = mHead('\u{1F3E1} ' + T('Honor Level')) +
+      '<p class="tip">Score = grade \u00d7 1,000 + gifts \u00d7 200 + messages \u00d7 20 + broadcasts \u00d7 1,500 + PK boosts \u00d7 300</p>' +
+      '<div class="az-kv" style="grid-template-columns:1fr 1fr">' + kv('Tier', cur[0]) + kv('Score', money(score)) +
+      kv('Next tier', next ? next[0] : 'Max reached') + kv('Points to go', next ? money(Math.max(0, next[1] - score)) : '\u2014') + '</div>';
+    for (var i = 0; i < HONOR.length; i++) {
+      var t = HONOR[i], reached = score >= t[1];
+      h += rewardRow(['\u{1F949}', '\u{1F948}', '\u{1F947}', '\u{1F48E}', '\u{1F451}', '\u{1F3C6}'][i] || '\u2605',
+        t[0] + ' Honor', 'needs ' + money(t[1]) + ' score \u00b7 reward \u{1F7E1} ' + money(t[2]),
+        reached ? 1 : score / (t[1] || 1), claimCell('hon' + i, reached, 'honclaim:' + i));
+    }
+    openModal(h);
+  }
+
+  function openFanClub() {
+    var h = mHead('\u{1F496} ' + T('Fan Club'));
+    if (!st.rooms.length) { openModal(h + '<div class="az-empty">Room list is still loading.</div>'); return; }
+    h += '<p class="tip">Clubs are built from the live room list \u00b7 membership is kept on this device</p>';
+    for (var i = 0; i < st.rooms.length; i++) {
+      var r = st.rooms[i], inC = !!PF.clubs[r.docId];
+      h += '<div class="az-row"><div class="av" style="background-image:url(' + esc(r.imageUrl || '') + ')"></div>' +
+        '<div class="nm"><b>' + esc(r.name || 'Host') + '</b><small>' + esc(r.title || '') + ' \u00b7 ' + fmt(r.viewersCount || 0) +
+        ' in club \u00b7 charm ' + fmt(r.charmScore || 0) + '</small></div><span class="sc">' +
+        '<button type="button" class="az-pfbtn" data-act="club:' + esc(r.docId) + '">' + (inC ? T('Leave') : T('Join')) + '</button></span></div>';
+    }
+    var total = 0, ids = Object.keys(PF.clubs);
+    for (var k = 0; k < ids.length; k++) { var rr = roomById(ids[k]); if (rr) total += Number(rr.viewersCount) || 0; }
+    h += '<div class="az-kv" style="grid-template-columns:1fr 1fr;margin-top:12px">' + kv('Joined clubs', ids.length) +
+      kv('Club reach', fmt(total)) + '</div>';
+    openModal(h);
+  }
+  function toggleClub(docId) {
+    var r = roomById(docId);
+    if (!r) { toast('Room is offline right now'); return; }
+    if (PF.clubs[docId]) { delete PF.clubs[docId]; toast('Left the ' + (r.name || 'host') + ' fan club'); }
+    else { PF.clubs[docId] = 1; toast('\u{1F496} Joined the ' + (r.name || 'host') + ' fan club'); }
+    savePF(); openFanClub();
+  }
+
+  function openMedals() {
+    var h = mHead('\u{1F396}\uFE0F ' + T('Medal Wall')) +
+      '<p class="tip">' + MEDALS.filter(function (m) { return statOf(m[2]) >= m[3]; }).length + ' of ' + MEDALS.length +
+      ' medals earned \u00b7 tap a medal for its progress.</p><div class="az-gifts" style="grid-template-columns:repeat(3,1fr)">';
+    for (var i = 0; i < MEDALS.length; i++) {
+      var m = MEDALS[i], have = statOf(m[2]), got = have >= m[3];
+      h += '<button type="button" class="az-gift" ' + (got ? 'data-act="medal:' + i + '"' : 'disabled') + '><span>' + m[0] +
+        '</span><b>' + esc(m[1]) + '</b><small>' + (got ? T('Earned') : Math.min(have, m[3]) + ' / ' + m[3]) + '</small></button>';
+    }
+    h += '</div>';
+    openModal(h);
+  }
+  function readPfForm() {
+    var n = document.getElementById('az-pf-name'), b = document.getElementById('az-pf-bio');
+    if (n) PF.name = String(n.value || '').trim() || PF.name;
+    if (b) PF.bio = String(b.value || '');
+  }
+  function openEditProfile() {
+    readPfForm();
+    var h = mHead('\u270F\uFE0F ' + T('Edit Profile & Gender Icon')) +
+      '<div class="az-field" style="margin-top:8px"><span class="az-fico">\u{1F464}</span><input id="az-pf-name" maxlength="24" value="' +
+      esc(PF.name) + '" placeholder="Display name" aria-label="Display name" /></div>' +
+      '<div class="az-field"><span class="az-fico">\u{1F4DD}</span><input id="az-pf-bio" maxlength="110" value="' +
+      esc(PF.bio) + '" placeholder="Status line" aria-label="Status line" /></div>' +
+      '<div style="margin-top:12px;font-size:11px;color:#b5a6cc">Gender icon</div><div class="az-methods">' +
+      '<button type="button" data-act="setgender:MALE" class="' + (PF.gender === 'MALE' ? 'sel' : '') + '">\u2642 Male</button>' +
+      '<button type="button" data-act="setgender:FEMALE" class="' + (PF.gender === 'FEMALE' ? 'sel' : '') + '">\u2640 Female</button></div>' +
+      '<div style="margin-top:12px;font-size:11px;color:#b5a6cc">Profile photo</div><div class="az-xrow">';
+    for (var a = 0; a < AVATARS.length; a++)
+      h += '<button type="button" class="az-pfbtn" data-act="setav:' + a + '"' +
+        (Number(PF.av) === a ? ' style="border-color:#ff2a6d;color:#ff2a6d"' : '') + '>\u25CF ' + (a + 1) + '</button>';
+    h += '</div><div class="az-kv" style="grid-template-columns:1fr 1fr;margin-top:12px">' +
+      kv('User ID', ME.idNum) + kv('Role', roleLabel(ME.role)) + '</div>' +
+      '<button type="button" class="az-cta" data-act="savepf">' + T('Save') + ' profile</button>';
+    openModal(h);
+  }
+  function saveProfile() {
+    readPfForm();
+    if (String(PF.name).length < 2) { toast('Display name needs at least 2 characters'); return; }
+    PF.bio = String(PF.bio || '').slice(0, 110);
+    savePF(); applyPF(); closeModal(); render();
+    toast('\u270F\uFE0F Profile updated');
+  }
+  function openLanguage() {
+    var ls = [['en', 'English'], ['bn', '\u09AC\u09BE\u0982\u09B2\u09BE']], h = mHead('\u{1F310} ' + T('Switch Language')) +
+      '<p class="tip">Navigation, Profile page, Go Live and wallet labels switch immediately.</p><div class="az-methods">';
+    for (var i = 0; i < ls.length; i++)
+      h += '<button type="button" data-act="lang:' + ls[i][0] + '" class="' + (st.lang === ls[i][0] ? 'sel' : '') + '">' + ls[i][1] + '</button>';
+    h += '</div>';
+    openModal(h);
+  }
+  function setLang(code) {
+    st.lang = code === 'bn' ? 'bn' : 'en';
+    PF.lang = st.lang; savePF(); closeModal(); applyLang(); render();
+    toast(st.lang === 'bn' ? '\u09AD\u09BE\u09B7\u09BE \u09AC\u09BE\u0982\u09B2\u09BE \u0995\u09B0\u09BE \u09B9\u09DF\u09C7\u099B\u09C7' : 'Language set to English');
+  }
+
+  function openAgents() {
+    var a = PF.agents || [], h = mHead('\u{1F465} ' + T('Agent')) +
+      '<p class="tip">' + a.length + ' hosts \u00b7 ' + money(agencyPoints()) + ' agency points \u00b7 ' + esc(ME.agencyName) + '</p>';
+    for (var i = 0; i < a.length; i++) {
+      var g = a[i];
+      h += '<div class="az-row"><div class="av" style="background-image:url(https://images.unsplash.com/' +
+        (g.g === 'MALE' ? 'photo-1507003211169-0a1dd7228f2d' : 'photo-1517841905240-472988babdf9') + '?auto=format&fit=crop&q=80&w=200)"></div>' +
+        '<div class="nm"><b>' + esc(g.n) + ' <span style="color:' + (g.g === 'MALE' ? '#29b6f6' : '#ff4081') + '">' +
+        (g.g === 'MALE' ? '\u2642' : '\u2640') + '</span>' + (g.s === 'SUSPENDED' ? ' <span class="az-own lock">SUSPENDED</span>' : '') +
+        '</b><small>ID ' + esc(g.i) + ' \u00b7 Lv.' + g.l + ' \u00b7 ' + money(g.p) + ' pts</small></div><span class="sc">' +
+        '<button type="button" class="az-pfbtn" data-act="agprom:' + i + '">Promote</button>' +
+        '<button type="button" class="az-pfbtn" data-act="agsus:' + i + '">' + (g.s === 'SUSPENDED' ? 'Restore' : 'Suspend') + '</button></span></div>';
+    }
+    h += '<div class="az-xrow">' + mini('pfnav:Add Host', '+ ' + T('Add Host')) + mini('pfnav:Invite Agent', '+ ' + T('Invite Agent')) +
+      mini('pfnav:Coins Trading', T('Coins Trading')) + mini('pfnav:Agent Rewards', T('Agent Rewards')) +
+      mini('pfnav:Agent Ranking', T('Agent Ranking')) + '</div>';
+    openModal(h);
+  }
+  function openAddHost() {
+    var h = mHead('\u{1F3A4} ' + T('Add Host')) +
+      '<div class="az-field" style="margin-top:8px"><span class="az-fico">\u{1F464}</span><input id="az-h-name" maxlength="24" placeholder="Host display name" aria-label="Host display name" /></div>' +
+      '<div class="az-field"><span class="az-fico">\u{1F194}</span><input id="az-h-id" maxlength="8" placeholder="8-digit host ID" aria-label="Host ID" inputmode="numeric" /></div>' +
+      '<div class="az-field"><span class="az-fico">\u{1F3E2}</span><input id="az-h-code" maxlength="20" value="' + esc(ME.agencyCode) + '" placeholder="Agency code" aria-label="Agency code" /></div>' +
+      '<div style="margin-top:12px;font-size:11px;color:#b5a6cc">Gender</div><div class="az-methods">' +
+      '<button type="button" data-act="hosg:MALE" class="' + (PF.hosG === 'MALE' ? 'sel' : '') + '">\u2642 Male</button>' +
+      '<button type="button" data-act="hosg:FEMALE" class="' + (PF.hosG === 'FEMALE' ? 'sel' : '') + '">\u2640 Female</button></div>' +
+      '<p class="tip" style="margin-top:12px">New hosts start at Level 1 with 0 points and ACTIVE status.</p>' +
+      '<button type="button" class="az-cta" data-act="savehost">CREATE HOST</button>';
+    openModal(h);
+  }
+  function saveHost() {
+    var n = document.getElementById('az-h-name'), i = document.getElementById('az-h-id'), c = document.getElementById('az-h-code');
+    var name = String(n && n.value || '').trim(), id = String(i && i.value || '').trim(), code = String(c && c.value || '').trim().toUpperCase();
+    if (name.length < 2) { toast('Enter the host name'); if (n) n.focus(); return; }
+    if (!/^\d{8}$/.test(id)) { toast('Host ID must be exactly 8 digits'); if (i) i.focus(); return; }
+    var known = false;
+    for (var a = 0; a < AGENCIES.length; a++) if (AGENCIES[a][1] === code) known = true;
+    if (!known) { toast('Unknown agency code \u00b7 use ' + ME.agencyCode); if (c) c.focus(); return; }
+    var list = PF.agents || [];
+    for (var k = 0; k < list.length; k++) if (list[k].i === id) { toast('That host ID already exists'); return; }
+    list.push({ n: name, i: id, g: PF.hosG === 'FEMALE' ? 'FEMALE' : 'MALE', l: 1, p: 0, s: 'ACTIVE', ag: code });
+    PF.agents = list; savePF(); openAgents();
+    toast('\u{1F3A4} ' + name + ' added to ' + code);
+  }
+  function promoteAgent(i) {
+    var g = (PF.agents || [])[i]; if (!g) return;
+    if (g.s === 'SUSPENDED') { toast('Restore ' + g.n + ' before promoting'); return; }
+    g.l = (Number(g.l) || 1) + 1; g.p = (Number(g.p) || 0) + 2000;
+    savePF(); openAgents(); toast('\u2B06 ' + g.n + ' promoted to Lv.' + g.l + ' \u00b7 +2,000 pts');
+  }
+  function suspendAgent(i) {
+    var g = (PF.agents || [])[i]; if (!g) return;
+    g.s = g.s === 'SUSPENDED' ? 'ACTIVE' : 'SUSPENDED';
+    savePF(); openAgents(); toast(g.n + ' \u00b7 ' + g.s);
+  }
+  function openInviteAgent() {
+    var h = mHead('\u2795 ' + T('Invite Agent')) +
+      '<p class="tip">Codes are single-use and bound to ' + esc(ME.agencyName) + '.</p>' +
+      '<div class="az-xrow">' + mini('geninvite', 'Generate code') + mini('copyinvite', T('Copy') + ' newest') + '</div>';
+    if (!PF.invites.length) h += '<div class="az-empty">No invite codes yet.</div>';
+    for (var i = PF.invites.length - 1; i >= 0 && i > PF.invites.length - 9; i--) {
+      var v = PF.invites[i];
+      h += '<div class="az-row"><span class="no">\u{1F517}</span><div class="nm"><b>' + esc(v.c) + '</b><small>' +
+        esc(v.n ? v.n + ' \u00b7 ' : '') + esc(v.t) + '</small></div><span class="sc">' +
+        '<button type="button" class="az-pfbtn" data-act="delinvite:' + i + '">\u2715</button></span></div>';
+    }
+    openModal(h);
+  }
+  function genInvite() {
+    var code = 'AG-' + String(ME.agencyCode || 'AGENCY').replace(/[^A-Z0-9]/g, '').slice(-4) + '-' +
+      Math.random().toString(36).slice(2, 6).toUpperCase();
+    PF.invites.push({ c: code, n: 'open', t: new Date().toISOString().slice(0, 16).replace('T', ' ') });
+    if (PF.invites.length > 50) PF.invites.shift();
+    savePF(); openInviteAgent(); copyText(code, '\u{1F517} ' + code + ' copied');
+  }
+  function openTrading() {
+    var h = mHead('\u{1FA99} ' + T('Coins Trading')) +
+      '<div class="az-kv" style="grid-template-columns:1fr 1fr"><div><small>\u{1F7E1} Coins</small><b>' + money(st.coins) +
+      '</b></div><div><small>\u{1F48E} Diamonds</small><b>' + money(PF.diamonds) + '</b></div></div>' +
+      '<p class="tip" style="margin-top:10px">1 diamond = ' + TRADE_RATE + ' coins. Every conversion writes a local receipt.</p>' +
+      '<div class="az-xrow">' + mini('tr:c2d:1000', '1,000 \u{1F7E1} \u2192 10 \u{1F48E}') +
+      mini('tr:c2d:10000', '10,000 \u2192 100') + mini('tr:d2c:10', '10 \u{1F48E} \u2192 1,000 \u{1F7E1}') +
+      mini('tr:d2c:50', '50 \u{1F48E} \u2192 5,000') + '</div>';
+    var r = PF.receipts || [];
+    if (!r.length) h += '<div class="az-empty">No conversions yet.</div>';
+    for (var i = r.length - 1; i >= 0 && i > r.length - 9; i--)
+      h += '<div class="az-row"><span class="no">\u{1F9FE}</span><div class="nm"><b>' + esc(r[i].s) + '</b><small>' + esc(r[i].t) + '</small></div></div>';
+    openModal(h);
+  }
+  function doTrade(dir, amt) {
+    amt = Number(amt) || 0;
+    if (dir === 'c2d') {
+      if (st.coins < amt) { toast(T('Not enough coins')); return; }
+      spendCoins(amt);
+      PF.diamonds = (Number(PF.diamonds) || 0) + amt / TRADE_RATE;
+      ME.diamonds = PF.diamonds;
+    } else {
+      if ((Number(PF.diamonds) || 0) < amt) { toast('Not enough diamonds'); return; }
+      PF.diamonds -= amt; ME.diamonds = PF.diamonds;
+      earnCoins(amt * TRADE_RATE);
+    }
+    PF.receipts.push({ s: dir === 'c2d' ? money(amt) + ' coins \u2192 ' + (amt / TRADE_RATE) + ' diamonds'
+                                             : amt + ' diamonds \u2192 ' + money(amt * TRADE_RATE) + ' coins',
+      t: new Date().toISOString().slice(0, 16).replace('T', ' ') });
+    if (PF.receipts.length > 20) PF.receipts.shift();
+    savePF(); renderWallet(); openTrading(); render();
+    toast('\u{1FA99} Conversion done');
+  }
+  function diamondTier() {
+    var pts = agencyPoints(), d = Number(PF.diamonds) || 0;
+    if (pts >= 3000000 && d >= 1000) return ['Elite Diamond', 4];
+    if (pts >= 1000000) return ['Gold Diamond', 3];
+    if (pts >= 400000) return ['Silver Diamond', 2];
+    return ['Bronze Diamond', 1];
+  }
+  function openDiamondAgent() {
+    var t = diamondTier(), h = mHead('\u{1F48E} ' + T('Diamond Agent')) +
+      '<div class="az-kv" style="grid-template-columns:1fr 1fr">' + kv('Tier', t[0]) + kv('Commission', 'x' + (1 + t[1] * 0.05).toFixed(2)) +
+      kv('Diamonds', money(PF.diamonds)) + kv('Agency points', money(agencyPoints())) + '</div>' +
+      '<div class="az-bar" style="margin-top:10px"><i style="width:' + Math.min(100, Math.round(agencyPoints() / 30000)) + '%"></i></div>' +
+      '<p class="tip" style="margin-top:8px">Elite needs 3,000,000 agency points and 1,000 diamonds. Commission is applied when payouts are released.</p>' +
+      '<div style="font-size:11px;color:#b5a6cc">Payout method</div><div class="az-methods">';
+    for (var i = 0; i < WMETHODS.length; i++)
+      h += '<button type="button" data-act="payout:' + esc(WMETHODS[i]) + '" class="' + (PF.payout === WMETHODS[i] ? 'sel' : '') + '">' + esc(WMETHODS[i]) + '</button>';
+    h += '</div><div class="az-xrow" style="margin-top:10px">' + mini('pfnav:Coins Trading', T('Coins Trading')) +
+      mini('pfnav:Agent Rewards', T('Agent Rewards')) + mini('pfnav:Withdraw', T('Withdraw')) + '</div>';
+    openModal(h);
+  }
+  function openAgentRewards() {    var h = mHead('\u{1F4B0} ' + T('Agent Rewards')) + '<p class="tip">Rewards pay into the wallet on this device.</p>';
+    for (var i = 0; i < REWARD_TIERS.length; i++) {
+      var t = REWARD_TIERS[i], have = metricOf(t[1]), need = t[2];
+      h += rewardRow('\u{1F3C5}', t[0], metricLabel(t[1]) + ' ' + Math.min(have, need) + ' / ' + need +
+        ' \u00b7 \u{1F7E1} ' + money(t[3]) + (t[4] ? ' + \u{1F48E} ' + money(t[4]) : ''), have / need,
+        claimCell('rw' + i, have >= need, 'rwclaim:' + i));
+    }
+    openModal(h);
+  }
+  function metricOf(k) {
+    if (k === 'hosts') return (PF.agents || []).length;
+    if (k === 'points') return agencyPoints();
+    return statOf(k);
+  }
+  function metricLabel(k) { return k === 'hosts' ? 'hosts' : (k === 'points' ? 'points' : k); }
+  function claimReward(i) {
+    var t = REWARD_TIERS[i]; if (!t || PF.claims['rw' + i]) return;
+    if (metricOf(t[1]) < t[2]) { toast('Target not reached yet'); return; }
+    PF.claims['rw' + i] = 1;
+    if (t[3]) earnCoins(t[3]);
+    if (t[4]) { PF.diamonds = (Number(PF.diamonds) || 0) + t[4]; ME.diamonds = PF.diamonds; }
+    savePF(); renderWallet(); openAgentRewards();
+    toast('\u{1F4B0} +' + money(t[3]) + ' coins' + (t[4] ? ' \u00b7 +' + money(t[4]) + ' diamonds' : ''));
+  }
+  function openAgentRanking() {
+    var base = defaultAgents(), basePts = 0;
+    for (var b = 0; b < base.length; b++) basePts += base[b].p;
+    var rows = [];
+    for (var i = 0; i < AGENCIES.length; i++) {
+      var a = AGENCIES[i], mine = a[1] === ME.agencyCode;
+      rows.push({
+        n: a[0], c: a[1], mine: mine,
+        hosts: a[2] + (mine ? Math.max(0, (PF.agents || []).length - base.length) : 0),
+        pts: a[3] + (mine ? agencyPoints() - basePts : 0)
+      });
+    }
+    rows.sort(function (x, y) { return st.rkMetric === 'hosts' ? y.hosts - x.hosts : y.pts - x.pts; });
+    var h = mHead('\u{1F4C8} ' + T('Agent Ranking')) + '<div class="az-methods">' +
+      '<button type="button" data-act="rkmetric:pts" class="' + (st.rkMetric === 'pts' ? 'sel' : '') + '">By points</button>' +
+      '<button type="button" data-act="rkmetric:hosts" class="' + (st.rkMetric === 'hosts' ? 'sel' : '') + '">By hosts</button></div>';
+    for (var k = 0; k < rows.length; k++) {
+      var r = rows[k];
+      h += '<div class="az-row"><span class="no">' + (k + 1) + '</span><div class="nm"><b style="' +
+        (r.mine ? 'color:#ff2a6d' : '') + '">' + esc(r.n) + (r.mine ? ' \u00b7 you' : '') + '</b><small>' + esc(r.c) +
+        ' \u00b7 ' + r.hosts + ' hosts \u00b7 ' + money(r.pts) + ' pts</small></div><span class="sc">' +
+        fmt(st.rkMetric === 'hosts' ? r.hosts : r.pts) + '</span></div>';
+    }
+    h += '<div class="az-mnote">Agency points move with the hosts you add, promote or suspend.</div>';
+    openModal(h);
+  }
+  function openAgencyApply() {
+    var h = mHead('\u{1F3E2} ' + T('Apply to open an agency'));
+    if (PF.apply && PF.apply.status) {
+      h += '<div class="az-kv">' + kv('Status', PF.apply.status) + kv('Agency name', PF.apply.name) +
+        kv('Sponsor code', PF.apply.code) + kv('Contact', PF.apply.phone) + kv('Submitted', PF.apply.at) +
+        kv('Reviewer', 'AddaBuzz HQ') + '</div>' +
+        '<button type="button" class="az-cta" data-act="cancelapply">' + T('Cancel') + ' application</button>';
+      openModal(h); return;
+    }
+    h += '<p class="tip">Applications are checked against the published agency directory, then queued for HQ review.</p>' +
+      '<div class="az-field" style="margin-top:8px"><span class="az-fico">\u{1F3F7}</span><input id="az-ap-name" maxlength="28" placeholder="Agency name" aria-label="Agency name" /></div>' +
+      '<div class="az-field"><span class="az-fico">\u{1F511}</span><input id="az-ap-code" maxlength="20" placeholder="Sponsor agency code" aria-label="Sponsor agency code" /></div>' +
+      '<div class="az-field"><span class="az-fico">\u{1F4DE}</span><input id="az-ap-phone" maxlength="14" placeholder="01XXXXXXXXX" aria-label="Contact number" /></div>' +
+      '<button type="button" class="az-cta" data-act="sendapply">SUBMIT APPLICATION</button>';
+    openModal(h);
+  }
+  function sendApply() {
+    var n = document.getElementById('az-ap-name'), c = document.getElementById('az-ap-code'), p = document.getElementById('az-ap-phone');
+    var name = String(n && n.value || '').trim(), code = String(c && c.value || '').trim().toUpperCase(), phone = String(p && p.value || '').trim();
+    if (name.length < 3) { toast('Agency name needs at least 3 characters'); if (n) n.focus(); return; }
+    var known = false;
+    for (var i = 0; i < AGENCIES.length; i++) if (AGENCIES[i][1] === code) known = true;
+    if (!known) { toast('Sponsor code not in the directory'); if (c) c.focus(); return; }
+    if (!/^01\d{9}$/.test(phone)) { toast('Contact must be 01 followed by 9 digits'); if (p) p.focus(); return; }
+    PF.apply = { status: 'PENDING', name: name, code: code, phone: phone, at: new Date().toISOString().slice(0, 16).replace('T', ' ') };
+    savePF(); openAgencyApply(); toast('\u{1F3E2} Application queued for ' + code);
+  }
+  function cancelApply() { PF.apply = null; savePF(); openAgencyApply(); toast('Application withdrawn'); }
+
+  /* ---------- own broadcast session ---------- */
+  function openLiveSetup() {
+    var t = (studio && studio.types[st.gtype]) || {};
+    var h = mHead('\u{1F4DF} ' + T('Go Live')) + '<div class="az-kv">' + kv('Mode', t.label) + kv('Seats', t.seats) +
+      kv('Format', t.desc) + '</div>' +
+      '<div class="az-field" style="margin-top:10px"><span class="az-fico">\u{1F3AC}</span><input id="az-live-title" maxlength="48" value="' +
+      esc((studio && studio.def && studio.def.title) || '') + '" placeholder="Room title" aria-label="Room title" /></div>' +
+      '<p class="tip" style="margin-top:10px">The session runs on this device only. Nothing is added to the shared room list, so no viewer is routed to you.</p>' +
+      '<button type="button" class="az-cta" data-act="livego">' + T('Start') + ' broadcast</button>';
+    openModal(h);
+  }
+  function startLive() {
+    var el = document.getElementById('az-live-title'), title = String(el && el.value || '').trim();
+    if (title.length < 3) { toast('Give the room a title (min 3 characters)'); if (el) el.focus(); return; }
+    var t = (studio && studio.types[st.gtype]) || {};
+    st.live = { mode: t.label || 'BROADCAST', seats: t.seats || '1 mic', title: title, at: Date.now(), viewers: 1, charm: 0 };
+    bumpStat('broadcasts', 1);
+    closeModal(); render();
+    toast('\u{1F4DF} You are live \u00b7 ' + title);
+  }
+  function stopLive() {
+    var l = st.live; if (!l) return;
+    st.live = null; render();
+    toast('\u23F9 Broadcast ended \u00b7 ' + liveTime((Date.now() - l.at) / 1000) + ' on air \u00b7 ' + fmt(l.viewers) + ' viewers \u00b7 ' + fmt(l.charm) + ' charm');
+  }
+  function livePanel() {
+    var l = st.live, secs = Math.floor((Date.now() - l.at) / 1000);
+    return '<div class="az-empty" style="border-color:#ff2a6d66">' +
+      '<div style="font-size:15px;font-weight:800;color:#ff2a6d;margin-bottom:10px">\u{1F4DF} ON AIR \u00b7 ' + esc(l.mode) + '</div>' +
+      '<div class="az-kv">' + kv('Room title', l.title) + kv('Uptime', liveTime(secs)) + kv('Seats', l.seats) +
+      kv('Viewers', fmt(l.viewers)) + kv('Charm', fmt(l.charm)) + '</div>' +
+      '<div class="az-acts" style="margin-top:12px"><button type="button" data-act="livestop">' + T('Stop') + ' BROADCAST</button>' +
+      '<span class="grow">Device-local session</span></div></div>';
+  }
+
   function viewProfile() {
     function tile(ic, lb, act) {
-      return '<button type="button" class="az-tile" data-act="' + act + '"><i>' + ic + '</i><span>' + esc(lb) + '</span></button>';
+      return '<button type="button" class="az-tile" data-act="' + act + '"><i>' + ic + '</i><span>' + esc(T(lb)) + '</span></button>';
     }
     function row(ic, lb, act, danger) {
       return '<button type="button" class="az-li' + (danger ? ' danger' : '') + '" data-act="' + act + '"><em>' + ic + '</em>' +
-        esc(lb) + '<span class="ch">' + (danger ? '\u2192' : '\u203A') + '</span></button>';
+        esc(T(lb)) + '<span class="ch">' + (danger ? '\u2192' : '\u203A') + '</span></button>';
     }
+    var gear = [];
+    if (PF.gear.entry) gear.push('\u{1F680}');
+    if (PF.gear.mic) gear.push('\u{1F3A4}');
+    if (Number(PF.inv.charm)) gear.push('\u{1F48E} x' + PF.inv.charm);
     var staffBlocks = isStaff() ? (
-      '<div class="az-sec">\u{1F91D} Agent Management<span class="hub">' +
+      '<div class="az-sec">\u{1F91D} ' + T('Agent Management') + '<span class="hub">' +
         (ME.role === 'ADMIN' ? 'Admin \u00b7 all agencies' : 'Agency Hub') + '</span>' +
-        '<button type="button" class="all" data-act="accountlist">Accounts \u2192</button></div>' +
+        '<button type="button" class="all" data-act="accountlist">' + T('Accounts') + ' \u2192</button></div>' +
       '<div class="az-tiles">' +
         tile('\u{1F465}', 'Agent', 'pfnav:Agent') + tile('\u{1F3A4}', 'Add Host', 'pfnav:Add Host') +
         tile('\u2795', 'Invite Agent', 'pfnav:Invite Agent') + tile('\u{1FA99}', 'Coins Trading', 'pfnav:Coins Trading') +
@@ -952,29 +1724,35 @@
         tile('\u{1F48E}', 'Diamond Agent', 'pfnav:Diamond Agent') +
         tile('\u{1F3DB}\uFE0F', 'Super Agent & Admin', 'accountlist') +
       '</div>') : (
-      '<div class="az-sec">\u{1F91D} Agency<span class="hub">Viewer access</span></div>' +
+      '<div class="az-sec">\u{1F91D} ' + T('Agency') + '<span class="hub">' + T('Viewer access') + '</span></div>' +
       '<div class="az-listwrap">' + row('\u{1F3E2}', 'Apply to open an agency', 'pfnav:Agency apply') +
         row('\u{1F511}', 'Staff sign-in is issued by AddaBuzz HQ', 'accountlist') + '</div>');
     return '<div class="az-pf">' +
       '<div class="az-pfhero">' +
-        '<div class="az-pfav" style="background-image:url(' + AVATAR + ')"><span class="az-pfcam">\u{1F4F7}</span></div>' +
-        '<div class="az-pfname">' + esc(ME.name) + '<em class="az-lvpill">Lv.' + ME.level + '</em></div>' +
+        '<button type="button" class="az-pfav" data-act="pfnav:Edit Profile" style="background-image:url(' + AVATAR + ')"><span class="az-pfcam">\u{1F4F7}</span></button>' +
+        '<div class="az-pfname' + (PF.gear.neon ? ' az-neonname' : '') + '">' + esc(ME.name) +
+          '<em class="az-gender ' + (ME.gender === 'MALE' ? 'm' : 'f') + '">' + (ME.gender === 'MALE' ? '\u2642' : '\u2640') + '</em>' +
+          '<em class="az-lvpill">Lv.' + ME.level + '</em></div>' +
         '<div class="az-pfchips"><span class="az-chip vip">VIP-' + ME.vipLevel + '</span>' +
           '<span class="az-chip wealth">Wealth Lv.' + ME.wealthLevel + '</span>' +
-          '<span class="az-chip charm">Charm Lv.' + ME.charmLevel + '</span></div>' +
+          '<span class="az-chip charm">Charm Lv.' + ME.charmLevel + '</span>' +
+          '<span class="az-chip ghostchip">' + HONOR[honorIdx()][0] + '</span>' +
+          (gear.length ? '<span class="az-chip ghostchip">' + gear.join(' ') + '</span>' : '') +
+          (Object.keys(PF.clubs).length ? '<span class="az-chip ghostchip">\u{1F496} ' + Object.keys(PF.clubs).length + '</span>' : '') +
+        '</div>' +
         '<div class="az-pfid">ID: ' + esc(ME.idNum) + ' \u00b7 ' + roleLabel(ME.role) + ' \u00b7 Agency: ' + esc(ME.agencyName) + ' (' + esc(ME.agencyCode) + ')</div>' +
         '<div class="az-pfbio">' + esc(ME.bio) + '</div>' +
-        '<div class="az-pfstats"><div><b>' + money(ME.followingCount) + '</b><small>Following</small></div>' +
-          '<div><b>' + money(ME.followersCount) + '</b><small>Followers</small></div>' +
-          '<div><b>Lvl.' + ME.level + '</b><small>Host Grade</small></div></div>' +
+        '<div class="az-pfstats"><div><b>' + money(ME.followingCount) + '</b><small>' + T('Following') + '</small></div>' +
+          '<div><b>' + money(ME.followersCount) + '</b><small>' + T('Followers') + '</small></div>' +
+          '<div><b>Lvl.' + ME.level + '</b><small>' + T('Host Grade') + '</small></div></div>' +
       '</div>' +
       '<div class="az-pfwallet">' +
-        '<div class="az-pfcard coins"><div class="hd">\u{1F7E1} Coins Balance</div>' +
+        '<div class="az-pfcard coins"><div class="hd">\u{1F7E1} ' + T('Coins Balance') + '</div>' +
           '<div class="amt" id="az-pfcoins">' + money(st.coins) + '</div>' +
-          '<button type="button" class="az-pfbtn" data-act="topup">+ Top Up</button></div>' +
-        '<div class="az-pfcard pts"><div class="hd">\u{1F537} Host Points</div>' +
+          '<button type="button" class="az-pfbtn" data-act="topup">+ ' + T('Top Up') + '</button></div>' +
+        '<div class="az-pfcard pts"><div class="hd">\u{1F537} ' + T('Host Points') + '</div>' +
           '<div class="amt" id="az-pfpts">' + money(Math.round(st.points / 1000)) + 'K Pts</div>' +
-          '<button type="button" class="az-pfbtn" data-act="withdraw">Withdraw \u2192</button></div>' +
+          '<button type="button" class="az-pfbtn" data-act="withdraw">' + T('Withdraw') + ' \u2192</button></div>' +
       '</div>' +
       '<div class="az-tiles">' +
         tile('\u{1F381}', 'Reward', 'tasks') + tile('\u{1F3C6}', 'Rank', 'rank') +
@@ -987,7 +1765,7 @@
         row('\u{1F4DD}', 'Daily Tasks & Rewards Center', 'tasks') +
         row('\u270F\uFE0F', 'Edit Profile & Gender Icon', 'pfnav:Edit Profile') +
         row('\u{1F6E1}\uFE0F', 'Security, E2EE & Data Backup', 'pfnav:Security') +
-        row('\u{1F310}', 'Switch Language (English)', 'pfnav:Language') +
+        row('\u{1F310}', 'Switch Language', 'pfnav:Language') +
         row('\u{1F319}', 'Dark / Neon Theme Mode', 'theme') +
         row('\u{1F6AA}', 'Log Out', 'logout', true) +
       '</div>' +
@@ -998,35 +1776,31 @@
   function loadStudio() {
     getJSON(STUDIO + '?key=' + KEY, function (err, d) {
       if (err || !d || !d.fields || !d.fields.streamTypes) { studio = null; return; }
-      var o = unmap(d.fields);
-      var types = o.streamTypes || [], quals = o.qualities || [];
-      studio = { note: o.note || '', types: types, quals: quals, def: o.defaults || {}, at: o.updatedAt || '' };
+      var o = unmap(d.fields), types = o.streamTypes || [];
+      studio = { types: types, def: o.defaults || {}, at: o.updatedAt || '' };
       if (!types.length) st.gtype = 0;
-      if (!quals.length) st.gq = 0;
+      if (st.gtype >= types.length) st.gtype = Math.max(0, types.length - 1);
       if (st.view === 'golive') render();
     });
   }
 
   function viewGolive() {
-    var h = '<div class="az-h1">Go Live</div>';
+    var h = '<div class="az-h1">' + T('Go Live') + '</div>';
+    if (st.live) return h + livePanel();
     if (!studio) {
-      return h + '<div class="az-empty">Studio options come from Firestore <b>appConfig/live_studio</b> \u00b7 ' +
-        '<button type="button" data-act="studio-reload">reload</button></div>';
+      return h + '<div class="az-empty">' + T('Studio loading') + ' \u00b7 ' +
+        '<button type="button" data-act="studio-reload">' + T('Reload') + '</button></div>';
     }
-    var t = studio.types[st.gtype] || {}, q = studio.quals[st.gq] || {}, d = studio.def, i;
-    if (studio.note) h += '<div style="font-size:12px;color:#b5a6cc;margin-bottom:10px">' + esc(studio.note) + '</div>';
+    var t = studio.types[st.gtype] || {}, d = studio.def, i;
     h += '<div class="az-filters">';
     for (i = 0; i < studio.types.length; i++)
       h += '<button type="button" ' + (i === st.gtype ? 'class="sel" ' : '') + 'data-act="gtype:' + i + '">' +
         esc(studio.types[i].label) + '</button>';
-    h += '</div><div class="az-tiers" style="grid-template-columns:repeat(' + Math.max(studio.quals.length, 1) + ',1fr)">';
-    for (i = 0; i < studio.quals.length; i++)
-      h += '<button type="button" class="az-tier' + (i === st.gq ? ' sel' : '') + '" data-act="gq:' + i + '"><b>' +
-        esc(studio.quals[i].label) + '</b><small>' + esc(studio.quals[i].desc) + '</small></button>';
     h += '</div><div class="az-kv">' + kv('Mode', t.label) + kv('Format', t.desc) + kv('Category', t.category) +
-      kv('Title', d.title) + kv('Seats', t.seats) + kv('Quality', q.label) + kv('Region', d.region) + '</div>' +
-      '<div class="az-acts"><button type="button" data-act="golive-demo">START ' + esc(t.label || 'BROADCAST') + '</button>' +
-      '<span class="grow">Broadcast engine \u00b7 ' + esc(d.region || 'asia-south1') + '</span></div>';
+      kv('Title', d.title) + kv('Seats', t.seats) +
+      (PF.gear.mic ? kv('Mic ring', T('Golden Mic Ring')) : '') + '</div>' +
+      '<div class="az-acts"><button type="button" data-act="golive-open">' + T('Start') + ' ' + esc(t.label || 'BROADCAST') + '</button>' +
+      '<span class="grow">' + T('Studio ready') + '</span></div>';
     return h;
   }
 
@@ -1173,10 +1947,13 @@
 
   function playGame(kind) {
     var cost = kind === 'wheel' ? 50 : (kind === 'mines' ? 100 : 200);
-    if (st.coins < cost) { toast('Not enough coins'); openWallet('topup'); return; }
-    st.coins -= cost; renderWallet();
+    if (st.coins < cost) { toast(T('Not enough coins')); openWallet('topup'); return; }
+    spendCoins(cost);
     var win = Math.random() < 0.35 ? cost * (2 + Math.floor(Math.random() * 5)) : 0;
-    st.coins += win; renderWallet();
+    if (win) earnCoins(win);
+    PF.stats.games = (Number(PF.stats.games) || 0) + 1;
+    PF.stats.spent = (Number(PF.stats.spent) || 0) + cost;
+    savePF();
     closeModal();
     toast(win ? '\u{1F3B6} You won \u{1F7E1} ' + money(win) : 'No luck this time \u00b7 \u2212' + money(cost));
   }
@@ -1211,7 +1988,7 @@
     if (fp) fp.addEventListener('click', function () {
       openModal('<div class="az-mtop"><h3>\u{1F511} Forgot password</h3><button type="button" class="az-x" data-act="close">\u2715</button></div>' +
         '<p class="tip">Staff and agency passwords are reset by the AddaBuzz HQ admin (fayselsk@gmail.com). ' +
-        'Viewer accounts reset through Firebase Auth in the Android app \u2014 this web mirror cannot mail a reset link.</p>');
+        'Viewer passwords reset from the Sign Up screen on this device \u2014 no reset mail is sent.</p>');
     });
     root.addEventListener('keydown', function (e) {
       if (e.key !== 'Enter') return;
@@ -1226,7 +2003,7 @@
     if (!t) return;
     var act = t.getAttribute('data-act');
     if (t.hasAttribute('data-room') && t.getAttribute('data-room')) {
-      st.cur = t.getAttribute('data-room'); st.view = 'live'; st.sideRoom = ''; render(); return;
+      st.cur = t.getAttribute('data-room'); st.view = 'live'; st.sideRoom = ''; render(); rocketFx(); return;
     }
     if (t.hasAttribute('data-filter')) { st.filter = t.getAttribute('data-filter'); render(); return; }
     if (t.hasAttribute('data-rank')) { st.rankType = t.getAttribute('data-rank'); render(); return; }
@@ -1254,7 +2031,7 @@
     else if (act === 'withdraw') openWallet('withdraw');
     else if (act === 'rank') { st.view = 'rank'; render(); }
     else if (act === 'rankall') { st.view = 'rank'; render(); }
-    else if (act === 'tasks') { st.view = 'messages'; render(); toast('Host tasks live in the app \u00b7 showing notifications'); }
+    else if (act === 'tasks') openTasks();
     else if (act === 'boost') boostPK();
     else if (act === 'follow') toggleFollow();
     else if (act === 'like') likeBurst();
@@ -1263,22 +2040,62 @@
     else if (act === 'signup') openSignUp();
     else if (act === 'logout') { endSession(); toast('Signed out \u00b7 sign in again to open the app'); }
     else if (act === 'accountlist') openAccounts();
-    else if (act === 'pfnav:Security') openModal('<div class="az-mtop"><h3>\u{1F6E1}\uFE0F Security</h3>' +
-        '<button type="button" class="az-x" data-act="close">\u2715</button></div><div class="az-kv">' +
-        kv('E2EE chat', ME.e2eeEnabled ? 'on' : 'off') + kv('Two-factor', 'on') + kv('Role', ME.role) +
-        kv('Agency', ME.agencyName) + kv('Agency code', ME.agencyCode) + kv('Data backup', 'auto \u00b7 asia-south1') + '</div>');
-    else if (act.indexOf('pfnav:') === 0) toast(act.slice(6) + ' \u00b7 live in the Android build');
+    else if (act === 'pfnav:Security') openSecurity();
+    else if (act === 'sec:e2ee') { PF.e2ee = !PF.e2ee; ME.e2eeEnabled = PF.e2ee; savePF(); openSecurity(); toast('End-to-end chat ' + (PF.e2ee ? 'on' : 'off')); }
+    else if (act === 'sec:twof') { PF.twof = !PF.twof; savePF(); openSecurity(); toast('Two-factor ' + (PF.twof ? 'on' : 'off')); }
+    else if (act === 'sec:public') { PF.publicProfile = PF.publicProfile === false; savePF(); openSecurity(); toast('Public room list \u00b7 ' + (PF.publicProfile ? 'visible' : 'hidden')); }
+    else if (act === 'dlbackup') downloadBackup();
+    else if (act === 'wipe') wipeDevice();
+    else if (act.indexOf('pfnav:') === 0) openPfnav(act.slice(6));
     else if (act.indexOf('gtype:') === 0) { st.gtype = parseInt(act.slice(6), 10) || 0; render(); }
-    else if (act.indexOf('gq:') === 0) { st.gq = parseInt(act.slice(3), 10) || 0; render(); }
-    else if (act === 'studio-reload') { loadStudio(); toast('Reloading studio options from Firestore\u2026'); }
-    else if (act === 'golive-demo') {
-      var gt = studio && studio.types[st.gtype];
-      var gq = studio && studio.quals[st.gq];
-      toast((gt ? gt.label : 'BROADCAST') + ' \u00b7 ' + (gq ? gq.label : 'preview') +
-        ' \u00b7 room doc not written from this mirror');
+    else if (act === 'studio-reload') { loadStudio(); toast('Reloading studio options\u2026'); }
+    else if (act === 'golive-open') openLiveSetup();
+    else if (act === 'livego') startLive();
+    else if (act === 'livestop') stopLive();
+    else if (act.indexOf('buy:') === 0) buyItem(parseInt(act.slice(4), 10));
+    else if (act.indexOf('gear:') === 0) setGear(act.slice(5));
+    else if (act === 'use:charm') useCharmCard();
+    else if (act.indexOf('claim:') === 0) claimTask(parseInt(act.slice(6), 10));
+    else if (act.indexOf('honclaim:') === 0) claimHonor(parseInt(act.slice(9), 10));
+    else if (act.indexOf('rwclaim:') === 0) claimReward(parseInt(act.slice(8), 10));
+    else if (act.indexOf('claiminv:') === 0) claimInvite(parseInt(act.slice(9), 10));
+    else if (act.indexOf('club:') === 0) toggleClub(act.slice(5));
+    else if (act.indexOf('medal:') === 0) medalInfo(parseInt(act.slice(6), 10));
+    else if (act === 'copycode') copyText(inviteCode(), 'Invite code copied');
+    else if (act === 'copylink') copyText('https://addabuzzlive.blogspot.com/?ref=' + encodeURIComponent(inviteCode()), 'Invite link copied');
+    else if (act === 'sharewa') window.open('https://wa.me/?text=' + encodeURIComponent('Join me on AddaBuzz Live \u00b7 my invite code is ' + inviteCode()), '_blank');
+    else if (act === 'addinv') addInvite();
+    else if (act === 'saveinv') saveInvite();
+    else if (act === 'savepf') saveProfile();
+    else if (act.indexOf('setgender:') === 0) { PF.gender = act.slice(10) === 'FEMALE' ? 'FEMALE' : 'MALE'; savePF(); openEditProfile(); }
+    else if (act.indexOf('setav:') === 0) { PF.av = parseInt(act.slice(6), 10) || 0; savePF(); applyPF(); openEditProfile(); render(); }
+    else if (act.indexOf('lang:') === 0) setLang(act.slice(5));
+    else if (act.indexOf('hosg:') === 0) { PF.hosG = act.slice(5) === 'FEMALE' ? 'FEMALE' : 'MALE'; savePF(); openAddHost(); }
+    else if (act === 'savehost') saveHost();
+    else if (act.indexOf('agprom:') === 0) promoteAgent(parseInt(act.slice(7), 10));
+    else if (act.indexOf('agsus:') === 0) suspendAgent(parseInt(act.slice(7), 10));
+    else if (act === 'geninvite') genInvite();
+    else if (act === 'copyinvite') {
+      var iv = PF.invites[PF.invites.length - 1];
+      if (!iv) toast('Generate a code first'); else copyText(iv.c, 'Invite code copied');
+    } else if (act.indexOf('delinvite:') === 0) { PF.invites.splice(parseInt(act.slice(10), 10), 1); savePF(); openInviteAgent(); }
+    else if (act.indexOf('tr:') === 0) { var trp = act.split(':'); doTrade(trp[1], parseInt(trp[2], 10)); }
+    else if (act.indexOf('rkmetric:') === 0) { st.rkMetric = act.slice(9) === 'hosts' ? 'hosts' : 'pts'; openAgentRanking(); }
+    else if (act.indexOf('payout:') === 0) { PF.payout = act.slice(7); savePF(); openDiamondAgent(); toast('Payout method \u00b7 ' + PF.payout); }
+    else if (act === 'sendapply') sendApply();
+    else if (act === 'cancelapply') cancelApply();
+    else if (act === 'pay') {
+      var s = TIERS[st.tier];
+      PF.stats.topups = (Number(PF.stats.topups) || 0) + 1;
+      earnCoins(s[0] + s[1]); closeModal();
+      toast('Paid \u09F3' + money(s[3]) + ' \u00b7 +' + money(s[0] + s[1]) + ' coins');
     }
-    else if (act === 'pay') { var s = TIERS[st.tier]; st.coins += s[0] + s[1]; renderWallet(); closeModal(); toast('Paid \u09F3' + money(s[3]) + ' \u00b7 +' + money(s[0] + s[1]) + ' coins'); }
-    else if (act === 'confirmw') { var w = WPRESETS[st.wpreset]; if (st.points < w[0]) { toast('Not enough points'); return; } st.points -= w[0]; renderWallet(); closeModal(); toast('Withdrawal of \u09F3' + money(w[1] * 120) + ' queued via ' + st.wmethod); }
+    else if (act === 'confirmw') {
+      var w = WPRESETS[st.wpreset];
+      if (st.points < w[0]) { toast('Not enough points'); return; }
+      st.points -= w[0]; PF.points = st.points; savePF(); renderWallet(); closeModal();
+      toast('Withdrawal of \u09F3' + money(w[1] * 120) + ' queued via ' + st.wmethod);
+    }
   });
 
   root.addEventListener('submit', function (e) {
@@ -1309,6 +2126,7 @@
 
   function likeBurst() {
     st.likes++;
+    bumpStat('likes', 1);
     var h = document.getElementById('az-hearts');
     if (h) { h.className = 'az-hearts'; void h.offsetWidth; h.className = 'az-hearts go'; }
   }
@@ -1335,7 +2153,19 @@
     applySession(session);
   } else {
     try { localStorage.removeItem('abzauth'); } catch (e) {}
+    loadPF(); applyPF(); render();
   }
+  applyLang();
+
+  setInterval(function () {
+    if (!st.live) return;
+    var secs = Math.floor((Date.now() - st.live.at) / 1000);
+    st.live.viewers += (secs % 4 === 0 ? 1 : 0);
+    st.live.charm += 7;
+    if (st.view !== 'golive' || secs % 5 !== 0) return;
+    var v = document.getElementById('az-view');
+    if (v) v.innerHTML = viewGolive();
+  }, 1000);
 
   loadRooms();
   loadStudio();
