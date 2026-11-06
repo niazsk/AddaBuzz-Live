@@ -765,8 +765,8 @@
     ME.role = o.r || 'USER';
     ME.name = o.n || DEFAULT_ME.name;
     ME.idNum = o.i || DEFAULT_ME.idNum;
-    ME.level = o.l || (u ? u.level : DEFAULT_ME.level);
-    ME.vipLevel = o.v || (u ? u.vipLevel : DEFAULT_ME.vipLevel);
+    ME.level = Number(o.l || (u ? u.level : DEFAULT_ME.level)) || DEFAULT_ME.level;
+    ME.vipLevel = Number(o.v || (u ? u.vipLevel : DEFAULT_ME.vipLevel)) || DEFAULT_ME.vipLevel;
     ME.agencyName = u ? u.agencyName : (o.a || DEFAULT_ME.agencyName);
     ME.agencyCode = u ? u.agencyCode : (o.c || DEFAULT_ME.agencyCode);
     ME.e2eeEnabled = ME.role !== 'USER';
@@ -1086,7 +1086,15 @@
     if (k === 'audio') return '<span class="az-badge live">\u{1F3A7} AUDIO</span>';
     return '<span class="az-badge live">\u25CF LIVE</span>';
   }
-  function flagOf(r) { return r.countryFlag || (r.country === 'Bangladesh' ? '\u{1F1E7}\u{1F1E9}' : (r.country === 'India' ? '\u{1F1EE}\u{1F1F3}' : '\u{1F30D}')); }
+  function cssUrl(u) {
+    var raw = String(u === null || u === undefined ? '' : u).trim();
+    if (!/^https?:\/\/[^\s'"<>\\]+$/.test(raw)) return '';
+    return esc("'" + raw + "'");
+  }
+  function flagOf(r) {
+    var f = r.countryFlag || (r.country === 'Bangladesh' ? '\u{1F1E7}\u{1F1E9}' : (r.country === 'India' ? '\u{1F1EE}\u{1F1F3}' : '\u{1F30D}'));
+    return esc(String(f).slice(0, 8));
+  }
 
   function filteredRooms() {
     var out = [];
@@ -1122,7 +1130,7 @@
       var lat = cardMeta(r) + ' \u00b7 ' + (r.latencyMs || 0) + 'ms';
       var g = r.gender === 'FEMALE' ? 'f' : 'm';
       h += '<button type="button" class="az-card" data-room="' + esc(r.docId) + '">' +
-        '<div class="az-cover" style="background-image:url(' + esc(r.imageUrl || '') + ')"></div>' +
+        '<div class="az-cover" style="background-image:url(' + cssUrl(r.imageUrl || '') + ')"></div>' +
         '<div class="az-veil"></div>' + badgeFor(r) +
         '<span class="az-vw">' + flagOf(r) + ' ' + fmt(r.viewersCount) + '</span>' +
         '<div class="az-cbody">' +
@@ -1156,7 +1164,7 @@
   function hostStrip(r, note) {
     var fol = st.follow[r.docId];
     return '<div class="az-srow">' +
-      '<div class="az-host"><div class="az-av" style="background-image:url(' + esc(r.imageUrl || '') + ')"></div>' +
+      '<div class="az-host"><div class="az-av" style="background-image:url(' + cssUrl(r.imageUrl || '') + ')"></div>' +
       '<div><b>' + esc(r.name || 'host') + '</b><small>' + flagOf(r) + ' \u{1F525} ' + fmt(r.viewersCount) +
       ' \u00b7 Lv.' + (r.level || 1) + (note ? ' \u00b7 ' + esc(note) : '') + '</small></div>' +
       '<button type="button" class="az-follow' + (fol ? ' on' : '') + '" data-act="follow">' + (fol ? '\u2713' : '+ Follow') + '</button></div>' +
@@ -1216,7 +1224,7 @@
         if (s.isLocked && !s.userName) inner = '<div class="av">\u{1F512}</div><b>Locked</b><small>host lock</small>';
         else {
           cls += s.mine ? ' own' : ' full';
-          inner = '<div class="av" style="background-image:url(' + esc(s.avatarUrl || r.imageUrl || '') + ')"></div><b>' +
+          inner = '<div class="av" style="background-image:url(' + cssUrl(s.avatarUrl || r.imageUrl || '') + ')"></div><b>' +
             esc(s.userName) + '</b><small>' + (s.isHost ? '\u{1F451} host' : (s.isSpeaking ? '\u{1F3A4} on mic' : 'muted')) + '</small>';
         }
       } else inner = '<div class="av">+</div><b>Seat ' + (i + 1) + '</b><small>+ Mic</small>';
@@ -1229,11 +1237,11 @@
     for (i = 0; i < raw.length && n < 4; i++) {
       var s = raw[i];
       if (!s || !s.userName) continue;
-      rows += '<div class="az-qrow"><span class="av" style="background-image:url(' + esc(s.avatarUrl || r.imageUrl || '') + ')"></span>' +
+      rows += '<div class="az-qrow"><span class="av" style="background-image:url(' + cssUrl(s.avatarUrl || r.imageUrl || '') + ')"></span>' +
         '<span class="grow">' + esc(s.userName) + '</span><span>' + (s.isSpeaking ? '\u{1F3A4} on mic' : 'listening') + '</span></div>';
       n++;
     }
-    if (st.seatIdx) rows += '<div class="az-qrow"><span class="av" style="background-image:url(' + esc(AVATAR) + ')"></span>' +
+    if (st.seatIdx) rows += '<div class="az-qrow"><span class="av" style="background-image:url(' + cssUrl(AVATAR) + ')"></span>' +
       '<span class="grow">' + esc(ME.name) + ' (you)</span><span>' + (st.mic ? '\u{1F3A4} on mic' : '\u{1F507} muted') + '</span></div>';
     if (st.hand) rows += '<div class="az-qrow"><span class="av">\u23F3</span><span class="grow">' + esc(ME.name) +
       ' (you)</span><span>hand raised \u00b7 #' + (n + 1) + ' in queue</span></div>';
@@ -1244,7 +1252,7 @@
 
   function pageVideo(r) {
     var h = kindRibbon('video', r.title);
-    h += '<div class="az-stage" id="az-stage" style="background-image:url(' + esc(r.imageUrl || '') + ')">' +
+    h += '<div class="az-stage" id="az-stage" style="background-image:url(' + cssUrl(r.imageUrl || '') + ')">' +
       hostStrip(r, 'camera live') + heartsFx() + safetyNote() + '</div>';
     h += '<div class="az-strip">' + soundBtn() +
       '<button type="button" class="az-tgl" data-act="audioroom">\u{1F3A7} Audio only</button>' +
@@ -1256,7 +1264,7 @@
   function pageAudio(r) {
     var h = kindRibbon('audio', r.title);
     h += '<div class="az-aud">' + hostStrip(r, 'voice adda') +
-      '<div class="az-disc' + (st.mute ? ' pause' : '') + '" style="background-image:url(' + esc(r.imageUrl || '') + ')"></div>' +
+      '<div class="az-disc' + (st.mute ? ' pause' : '') + '" style="background-image:url(' + cssUrl(r.imageUrl || '') + ')"></div>' +
       '<div class="az-eq' + (st.mute ? ' stop' : '') + '">' + eqBars(7) + '</div>' +
       '<div class="az-xrow">' + soundBtn() +
       '<button type="button" class="az-tgl ' + (st.hand ? 'on' : '') + '" data-act="raise">' +
@@ -1270,7 +1278,7 @@
     var seats = seatBoard(r), onMic = 0, i;
     for (i = 0; i < 8; i++) if (seats[i] && seats[i].isSpeaking) onMic++;
     var h = kindRibbon('party', r.title);
-    h += '<div class="az-stage" id="az-stage" style="background-image:url(' + esc(r.imageUrl || '') + ');min-height:120px">' +
+    h += '<div class="az-stage" id="az-stage" style="background-image:url(' + cssUrl(r.imageUrl || '') + ');min-height:120px">' +
       hostStrip(r, 'party room') + heartsFx() + '</div>';
     h += '<div class="az-seattop">' + (st.seatIdx ? micBtn() + camBtn() : '') +
       '<button type="button" class="az-tgl" data-act="seatinvite">\u{1F464}+ Invite to seat</button>' +
@@ -1289,10 +1297,10 @@
     h += '<div class="az-pk"><h4>\u2694\u{FE0F} ' + esc(pk.statusText || 'PK BATTLE IN PROGRESS \u{1F525}') + '</h4>' +
       '<div class="sub">' + (pk.punishmentText ? esc(pk.punishmentText) : 'Loser runs the punishment task') + '</div></div>';
     h += '<div class="az-pkgrid">' +
-      '<div class="az-pktile"><div class="av" style="background-image:url(' + esc(r.imageUrl || '') + ')"></div>' +
+      '<div class="az-pktile"><div class="av" style="background-image:url(' + cssUrl(r.imageUrl || '') + ')"></div>' +
       '<b>' + esc(r.name || 'host') + '</b><span id="az-pkl">' + money(l) + ' Pts</span></div>' +
       '<div class="az-vs"><span class="az-pktime" id="az-pktime">\u23F1 ' + clock(left) + '</span><em>VS</em></div>' +
-      '<div class="az-pktile"><div class="av" style="background-image:url(' + esc(pk.opponentAvatar || '') + ')"></div>' +
+      '<div class="az-pktile"><div class="av" style="background-image:url(' + cssUrl(pk.opponentAvatar || '') + ')"></div>' +
       '<b>' + esc(pk.opponentName || 'rival') + '</b><span id="az-pkr">' + money(rt) + ' Pts</span></div></div>';
     h += '<div class="az-score"><span class="l">' + money(l) + ' Pts</span><span class="r">' + money(rt) + ' Pts</span></div>' +
       '<div class="az-bar" id="az-pkbar"><i style="width:' + pct.toFixed(1) + '%"></i></div>';
@@ -1395,13 +1403,13 @@
     for (var i = 0; i < 3 && i < rows.length; i++) {
       var o = [1, 0, 2][i];
       if (!rows[o]) continue;
-      h += '<div class="az-pod' + (o === 0 ? ' first' : '') + '"><div class="av" style="background-image:url(' + esc(rows[o].avatar) + ')"></div>' +
+      h += '<div class="az-pod' + (o === 0 ? ' first' : '') + '"><div class="av" style="background-image:url(' + cssUrl(rows[o].avatar) + ')"></div>' +
         '<div style="font-size:16px">' + medals[o] + '</div><b>' + esc(rows[o].name) + '</b><small>\u{1F48E} ' + fmt(rows[o].score) + '</small></div>';
     }
     h += '</div>';
     for (var j = 3; j < rows.length; j++) {
       var u = rows[j];
-      h += '<div class="az-row"><span class="no">' + (j + 1) + '</span><div class="av" style="background-image:url(' + esc(u.avatar) + ')"></div>' +
+      h += '<div class="az-row"><span class="no">' + (j + 1) + '</span><div class="av" style="background-image:url(' + cssUrl(u.avatar) + ')"></div>' +
         '<div class="nm"><b>' + esc(u.name) + '</b><small>' + esc(u.sub) + '</small></div><span class="sc">\u{1F48E} ' + money(u.score) + '</span></div>';
     }
     return h;
@@ -1689,7 +1697,7 @@
     h += '<p class="tip">Clubs are built from the live room list \u00b7 membership is kept on this device</p>';
     for (var i = 0; i < st.rooms.length; i++) {
       var r = st.rooms[i], inC = !!PF.clubs[r.docId];
-      h += '<div class="az-row"><div class="av" style="background-image:url(' + esc(r.imageUrl || '') + ')"></div>' +
+      h += '<div class="az-row"><div class="av" style="background-image:url(' + cssUrl(r.imageUrl || '') + ')"></div>' +
         '<div class="nm"><b>' + esc(r.name || 'Host') + '</b><small>' + esc(r.title || '') + ' \u00b7 ' + fmt(r.viewersCount || 0) +
         ' in club \u00b7 charm ' + fmt(r.charmScore || 0) + '</small></div><span class="sc">' +
         '<button type="button" class="az-pfbtn" data-act="club:' + esc(r.docId) + '">' + (inC ? T('Leave') : T('Join')) + '</button></span></div>';
@@ -2031,8 +2039,8 @@
   function liveVideoPage(l) {
     var h = '<div class="az-pkind"><i>\u{1F4F9}</i><div><b>SOLO VIDEO LIVE \u00b7 ON AIR</b><small>' +
       esc(l.title) + '</small></div></div>';
-    h += '<div class="az-stage" id="az-stage" style="background-image:url(' + esc(AVATAR) + ')">' +
-      '<div class="az-srow"><div class="az-host"><div class="az-av" style="background-image:url(' + esc(AVATAR) + ')"></div>' +
+    h += '<div class="az-stage" id="az-stage" style="background-image:url(' + cssUrl(AVATAR) + ')">' +
+      '<div class="az-srow"><div class="az-host"><div class="az-av" style="background-image:url(' + cssUrl(AVATAR) + ')"></div>' +
       '<div><b>' + esc(ME.name) + '</b><small>' + esc(l.title) + '</small></div>' +
       '<span class="az-rec"><i></i>REC</span></div>' +
       '<div style="display:flex;gap:6px;align-items:center"><span class="az-lag">you are the host</span></div></div>' +
@@ -2045,11 +2053,11 @@
   function liveAudioPage(l) {
     var h = '<div class="az-aud"><div class="az-pkind"><i>\u{1F3A4}</i><div><b>AUDIO ADDA \u00b7 ON AIR</b><small>' +
       esc(l.title) + '</small></div></div>' +
-      '<div class="az-disc' + (st.mic ? '' : ' pause') + '" style="background-image:url(' + esc(AVATAR) + ')"></div>' +
+      '<div class="az-disc' + (st.mic ? '' : ' pause') + '" style="background-image:url(' + cssUrl(AVATAR) + ')"></div>' +
       '<div class="az-eq' + (st.mic ? '' : ' stop') + '">' + eqBars(7) + '</div>' +
       '<b style="font-size:13px">' + esc(ME.name) + ' \u00b7 ' + esc(l.seats) + '</b>' +
       '<div class="az-xrow">' + micBtn() + '<button type="button" class="az-tgl" data-act="ltitle">\u270F Room title</button></div>' +
-      '<div class="az-queue"><div class="az-qrow"><span class="av" style="background-image:url(' + esc(AVATAR) + ')"></span>' +
+      '<div class="az-queue"><div class="az-qrow"><span class="av" style="background-image:url(' + cssUrl(AVATAR) + ')"></span>' +
       '<span class="grow">' + esc(ME.name) + ' (you, host)</span><span>' + (st.mic ? '\u{1F3A4} on mic' : '\u{1F507} muted') + '</span></div>' +
       '<div class="az-qrow"><span class="av">\u{1F64B}</span><span class="grow">Hand-raise queue</span><span>empty \u00b7 viewers join from the shared room list</span></div></div>';
     return h + liveStats(l, liveCell('Mode', 'Voice only')) + liveFoot();
@@ -2064,7 +2072,7 @@
       var cls = 'az-seat' + (s.isHost ? ' host' : '') + (s.isSpeaking ? ' spk' : '') + (s.isLocked ? ' lock' : '') +
         (s.mine || (s.isHost && i === 0) ? ' own' : '');
       var inner = s.isLocked && !s.userName ? '<div class="av">\u{1F512}</div><b>Locked</b><small>tap to open</small>' :
-        (s.userName ? '<div class="av" style="background-image:url(' + esc(s.avatarUrl || AVATAR) + ')"></div><b>' +
+        (s.userName ? '<div class="av" style="background-image:url(' + cssUrl(s.avatarUrl || AVATAR) + ')"></div><b>' +
           esc(s.userName) + '</b><small>' + (s.isHost ? '\u{1F451} you (host)' : (s.isSpeaking ? '\u{1F3A4} on mic' : 'muted')) + '</small>' :
           '<div class="av">+</div><b>Seat ' + (i + 1) + '</b><small>+ Mic</small>');
       h += '<button type="button" class="' + cls + '" data-act="lseat:' + (i + 1) + '">' + inner + '</button>';
@@ -2080,7 +2088,7 @@
     var tot = (Number(pk.left) || 0) + (Number(pk.right) || 0), pct = tot ? Math.min(92, Math.max(8, (pk.left / tot) * 100)) : 50;
     var h = '<div class="az-pkind"><i>\u2694\u{FE0F}</i><div><b>PK BATTLE \u00b7 ON AIR</b><small>' + esc(l.title) + '</small></div></div>';
     h += '<div class="az-pkgrid">' +
-      '<div class="az-pktile"><div class="av" style="background-image:url(' + esc(AVATAR) + ')"></div><b>' + esc(ME.name) +
+      '<div class="az-pktile"><div class="av" style="background-image:url(' + cssUrl(AVATAR) + ')"></div><b>' + esc(ME.name) +
       '</b><span>' + money(pk.left) + ' Pts</span></div>' +
       '<div class="az-vs"><span class="az-pktime">' + clock(left) + '</span><em>VS</em></div>' +
       '<div class="az-pktile"><div class="av">\u{1F9CD}</div><b>Rival Room</b><span>' + money(pk.right) + ' Pts</span></div></div>';
@@ -2144,7 +2152,7 @@
         row('\u{1F511}', 'Staff sign-in is issued by AddaBuzz HQ', 'accountlist') + '</div>');
     return '<div class="az-pf">' +
       '<div class="az-pfhero">' +
-        '<button type="button" class="az-pfav" data-act="pfnav:Edit Profile" style="background-image:url(' + AVATAR + ')"><span class="az-pfcam">\u{1F4F7}</span></button>' +
+        '<button type="button" class="az-pfav" data-act="pfnav:Edit Profile" style="background-image:url(' + cssUrl(AVATAR) + ')"><span class="az-pfcam">\u{1F4F7}</span></button>' +
         '<div class="az-pfname' + (PF.gear.neon ? ' az-neonname' : '') + '">' + esc(ME.name) +
           '<em class="az-gender ' + (ME.gender === 'MALE' ? 'm' : 'f') + '">' + (ME.gender === 'MALE' ? '\u2642' : '\u2640') + '</em>' +
           '<em class="az-lvpill">Lv.' + ME.level + '</em></div>' +
@@ -2238,7 +2246,7 @@
     for (var i = 0; i < rows.length; i++) {
       var u = rows[i];
       h += '<div class="az-row" data-room="' + esc(u.docId || '') + '" style="cursor:pointer"><span class="no">' + (i + 1) + '</span>' +
-        '<div class="av" style="background-image:url(' + esc(u.avatar) + ')"></div>' +
+        '<div class="av" style="background-image:url(' + cssUrl(u.avatar) + ')"></div>' +
         '<div class="nm"><b>' + esc(u.name) + '</b><small>' + esc(u.sub) + '</small></div><span class="sc">' + fmt(u.score) + '</span></div>';
     }
     return h + '</div>';
