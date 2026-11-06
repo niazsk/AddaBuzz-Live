@@ -372,6 +372,7 @@
   var PROJECT = 'addabuzzlive';
   var BASE = 'https://firestore.googleapis.com/v1/projects/' + PROJECT + '/databases/(default)/documents';
   var ROOMS = BASE + '/rooms';
+  var STUDIO = BASE + '/appConfig/live_studio';
 
   var GIFTS = [
     ['Red Rose', 19, '\u{1F339}'], ['Love Heart', 99, '\u{1F49D}'], ['Romantic Balloons', 199, '\u{1F388}'],
@@ -412,7 +413,9 @@
 
   var st = { rooms: [], cur: null, view: 'home', filter: 'live', chat: [], sideRoom: '', rankType: 'star', rankPeriod: 'Daily',
     coins: 18500, points: 520000, tier: 0, method: 'bKash', wpreset: 0, wmethod: 'bKash', follow: {}, likes: 0, pkTimer: 128, msgCount: 0,
-    mode: 'desktop', theme: 'dark' };
+    mode: 'desktop', theme: 'dark', gtype: 0, gq: 0 };
+
+  var studio = null;
 
   function applyMode() {
     var a = document.getElementById('abzapp');
@@ -992,16 +995,38 @@
   }
   function kv(k, v) { return '<div><small>' + esc(k) + '</small><b>' + esc(v) + '</b></div>'; }
 
+  function loadStudio() {
+    getJSON(STUDIO + '?key=' + KEY, function (err, d) {
+      if (err || !d || !d.fields || !d.fields.streamTypes) { studio = null; return; }
+      var o = unmap(d.fields);
+      var types = o.streamTypes || [], quals = o.qualities || [];
+      studio = { note: o.note || '', types: types, quals: quals, def: o.defaults || {}, at: o.updatedAt || '' };
+      if (!types.length) st.gtype = 0;
+      if (!quals.length) st.gq = 0;
+      if (st.view === 'golive') render();
+    });
+  }
+
   function viewGolive() {
-    var h = '<div class="az-h1">Go Live</div>' +
-      '<div style="font-size:12px;color:#b5a6cc;margin-bottom:10px">Broadcast setup. Publishing a new room doc is disabled in this mirror \u2014 the Android build writes to Firestore.</div>' +
-      '<div class="az-filters"><button type="button" class="sel">AUDIO</button><button type="button">VIDEO</button><button type="button">8-MIC PARTY</button><button type="button">PK BATTLE</button></div>' +
-      '<div class="az-tiers" style="grid-template-columns:repeat(2,1fr)">' +
-      '<div class="az-tier"><b>1080p 60fps</b><small>Ultra \u00b7 4.2 Mbps</small></div>' +
-      '<div class="az-tier"><b>720p 30fps</b><small>Standard \u00b7 1.8 Mbps</small></div></div>' +
-      '<div class="az-kv">' + kv('Category', 'Karaoke Adda') + kv('Title', 'Weeknight Karaoke & Adda') +
-      kv('Seats', '8 mic') + kv('Region', 'asia-south1') + '</div>' +
-      '<div class="az-acts"><button type="button" data-act="golive-demo">START BROADCAST</button></div>';
+    var h = '<div class="az-h1">Go Live</div>';
+    if (!studio) {
+      return h + '<div class="az-empty">Studio options come from Firestore <b>appConfig/live_studio</b> \u00b7 ' +
+        '<button type="button" data-act="studio-reload">reload</button></div>';
+    }
+    var t = studio.types[st.gtype] || {}, q = studio.quals[st.gq] || {}, d = studio.def, i;
+    if (studio.note) h += '<div style="font-size:12px;color:#b5a6cc;margin-bottom:10px">' + esc(studio.note) + '</div>';
+    h += '<div class="az-filters">';
+    for (i = 0; i < studio.types.length; i++)
+      h += '<button type="button" ' + (i === st.gtype ? 'class="sel" ' : '') + 'data-act="gtype:' + i + '">' +
+        esc(studio.types[i].label) + '</button>';
+    h += '</div><div class="az-tiers" style="grid-template-columns:repeat(' + Math.max(studio.quals.length, 1) + ',1fr)">';
+    for (i = 0; i < studio.quals.length; i++)
+      h += '<button type="button" class="az-tier' + (i === st.gq ? ' sel' : '') + '" data-act="gq:' + i + '"><b>' +
+        esc(studio.quals[i].label) + '</b><small>' + esc(studio.quals[i].desc) + '</small></button>';
+    h += '</div><div class="az-kv">' + kv('Mode', t.label) + kv('Format', t.desc) + kv('Category', t.category) +
+      kv('Title', d.title) + kv('Seats', t.seats) + kv('Quality', q.label) + kv('Region', d.region) + '</div>' +
+      '<div class="az-acts"><button type="button" data-act="golive-demo">START ' + esc(t.label || 'BROADCAST') + '</button>' +
+      '<span class="grow">Broadcast engine \u00b7 ' + esc(d.region || 'asia-south1') + '</span></div>';
     return h;
   }
 
@@ -1243,7 +1268,15 @@
         kv('E2EE chat', ME.e2eeEnabled ? 'on' : 'off') + kv('Two-factor', 'on') + kv('Role', ME.role) +
         kv('Agency', ME.agencyName) + kv('Agency code', ME.agencyCode) + kv('Data backup', 'auto \u00b7 asia-south1') + '</div>');
     else if (act.indexOf('pfnav:') === 0) toast(act.slice(6) + ' \u00b7 live in the Android build');
-    else if (act === 'golive-demo') toast('Broadcast preview started locally \u00b7 no room doc written');
+    else if (act.indexOf('gtype:') === 0) { st.gtype = parseInt(act.slice(6), 10) || 0; render(); }
+    else if (act.indexOf('gq:') === 0) { st.gq = parseInt(act.slice(3), 10) || 0; render(); }
+    else if (act === 'studio-reload') { loadStudio(); toast('Reloading studio options from Firestore\u2026'); }
+    else if (act === 'golive-demo') {
+      var gt = studio && studio.types[st.gtype];
+      var gq = studio && studio.quals[st.gq];
+      toast((gt ? gt.label : 'BROADCAST') + ' \u00b7 ' + (gq ? gq.label : 'preview') +
+        ' \u00b7 room doc not written from this mirror');
+    }
     else if (act === 'pay') { var s = TIERS[st.tier]; st.coins += s[0] + s[1]; renderWallet(); closeModal(); toast('Paid \u09F3' + money(s[3]) + ' \u00b7 +' + money(s[0] + s[1]) + ' coins'); }
     else if (act === 'confirmw') { var w = WPRESETS[st.wpreset]; if (st.points < w[0]) { toast('Not enough points'); return; } st.points -= w[0]; renderWallet(); closeModal(); toast('Withdrawal of \u09F3' + money(w[1] * 120) + ' queued via ' + st.wmethod); }
   });
@@ -1305,6 +1338,7 @@
   }
 
   loadRooms();
+  loadStudio();
   setInterval(loadRooms, 4000);
   setInterval(function () { if (st.view === 'live' && st.cur) loadChat(); }, 6000);
 })();
