@@ -1,0 +1,108 @@
+package com.example.ui.util
+
+import com.example.data.model.AppLanguage
+
+object AppStrings {
+    fun get(key: String, lang: AppLanguage): String {
+        return when (lang) {
+            AppLanguage.BN -> bengaliStrings[key] ?: englishStrings[key] ?: key
+            AppLanguage.EN -> englishStrings[key] ?: key
+        }
+    }
+
+    private val englishStrings = mapOf(
+        "app_title" to "AddaBuzz Live",
+        "tagline" to "Connect, Stream & Shine Together",
+        "feature" to "Live",
+        "party" to "Party Room",
+        "pk" to "PK Battle",
+        "nearby" to "Nearby",
+        "newest" to "New",
+        "gaming" to "Gaming",
+        "trending_now" to "Hot Broadcasts 🔥",
+        "view_all" to "View all >",
+        "live" to "LIVE",
+        "low_latency" to "Ultra-Low Latency (32ms)",
+        "coins" to "Coins",
+        "points" to "Points",
+        "diamonds" to "Coins",
+        "followers" to "Followers",
+        "following" to "Following",
+        "send_gift" to "Send Gift",
+        "say_something" to "Chat with host & friends...",
+        "safety_reminder" to "🔒 Safety: End-to-End Encrypted. Never share bank PIN or OTP.",
+        "leaderboard" to "Star Ranking",
+        "daily" to "Daily",
+        "weekly" to "Weekly",
+        "monthly" to "Monthly",
+        "totally" to "All Time",
+        "messages" to "Messages",
+        "notifications" to "Notifications",
+        "profile" to "Profile",
+        "wallet_topup" to "Coins & Points Wallet",
+        "start_broadcast" to "Go Live",
+        "multiplayer_game" to "Lucky Game Arena",
+        "admin_panel" to "Admin & Super Agent",
+        "security_settings" to "Security & Encryption",
+        "payout_calculator" to "Host Payout & Points Withdrawal",
+        "logout" to "Log Out",
+        "switch_lang" to "বাংলা",
+        "male" to "Male",
+        "female" to "Female",
+        "agency" to "Super Agency",
+        "active_streamers" to "Active Streamers",
+        "server_status" to "Cloud Server Low-Latency: 99.98% Uptime",
+        "auto_backup" to "Automated Database Backup Active",
+        "pk_clash" to "PK Battle Clash",
+        "party_multi_mic" to "8-Seat Audio & Video Room",
+        "daily_tasks" to "Host Tasks & Rewards"
+    )
+
+    private val bengaliStrings = mapOf(
+        "app_title" to "আড্ডাবাজ লাইভ",
+        "tagline" to "লাইভ স্ট্রিমিং ও দারুণ আড্ডার আসল প্ল্যাটফর্ম",
+        "feature" to "লাইভ",
+        "party" to "পার্টি রুম",
+        "pk" to "পিকে ব্যাটেল",
+        "nearby" to "কাছাকাছি",
+        "newest" to "নতুন",
+        "gaming" to "গেমিং",
+        "trending_now" to "চলতি হট লাইভ ও পার্টি 🔥",
+        "view_all" to "সব দেখুন >",
+        "live" to "লাইভ",
+        "low_latency" to "আল্ট্রা-লো ল্যাটেন্সি (৩২ মি.সে.)",
+        "coins" to "কয়েন",
+        "points" to "পয়েন্ট",
+        "diamonds" to "কয়েন",
+        "followers" to "ফলোয়ার্স",
+        "following" to "ফলোয়িং",
+        "send_gift" to "উপহার পাঠান",
+        "say_something" to "হোস্ট ও বন্ধুদের সাথে চ্যাট করুন...",
+        "safety_reminder" to "🔒 নিরাপত্তা: এন্ড-টু-এন্ড এনক্রিপ্টেড। কখনোই পাসওয়ার্ড বা ওটিপি শেয়ার করবেন না।",
+        "leaderboard" to "স্টার র‍্যাঙ্কিং",
+        "daily" to "দৈনিক",
+        "weekly" to "সাপ্তাহিক",
+        "monthly" to "মাসিক",
+        "totally" to "সর্বকালের",
+        "messages" to "মেসেজ",
+        "notifications" to "নোটিফিকেশন",
+        "profile" to "প্রোফাইল",
+        "wallet_topup" to "কয়েন ও পয়েন্ট ওয়ালেট",
+        "start_broadcast" to "লাইভে যান",
+        "multiplayer_game" to "লাকি গেম এরিনা",
+        "admin_panel" to "অ্যাডমিন ও সুপার এজেন্ট",
+        "security_settings" to "নিরাপত্তা ও এনক্রিপশন",
+        "payout_calculator" to "হোস্ট উপার্জন ও পয়েন্ট উইথড্র",
+        "logout" to "লগ আউট",
+        "switch_lang" to "English",
+        "male" to "পুরুষ",
+        "female" to "মহিলা",
+        "agency" to "সুপার এজেন্সি",
+        "active_streamers" to "সক্রিয় স্ট্রিমার",
+        "server_status" to "ক্লাউড সার্ভার লো-ল্যাটেন্সি: ৯৯.৯৮% সচল",
+        "auto_backup" to "স্বয়ংক্রিয় ডেটাবেজ ব্যাকআপ চালু",
+        "pk_clash" to "১ বনাম ১ পিকে ব্যাটেল",
+        "party_multi_mic" to "৮-আসন অডিও ও ভিডিও পার্টি রুম",
+        "daily_tasks" to "হোস্ট দৈনিক টাস্ক ও রিওয়ার্ড"
+    )
+}

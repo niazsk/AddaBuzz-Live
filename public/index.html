@@ -1,0 +1,1314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0c0817">
+<title>AddaBuzz Live — Live streaming, adda & gifts</title>
+</head>
+<body>
+<div id="abzapp">
+ <div class="az-shell">
+  <header class="az-top">
+    <div class="az-brand">
+      <span class="az-mark"><span class="az-ico"></span><span class="az-logo">AddaBuzz<em>Live</em></span></span>
+      <span class="az-role" id="az-role" hidden></span>
+      <span class="az-onsite"><i></i><b id="az-onsite">0</b> rooms live</span>
+      <span class="az-conn" id="az-status">connecting&hellip;</span>
+    </div>
+    <div class="az-modes" role="group" aria-label="Layout mode">
+      <button type="button" class="az-mode" data-act="mdesktop" title="Desktop layout">&#128421;&#65039; Desktop</button>
+      <button type="button" class="az-mode" data-act="mphone" title="Phone preview">&#128241; Phone</button>
+    </div>
+    <div class="az-wallet">
+      <button type="button" class="az-pill" data-act="topup">&#12897; <b id="az-coins">0</b></button>
+      <button type="button" class="az-pill gold" data-act="withdraw">&#128142; <b id="az-points">0</b></button>
+      <button type="button" class="az-pill ghost" data-act="tasks">&#127873; Tasks</button>
+    </div>
+  </header>
+
+  <div class="az-body">
+    <nav class="az-rail" aria-label="Main navigation">
+      <button type="button" class="az-tab" data-view="home">&#9737;<span>Home</span></button>
+      <button type="button" class="az-tab go" data-view="golive">&#127908;<span>Go Live</span></button>
+      <button type="button" class="az-tab" data-view="messages">&#128172;<span>Chat</span></button>
+      <button type="button" class="az-tab" data-view="rank">&#127941;<span>Rank</span></button>
+      <button type="button" class="az-tab" data-view="profile">&#128100;<span>Profile</span></button>
+    </nav>
+
+    <main class="az-main" id="az-view"></main>
+    <aside class="az-side" id="az-side"></aside>
+  </div>
+
+  <div class="az-scrim" id="az-scrim" hidden></div>
+  <div class="az-modal" id="az-modal" hidden></div>
+  <div class="az-toast" id="az-toast" hidden></div>
+
+  <section class="az-login" id="az-login">
+    <div class="az-lbar"><b>9:41</b><span class="az-lsig"><i></i><i></i><i></i></span><span class="az-lbat"><em></em></span></div>
+    <div class="az-lcard">
+      <div class="az-lhero"><span class="az-ico az-bigico"></span></div>
+      <h1 class="az-wordmark">ADDABUZZ <em>LIVE</em></h1>
+      <p class="az-ltag">Bangladesh&rsquo;s live audio&ndash;video adda &middot; 24/7 rooms</p>
+      <div class="az-lhead">
+        <h2>Welcome back!</h2>
+        <p>Sign in to watch, chat and go live</p>
+      </div>
+      <div class="az-field">
+        <span class="az-fico">&#9993;</span>
+        <input id="az-email" type="email" autocomplete="username" placeholder="Email address" aria-label="Email address" />
+      </div>
+      <div class="az-field">
+        <span class="az-fico">&#128273;</span>
+        <input id="az-pass" type="password" autocomplete="current-password" placeholder="Password" aria-label="Password" />
+        <button type="button" class="az-eye" id="az-eye" aria-label="Show password">&#128065;</button>
+      </div>
+      <p class="az-lerr" id="az-lerr" hidden></p>
+      <button type="button" class="az-lbtn" id="az-lbtn">Login</button>
+      <div class="az-lhelp"><button type="button" class="az-link az-forgot">Forgot password?</button><span>&middot;</span><button type="button" class="az-link az-guest">Continue as guest</button></div>
+      <p class="az-lsignup">Don&rsquo;t have an account? <button type="button" class="az-signup">Sign Up</button></p>
+      <div class="az-lroles">
+        <button type="button" class="az-rolechip" id="az-fill-admin"><i>&#128737;&#65039;</i>Admin demo</button>
+        <button type="button" class="az-rolechip" id="az-fill-agent"><i>&#128188;</i>Super Agent demo</button>
+      </div>
+    </div>
+  </section>
+ </div>
+</div>
+
+<style>
+  #abzapp{position:fixed;inset:0;z-index:2147483000;width:100vw;height:100vh;height:100dvh;box-sizing:border-box;
+    padding:14px 18px;font-family:'Segoe UI',Roboto,system-ui,sans-serif;color:#fbf9ff;
+    background:radial-gradient(120% 80% at 8% 0%,#1c1240 0%,#140e24 45%,#0c0817 100%);overflow-y:auto;overflow-x:hidden}
+  #abzapp .az-shell{position:relative;display:flex;flex-direction:column;width:100%;height:100%;min-height:0}
+  #abzapp.as-phone{display:flex;padding:0;overflow:hidden;
+    background:radial-gradient(120% 80% at 8% 0%,#1c1240 0%,#140e24 45%,#0c0817 100%)}
+  #abzapp.as-phone .az-shell{width:100%;height:100%;flex:1 1 auto;border:0;border-radius:0;padding:10px 10px 0;
+    background:transparent;box-shadow:none;font-size:13px;overflow:hidden}
+  body{overflow:hidden;background:#0c0817}
+  .page_body{position:static!important;z-index:auto!important}
+  .sidebar-container,.search,.search-expand,.page-share-menu,.blog-name,.post-title,.date-header,.footer-outer,.jump-link{display:none!important}
+  #abzapp *{box-sizing:border-box}
+  #abzapp button{font:inherit;color:inherit;cursor:pointer}
+  #abzapp .az-top{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;
+    padding:12px 16px;border:1px solid #352054;border-radius:16px;background:#140e24f2;margin:0 0 12px}
+  #abzapp .az-brand{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  #abzapp .az-logo{font-size:26px;font-weight:800;letter-spacing:-.5px}
+  #abzapp .az-logo em{font-style:normal;background:linear-gradient(90deg,#ff2a6d,#a855f7,#00e5ff);
+    -webkit-background-clip:text;background-clip:text;color:transparent;margin-left:6px}
+  #abzapp .az-onsite{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#b5a6cc;
+    border:1px solid #352054;border-radius:999px;padding:4px 10px}
+  #abzapp .az-onsite i{width:7px;height:7px;border-radius:50%;background:#00e676;box-shadow:0 0 0 0 #00e676aa;animation:azPulse 1.6s infinite}
+  #abzapp .az-onsite b{color:#00e676}
+  @keyframes azPulse{70%{box-shadow:0 0 0 8px #00e67600}100%{box-shadow:0 0 0 0 #00e67600}}
+  #abzapp .az-wallet{display:flex;gap:8px;flex-wrap:wrap}
+  #abzapp .az-pill{background:#1c1433;border:1px solid #352054;border-radius:11px;padding:8px 13px;font-size:13px}
+  #abzapp .az-pill b{color:#ffb800;font-variant-numeric:tabular-nums}
+  #abzapp .az-pill.gold b{color:#00e5ff}
+  #abzapp .az-pill.ghost{color:#b5a6cc}
+  #abzapp .az-pill:hover{border-color:#ff2a6d}
+  #abzapp .az-body{display:grid;grid-template-columns:78px minmax(0,1fr) 384px;gap:14px;flex:1;min-height:0}
+  #abzapp .az-modes{display:flex;gap:0;border:1px solid #352054;border-radius:11px;overflow:hidden;background:#140e24}
+  #abzapp .az-mode{background:transparent;border:0;padding:7px 12px;font-size:12px;color:#b5a6cc;white-space:nowrap}
+  #abzapp .az-mode.sel{background:linear-gradient(135deg,#ff2a6d,#a855f7);color:#fff;font-weight:700}
+  #abzapp.as-phone .az-top{padding:9px 10px;gap:8px;margin-bottom:9px}
+  #abzapp.as-phone .az-brand{gap:8px}
+  #abzapp.as-phone .az-logo{font-size:19px}
+  #abzapp.as-phone .az-onsite{font-size:10px;padding:3px 8px}
+  #abzapp.as-phone .az-mode{padding:5px 8px;font-size:11px}
+  #abzapp.as-phone .az-wallet{gap:5px}
+  #abzapp.as-phone .az-pill{padding:6px 9px;font-size:11px;border-radius:9px}
+  #abzapp.as-phone .az-body{grid-template-columns:minmax(0,1fr);gap:9px}
+  #abzapp.as-phone .az-side{display:none}
+  #abzapp.as-phone .az-rail{order:9;flex-direction:row;justify-content:space-between;align-items:center;
+    border-radius:14px 14px 0 0;border-left:0;border-right:0;border-bottom:0;padding:7px 8px;margin:9px -10px 0}
+  #abzapp.as-phone .az-tab{gap:2px;padding:5px 7px}
+  #abzapp.as-phone .az-tab span{font-size:9px}
+  #abzapp.as-phone .az-main{border-radius:14px;padding:11px}
+  #abzapp.as-phone .az-grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:9px}
+  #abzapp.as-phone .az-stage{height:190px}
+  #abzapp.as-phone .az-seats{grid-template-columns:repeat(4,1fr);gap:6px}
+  #abzapp.as-phone .az-conn{padding:3px 8px;font-size:10px}
+  @media (max-width:1120px){#abzapp .az-body{grid-template-columns:78px minmax(0,1fr);height:auto}#abzapp .az-side{grid-column:1/-1}}
+  @media (max-width:640px){#abzapp{padding:12px 10px}#abzapp .az-body{grid-template-columns:1fr}#abzapp .az-rail{flex-direction:row;justify-content:space-between}}
+  #abzapp .az-rail{display:flex;flex-direction:column;gap:8px;background:#140e24;border:1px solid #352054;border-radius:16px;padding:10px 6px}
+  #abzapp .az-tab{display:flex;flex-direction:column;align-items:center;gap:3px;background:transparent;border:0;
+    border-radius:12px;padding:10px 2px;font-size:18px;color:#b5a6cc}
+  #abzapp .az-tab span{font-size:10px;letter-spacing:.3px}
+  #abzapp .az-tab:hover{color:#fbf9ff;background:#1c1433}
+  #abzapp .az-tab.sel{color:#ff2a6d}
+  #abzapp .az-tab.go{background:linear-gradient(135deg,#ff2a6d,#ff5e36,#ffb800);color:#fff;border-radius:14px;margin:4px 2px}
+  #abzapp .az-main{background:#140e24;border:1px solid #352054;border-radius:16px;padding:14px;min-height:0;overflow-y:auto;overscroll-behavior:contain}
+  #abzapp .az-side{background:#140e24;border:1px solid #352054;border-radius:16px;display:flex;flex-direction:column;overflow:hidden;min-height:0}
+  #abzapp .az-h1{font-size:16px;font-weight:700;margin:2px 0 10px}
+  #abzapp .az-filters{display:flex;gap:7px;margin-bottom:12px;flex-wrap:wrap}
+  #abzapp .az-filters button{background:#1c1433;border:1px solid #352054;border-radius:999px;padding:6px 13px;font-size:12px;color:#b5a6cc}
+  #abzapp .az-filters button.sel{border-color:#ff2a6d;color:#ff87a8;background:#ff2a6d1f}
+  #abzapp .az-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(216px,1fr));gap:12px}
+  #abzapp .az-card{position:relative;border-radius:14px;overflow:hidden;background:#1c1433;border:1px solid #ffffff14;
+    text-align:left;padding:0;transition:transform .16s,border-color .16s}
+  #abzapp .az-card:hover{transform:translateY(-3px);border-color:#ff2a6d88}
+  #abzapp .az-cover{height:118px;background-size:cover;background-position:center}
+  #abzapp .az-veil{position:absolute;inset:0 0 auto 0;height:118px;background:linear-gradient(180deg,#00000050,#00000000)}
+  #abzapp .az-badge{position:absolute;top:8px;left:8px;font-size:10px;font-weight:800;letter-spacing:.4px;
+    background:#000000a0;border-radius:6px;padding:3px 7px}
+  #abzapp .az-badge.live{color:#00e676}#abzapp .az-badge.pk{color:#ff87a8}#abzapp .az-badge.mic{color:#00e5ff}
+  #abzapp .az-vw{position:absolute;top:8px;right:8px;font-size:11px;font-weight:700;color:#ffd700;background:#000000a8;
+    border-radius:6px;padding:3px 7px;font-variant-numeric:tabular-nums}
+  #abzapp .az-cbody{padding:9px 11px 12px}
+  #abzapp .az-met{display:flex;justify-content:space-between;gap:8px;font-size:10px;color:#b5a6cc;margin-bottom:5px}
+  #abzapp .az-met .g-m{color:#29b6f6}#abzapp .az-met .g-f{color:#ff4081}
+  #abzapp .az-cname{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #abzapp .az-ctitle{font-size:11px;color:#b5a6cc;margin-top:2px;line-height:1.4;height:2.8em;overflow:hidden}
+  #abzapp .az-stage{position:relative;height:322px;border-radius:14px;overflow:hidden;background-size:cover;background-position:center;
+    display:flex;flex-direction:column;justify-content:space-between;padding:11px;cursor:pointer}
+  #abzapp .az-stage::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,#000000b0,#00000000 40%,#000000c8)}
+  #abzapp .az-srow{position:relative;z-index:2;display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+  #abzapp .az-host{display:flex;align-items:center;gap:8px;background:#000000a8;border:1px solid #ffffff1f;border-radius:999px;padding:5px 6px 5px 5px}
+  #abzapp .az-av{width:30px;height:30px;border-radius:50%;background-size:cover;background-position:center;flex:0 0 auto}
+  #abzapp .az-host b{font-size:12px;display:block;line-height:1.2}
+  #abzapp .az-host small{font-size:10px;color:#ffd700}
+  #abzapp .az-follow{background:#ff2a6d;border:0;border-radius:999px;font-size:11px;font-weight:700;padding:6px 11px;color:#fff}
+  #abzapp .az-follow.on{background:#352054;color:#b5a6cc}
+  #abzapp .az-lag{font-size:10px;color:#00e5ff;background:#000000b0;border-radius:7px;padding:4px 8px}
+  #abzapp .az-close{background:#000000b0;border:1px solid #ffffff1f;border-radius:7px;font-size:12px;padding:4px 8px}
+  #abzapp .az-hearts{pointer-events:none;position:absolute;left:0;right:0;bottom:52px;text-align:center;font-size:20px;color:#ff2a6d;opacity:0}
+  #abzapp .az-hearts.go{animation:azHeart .8s ease-out}@keyframes azHeart{0%{opacity:1;transform:translateY(6px) scale(.8)}100%{opacity:0;transform:translateY(-42px) scale(1.3)}}
+  #abzapp .az-safety{font-size:10px;color:#b5a6cc;background:#000000a8;border-radius:8px;padding:6px 9px}
+  #abzapp .az-pk{margin-top:12px;border:1px solid #352054;border-radius:14px;padding:11px 12px;background:#1c1433}
+  #abzapp .az-pk h4{margin:0 0 3px;font-size:12px;color:#ff87a8;letter-spacing:.4px}
+  #abzapp .az-pk .sub{font-size:11px;color:#b5a6cc;margin-bottom:8px}
+  #abzapp .az-score{display:flex;justify-content:space-between;font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;margin-bottom:5px}
+  #abzapp .az-score .l{color:#2979ff}#abzapp .az-score .r{color:#ff1744}
+  #abzapp .az-bar{height:8px;border-radius:99px;background:#ff1744;display:flex;overflow:hidden}
+  #abzapp .az-bar i{display:block;background:#2979ff;width:50%}
+  #abzapp .az-boost{margin-top:9px;background:linear-gradient(90deg,#ff2a6d,#a855f7);border:0;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:700;color:#fff}
+  #abzapp .az-seats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}
+  #abzapp .az-seat{background:#1c1433;border:2px solid #352054;border-radius:12px;padding:8px 6px;text-align:center;min-height:80px}
+  #abzapp .az-seat.host{border-color:#ffd700}#abzapp .az-seat.spk{border-color:#00e676}#abzapp .az-seat.lock{opacity:.55}
+  #abzapp .az-seat .av{width:34px;height:34px;border-radius:50%;margin:0 auto 5px;background:#251a40 center/cover no-repeat;
+    display:flex;align-items:center;justify-content:center;font-size:14px;color:#b5a6cc}
+  #abzapp .az-seat b{display:block;font-size:10px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #abzapp .az-seat small{font-size:9px;color:#b5a6cc}
+  #abzapp .az-acts{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center}
+  #abzapp .az-acts button{background:#1c1433;border:1px solid #352054;border-radius:10px;padding:8px 12px;font-size:13px}
+  #abzapp .az-acts button:hover{border-color:#ff2a6d}
+  #abzapp .az-acts .grow{flex:1;min-width:150px;text-align:left;color:#b5a6cc;font-size:12px}
+  #abzapp .az-head{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid #ffffff10;background:#1c1433}
+  #abzapp .az-head h3{margin:0;font-size:14px}
+  #abzapp .az-head small{display:block;font-size:11px;color:#b5a6cc;margin-top:2px}
+  #abzapp .az-x{background:#ffffff12;border:0;border-radius:8px;width:30px;height:30px;font-size:15px}
+  #abzapp .az-list{flex:1;overflow-y:auto;padding:11px 13px;display:flex;flex-direction:column;gap:8px;font-size:13px;
+    min-height:200px;max-height:430px;scrollbar-width:thin}
+  #abzapp .az-m{display:flex;gap:6px;align-items:flex-start;line-height:1.45}
+  #abzapp .az-who{font-weight:700;flex:0 0 auto;font-size:12px}
+  #abzapp .az-who.m{color:#7dd3fc}#abzapp .az-who.f{color:#ff9ec4}
+  #abzapp .az-txt{color:#ded4f5;word-break:break-word}
+  #abzapp .az-vip{font-size:9px;background:#ffd70022;color:#ffd700;border-radius:4px;padding:1px 4px;margin-right:4px}
+  #abzapp .az-m.sys .az-txt{color:#fcd34d;font-style:italic}
+  #abzapp .az-m.gift .az-txt{background:linear-gradient(90deg,#ff2a6d33,#a855f733);border:1px solid #ff2a6d55;border-radius:9px;padding:4px 9px;color:#ffd7e8;font-weight:700}
+  #abzapp .az-comp{display:flex;gap:7px;padding:10px 12px;border-top:1px solid #ffffff10}
+  #abzapp .az-comp input{flex:1;background:#0c0817;border:1px solid #ffffff22;border-radius:10px;color:#fff;padding:9px 11px;font-size:13px;outline:0}
+  #abzapp .az-comp input:focus{border-color:#a855f7}
+  #abzapp .az-comp button{background:linear-gradient(90deg,#ff2a6d,#a855f7);border:0;border-radius:10px;padding:0 15px;font-weight:700;color:#fff}
+  #abzapp .az-quick{display:flex;gap:6px;padding:0 12px 12px;flex-wrap:wrap}
+  #abzapp .az-quick button{background:#ffffff10;border:1px solid #ffffff1c;border-radius:9px;padding:5px 8px;font-size:11px}
+  #abzapp .az-quick button:hover{border-color:#ff2a6d}
+  #abzapp .az-empty{padding:26px 8px;text-align:center;color:#b5a6cc;font-size:12px}
+  #abzapp .az-podium{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:6px 0 14px}
+  #abzapp .az-pod{background:#1c1433;border:1px solid #352054;border-radius:12px;padding:10px;text-align:center}
+  #abzapp .az-pod.first{border-color:#ffd700}
+  #abzapp .az-pod .av{width:40px;height:40px;border-radius:50%;margin:0 auto 6px;background-size:cover;background-position:center}
+  #abzapp .az-pod b{font-size:11px;display:block}#abzapp .az-pod small{font-size:10px;color:#ffb800}
+  #abzapp .az-row{display:flex;align-items:center;gap:9px;padding:8px 4px;border-bottom:1px solid #ffffff0d;font-size:12px}
+  #abzapp .az-row .no{width:20px;color:#b5a6cc;font-weight:700}
+  #abzapp .az-row .av{width:28px;height:28px;border-radius:50%;background-size:cover;background-position:center}
+  #abzapp .az-row .nm{flex:1;min-width:0}#abzapp .az-row .nm b{display:block;font-size:12px}#abzapp .az-row .nm small{color:#b5a6cc;font-size:10px}
+  #abzapp .az-row .sc{color:#00e5ff;font-weight:700;font-variant-numeric:tabular-nums}
+  #abzapp .az-kv{display:grid;grid-template-columns:repeat(auto-fill,minmax(158px,1fr));gap:9px;margin-top:12px}
+  #abzapp .az-kv div{background:#1c1433;border:1px solid #352054;border-radius:11px;padding:9px 11px}
+  #abzapp .az-kv small{display:block;font-size:10px;color:#b5a6cc;letter-spacing:.4px;text-transform:uppercase}
+  #abzapp .az-kv b{font-size:14px}
+  #abzapp .az-scrim{position:absolute;inset:0;background:#000000b8;z-index:40}
+  #abzapp .az-modal{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:41;width:min(560px,92vw);
+    max-height:82vh;overflow-y:auto;background:#140e24;border:1px solid #352054;border-radius:16px;padding:16px}
+  #abzapp .az-modal h3{margin:0 0 4px;font-size:15px}
+  #abzapp .az-modal p.tip{font-size:11px;color:#b5a6cc;margin:0 0 12px}
+  #abzapp .az-gifts{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  #abzapp .az-gift{background:#1c1433;border:1px solid #352054;border-radius:12px;padding:10px 6px;text-align:center}
+  #abzapp .az-gift:hover,#abzapp .az-gift.sel{border-color:#ff2a6d}
+  #abzapp .az-gift span{display:block;font-size:22px}
+  #abzapp .az-gift b{display:block;font-size:10px;margin-top:4px;font-weight:600}
+  #abzapp .az-gift small{font-size:10px;color:#ffb800}
+  #abzapp .az-tiers{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}
+  #abzapp .az-tier{background:#1c1433;border:1px solid #352054;border-radius:12px;padding:10px;text-align:center}
+  #abzapp .az-tier.sel{border-color:#00e5ff}
+  #abzapp .az-tier b{display:block;font-size:14px;color:#ffb800}#abzapp .az-tier small{font-size:10px;color:#b5a6cc;display:block;margin-top:3px}
+  #abzapp .az-methods{display:flex;gap:7px;flex-wrap:wrap;margin:4px 0 12px}
+  #abzapp .az-methods button{background:#1c1433;border:1px solid #352054;border-radius:9px;padding:6px 11px;font-size:11px}
+  #abzapp .az-methods button.sel{border-color:#ff2a6d;color:#ff87a8}
+  #abzapp .az-cta{width:100%;background:linear-gradient(90deg,#ff2a6d,#a855f7);border:0;border-radius:11px;padding:11px;
+    font-weight:800;font-size:13px;color:#fff;letter-spacing:.4px}
+  #abzapp .az-mtop{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+  #abzapp .az-pf{display:flex;flex-direction:column;gap:14px}
+  #abzapp .az-pfhero{text-align:center}
+  #abzapp .az-pfav{position:relative;width:96px;height:96px;margin:0 auto 10px;border-radius:50%;
+    background:#251a40 center/cover no-repeat;box-shadow:0 0 0 3px #ff2a6d,0 0 0 7px #a855f755,0 14px 34px #000a}
+  #abzapp .az-pfcam{position:absolute;right:-3px;bottom:4px;width:26px;height:26px;border-radius:50%;
+    background:#1c1433;border:1px solid #352054;font-size:12px;line-height:24px}
+  #abzapp .az-pfname{font-size:20px;font-weight:800;display:flex;justify-content:center;align-items:center;gap:8px}
+  #abzapp .az-lvpill{font-style:normal;font-size:11px;font-weight:800;color:#1a1000;background:#ffd700;border-radius:999px;padding:3px 9px}
+  #abzapp .az-pfchips{display:flex;justify-content:center;gap:7px;flex-wrap:wrap;margin-top:9px}
+  #abzapp .az-chip{font-size:11px;font-weight:800;border-radius:999px;padding:4px 11px;border:1px solid #ffffff22}
+  #abzapp .az-chip.vip{background:linear-gradient(135deg,#ffd700,#ff8700);color:#1a1000}
+  #abzapp .az-chip.wealth{background:linear-gradient(135deg,#00e5ff,#2979ff);color:#00131c}
+  #abzapp .az-chip.charm{background:linear-gradient(135deg,#ff2a6d,#a855f7);color:#fff}
+  #abzapp .az-pfid{font-size:11px;color:#00e5ff;font-weight:700;margin-top:10px}
+  #abzapp .az-pfbio{font-size:12px;color:#b5a6cc;margin-top:4px;line-height:1.5}
+  #abzapp .az-pfstats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:13px}
+  #abzapp .az-pfstats div{background:#1c1433;border:1px solid #352054;border-radius:12px;padding:9px 4px}
+  #abzapp .az-pfstats b{display:block;font-size:15px;font-variant-numeric:tabular-nums}
+  #abzapp .az-pfstats small{font-size:10px;color:#b5a6cc}
+  #abzapp .az-pfwallet{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  #abzapp .az-pfcard{border-radius:14px;padding:12px;border:1px solid #352054;background:#1c1433;text-align:left}
+  #abzapp .az-pfcard .hd{display:flex;align-items:center;gap:6px;font-size:11px;color:#b5a6cc}
+  #abzapp .az-pfcard .amt{font-size:21px;font-weight:800;margin:7px 0 10px;font-variant-numeric:tabular-nums}
+  #abzapp .az-pfcard.coins .amt{color:#ffd700}
+  #abzapp .az-pfcard.pts .amt{color:#ff5ea3}
+  #abzapp .az-pfbtn{display:block;width:100%;border:0;border-radius:10px;padding:9px 8px;font-size:12px;font-weight:800;
+    color:#1a1000;background:linear-gradient(90deg,#ffd700,#ff8700)}
+  #abzapp .az-pfcard.pts .az-pfbtn{background:linear-gradient(90deg,#ff2a6d,#ff5ea3);color:#fff}
+  #abzapp .az-tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}
+  #abzapp .az-tile{background:#1c1433;border:1px solid #352054;border-radius:14px;padding:10px 4px;text-align:center}
+  #abzapp .az-tile:hover{border-color:#ff2a6d}
+  #abzapp .az-tile i{display:block;width:38px;height:38px;margin:0 auto 6px;border-radius:12px;font-style:normal;font-size:17px;
+    line-height:38px;background:linear-gradient(135deg,#ff2a6d2e,#a855f72e);border:1px solid #ffffff1a}
+  #abzapp .az-tile span{display:block;font-size:10px;color:#b5a6cc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #abzapp .az-sec{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:800}
+  #abzapp .az-sec .hub{font-size:10px;font-weight:700;color:#00e5ff;background:#00e5ff1f;border:1px solid #00e5ff55;border-radius:999px;padding:3px 9px}
+  #abzapp .az-sec .all{margin-left:auto;font-size:11px;color:#ff87a8;background:transparent;border:0}
+  #abzapp .az-listwrap{display:flex;flex-direction:column;gap:8px}
+  #abzapp .az-li{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:#1c1433;border:1px solid #352054;
+    border-radius:12px;padding:11px 12px;font-size:12px;font-weight:600}
+  #abzapp .az-li:hover{border-color:#ff2a6d}
+  #abzapp .az-li em{font-style:normal;font-size:14px}
+  #abzapp .az-li .ch{margin-left:auto;color:#8f7cbd}
+  #abzapp .az-li.danger{color:#ff6b6b;border-color:#ff6b6b55;background:#ff6b6b14}
+  #abzapp .az-mark{display:inline-flex;align-items:center;gap:10px}
+  #abzapp .az-ico{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:38px;height:38px;
+    border-radius:11px;background:linear-gradient(135deg,#7c3aed 0%,#a855f7 45%,#ec4899 100%);
+    box-shadow:0 6px 18px #a855f759,inset 0 1px 0 #ffffff5c}
+  #abzapp .az-ico svg{display:block;width:26px;height:26px}
+  #abzapp.as-phone .az-ico{width:30px;height:30px;border-radius:9px}
+  #abzapp.as-phone .az-ico svg{width:21px;height:21px}
+  #abzapp .az-role{font-size:11px;font-weight:800;letter-spacing:.6px;padding:4px 10px;border-radius:999px;
+    border:1px solid #ffd24d66;background:#ffd24d1c;color:#ffd24d}
+  #abzapp .az-role.agent{border-color:#00e5ff66;background:#00e5ff1a;color:#00e5ff}
+  #abzapp .az-role.user{border-color:#352054;background:#1c1433;color:#b5a6cc}
+  #abzapp .az-login{position:absolute;inset:0;z-index:30;display:flex;flex-direction:column;padding:16px 22px 22px;
+    background:radial-gradient(115% 75% at 50% -12%,#3b1d6e 0%,#1a0f2e 42%,#0b0716 100%);overflow-y:auto}
+  #abzapp .az-login[hidden]{display:none}
+  #abzapp.as-phone .az-login{padding:8px 10px 12px}
+  #abzapp .az-lbar{display:none;justify-content:space-between;align-items:center;font-size:11px;color:#cbb9e8;padding:2px 4px 6px}
+  #abzapp.as-phone .az-lbar{display:flex}
+  #abzapp .az-lsig{display:inline-flex;align-items:flex-end;gap:2px}
+  #abzapp .az-lsig i{width:3px;background:#cbb9e8;border-radius:1px}
+  #abzapp .az-lsig i:nth-child(1){height:4px}#abzapp .az-lsig i:nth-child(2){height:7px}#abzapp .az-lsig i:nth-child(3){height:10px}
+  #abzapp .az-lbat{display:inline-block;width:22px;height:11px;border:1px solid #cbb9e8;border-radius:3px;position:relative;margin-left:7px}
+  #abzapp .az-lbat em{position:absolute;inset:1.5px;width:64%;background:#cbb9e8;border-radius:1px}
+  #abzapp .az-lcard{width:100%;max-width:430px;margin:auto;padding:26px 26px 22px;border:1px solid #3a2560;border-radius:24px;
+    background:#150e26e6;box-shadow:0 24px 60px #000a,0 0 0 1px #ffffff10}
+  #abzapp.as-phone .az-lcard{max-width:none;margin:6px 0 0;padding:16px 14px 14px;border-radius:18px}
+  #abzapp .az-lhero{display:flex;justify-content:center;margin-bottom:14px}
+  #abzapp .az-ico.az-bigico{width:92px;height:92px;border-radius:27px;
+    box-shadow:0 12px 34px #a855f77a,0 0 0 6px #a855f724,0 0 44px #ec48993d,inset 0 2px 0 #ffffff6b;
+    animation:azFloat 4.5s ease-in-out infinite}
+  #abzapp .az-ico.az-bigico svg{width:60px;height:60px}
+  #abzapp.as-phone .az-ico.az-bigico{width:74px;height:74px;border-radius:22px}
+  #abzapp.as-phone .az-ico.az-bigico svg{width:47px;height:47px}
+  @keyframes azFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+  #abzapp .az-wordmark{margin:0;text-align:center;font-size:25px;font-weight:800;letter-spacing:5px;line-height:1.15}
+  #abzapp .az-wordmark em{font-style:normal;background:linear-gradient(90deg,#ff2a6d,#00e5ff);
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+  #abzapp .az-ltag{margin:6px 0 18px;text-align:center;font-size:11.5px;letter-spacing:.4px;color:#9d8bc4}
+  #abzapp .az-lhead h2{margin:0;font-size:22px;font-weight:800}
+  #abzapp .az-lhead p{margin:4px 0 2px;font-size:12.5px;color:#9d8bc4}
+  #abzapp .az-field{position:relative;display:flex;align-items:center;margin-top:12px}
+  #abzapp .az-field input{width:100%;font:inherit;font-size:14px;color:#fbf9ff;background:#1b1230;
+    border:1px solid #3a2560;border-radius:13px;padding:13px 44px 13px 40px;outline:0}
+  #abzapp .az-field input::placeholder{color:#7c6aa4}
+  #abzapp .az-field input:focus{border-color:#a855f7;box-shadow:0 0 0 3px #a855f733}
+  #abzapp .az-fico{position:absolute;left:14px;font-size:14px;color:#a08cc9;pointer-events:none}
+  #abzapp .az-eye{position:absolute;right:7px;background:transparent;border:0;padding:6px 9px;font-size:14px;color:#a08cc9;border-radius:9px}
+  #abzapp .az-eye:hover{color:#fbf9ff;background:#ffffff14}
+  #abzapp .az-lerr{margin:10px 0 0;font-size:12px;color:#ff6b8b}
+  #abzapp .az-lbtn{width:100%;margin-top:16px;border:0;border-radius:13px;padding:14px;font:inherit;font-size:15px;font-weight:800;
+    color:#fff;background:linear-gradient(135deg,#8b5cf6,#a855f7 45%,#ec4899);box-shadow:0 10px 26px #a855f759}
+  #abzapp .az-lbtn:hover{filter:brightness(1.09)}
+  #abzapp .az-lbtn:disabled{opacity:.65;cursor:progress}
+  #abzapp .az-lhelp{display:flex;align-items:center;justify-content:center;gap:9px;margin-top:13px;font-size:12px;color:#8f7cbd}
+  #abzapp .az-link{background:transparent;border:0;font:inherit;font-size:12px;color:#c9a8ff;padding:0;text-decoration:underline}
+  #abzapp .az-lsignup{margin:16px 0 0;text-align:center;font-size:13px;color:#b5a6cc}
+  #abzapp .az-signup{background:transparent;border:0;font:inherit;font-size:13px;font-weight:800;color:#ff5c8a;padding:0;text-decoration:underline}
+  #abzapp .az-lroles{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:1px dashed #33215a}
+  #abzapp .az-rolechip{display:inline-flex;align-items:center;gap:6px;background:#1b1230;border:1px solid #3a2560;
+    border-radius:999px;padding:7px 13px;font-size:11.5px;color:#cbb9e8}
+  #abzapp .az-rolechip:hover{border-color:#a855f7;color:#fbf9ff}
+  #abzapp.neon{background:radial-gradient(120% 80% at 8% 0%,#08283c 0%,#071220 45%,#03060c 100%)}
+  #abzapp.neon .az-top,#abzapp.neon .az-main,#abzapp.neon .az-side,#abzapp.neon .az-rail{border-color:#00e5ff4d}
+  #abzapp.as-phone .az-tiles{gap:7px}
+  #abzapp.as-phone .az-tile i{width:34px;height:34px;line-height:34px;font-size:15px}
+  #abzapp.as-phone .az-pfav{width:82px;height:82px}
+  #abzapp.as-phone .az-pfcard .amt{font-size:18px}
+  #abzapp .az-conn{font-size:11px;font-weight:700;color:#7cffb2;border:1px solid #2c5c46;border-radius:999px;
+    padding:4px 11px;background:#0f1b17;white-space:nowrap}
+  #abzapp .az-toast{position:absolute;left:50%;bottom:28px;transform:translateX(-50%);z-index:42;background:#1c1433;
+    border:1px solid #ff2a6d;border-radius:11px;padding:10px 16px;font-size:12px;box-shadow:0 10px 30px #000000a0}
+</style>
+
+<script>
+(function () {
+  var KEY = 'AIzaSyDBZhUPU4oflbqNOP4vyHFSa65r8TpNdI0';
+  var PROJECT = 'addabuzzlive';
+  var BASE = 'https://firestore.googleapis.com/v1/projects/' + PROJECT + '/databases/(default)/documents';
+  var ROOMS = BASE + '/rooms';
+
+  var GIFTS = [
+    ['Red Rose', 19, '\u{1F339}'], ['Love Heart', 99, '\u{1F49D}'], ['Romantic Balloons', 199, '\u{1F388}'],
+    ['Birthday Cake', 299, '\u{1F382}'], ['Mystery Box', 520, '\u{1F381}'], ['Flower Bouquet', 999, '\u{1F490}'],
+    ['Cute Puppy', 1314, '\u{1F436}'], ['Diamond Ring', 5200, '\u{1F48D}'], ['Sports Car', 9999, '\u{1F3CE}\u{FE0F}'],
+    ['Luxury Yacht', 19999, '\u{1F6E5}\u{FE0F}'], ['Royal Crown', 29999, '\u{1F451}'], ['Space Rocket', 50000, '\u{1F680}']
+  ];
+  var STAR = [
+    ['Myrtle Clarke', 'ID: 1063294', 2863294, 'photo-1534528741775-53994a69daeb', 68],
+    ['Betty Vega', 'ID: 1283294', 1983294, 'photo-1517841905240-472988babdf9', 55],
+    ['Tanvir Rahman', 'ID: 10283294', 1492340, 'photo-1507003211169-0a1dd7228f2d', 51],
+    ['Johnny Rios', 'ID: 34983294', 963294, 'photo-1500648767791-00dcc994a43e', 48],
+    ['Lola Bailey', 'ID: 42383213', 842983, 'photo-1524504388940-b1c1722653e1', 42],
+    ['Jayden Hansen', 'ID: 34983932', 694783, 'photo-1492562080023-ab3db95bfbce', 37],
+    ['Dollie Holmes', 'ID: 64983324', 532473, 'photo-1494790108377-be9c29b29330', 30]
+  ];
+  var TIERS = [[10000, 0, '$0.99', 120], [55000, 5000, '$4.99', 600], [120000, 15000, '$9.99', 1200]];
+  var METHODS = ['bKash', 'Nagad', 'Visa/Card', 'Google Pay'];
+  var WMETHODS = ['bKash', 'Nagad', 'Bank', 'USDT'];
+  var WPRESETS = [[100000, 10], [250000, 25], [500000, 50]];
+  var ME = { name: 'Alex Morgan', idNum: '88472910', level: 38, charmLevel: 34, wealthLevel: 45, vipLevel: 3,
+    gender: 'MALE', bio: 'Broadcaster & Multi-mic party host! Join my room every night 9 PM.',
+    followingCount: 142, followersCount: 1890, diamonds: 18500, role: 'USER', agencyCode: 'AGENCY_DHAKA_77',
+    agencyName: 'Diamond Star Agency', e2eeEnabled: true };
+  var AVATAR = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=300';
+  var NOTIFS = [
+    ['Stella started an 8-Mic Party!', 'Grab seat #6 or #7 now in \u2018Karaoke & Adda Party\u2019!', '2m ago'],
+    ['PK Battle Started!', 'Tanvir is in a 1v1 PK clash against Rahim King. Support with gifts!', '8m ago'],
+    ['Daily Target Completed \u{1F389}', 'You earned +10,000 Points from your multi-seat host party task!', '1h ago'],
+    ['Gift Received', 'Top gifter Karim sent a Luxury Yacht (19,999 Coins) to your room.', '4h ago'],
+    ['Security & E2EE Verified', 'Your end-to-end encryption keychain rotated successfully.', '6h ago']
+  ];
+  var DMS = [
+    ['Super Agent Rahim', 'Your monthly agency points payout ($52.00) is ready to withdraw via bKash.', '2h ago', 'MALE', 'photo-1492562080023-ab3db95bfbce'],
+    ['Stella Malone', 'Singing tonight at 9! Come grab a mic seat \u{1F3A4}', '5h ago', 'FEMALE', 'photo-1534528741775-53994a69daeb'],
+    ['Support Bot', 'Never share your bank PIN or OTP. AddaBuzz staff will never ask for it.', '1d ago', 'MALE', 'photo-1507003211169-0a1dd7228f2d']
+  ];
+
+  var st = { rooms: [], cur: null, view: 'home', filter: 'live', chat: [], sideRoom: '', rankType: 'star', rankPeriod: 'Daily',
+    coins: 18500, points: 520000, tier: 0, method: 'bKash', wpreset: 0, wmethod: 'bKash', follow: {}, likes: 0, pkTimer: 128, msgCount: 0,
+    mode: 'desktop', theme: 'dark' };
+
+  function applyMode() {
+    var a = document.getElementById('abzapp');
+    if (!a) return;
+    if (a.classList) { if (st.mode === 'phone') a.classList.add('as-phone'); else a.classList.remove('as-phone'); }
+    else if (st.mode === 'phone') a.className += ' as-phone';
+    var bs = document.querySelectorAll('#abzapp .az-mode');
+    for (var i = 0; i < bs.length; i++) {
+      var on = bs[i].getAttribute('data-act') === (st.mode === 'phone' ? 'mphone' : 'mdesktop');
+      bs[i].className = 'az-mode' + (on ? ' sel' : '');
+    }
+    try { localStorage.setItem('abzmode', st.mode); } catch (e) {}
+  }
+
+  /* ---------- ADDABUZZ LIVE app icon (drawn, so Blogger sanitising cannot touch it) ---------- */
+  function iconSvg() {
+    return '<svg viewBox="0 0 48 48" aria-hidden="true">' +
+      '<g fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">' +
+        '<rect x="14" y="19" width="19" height="14" rx="4.5"></rect>' +
+        '<path d="M33 23l7-4v14l-7-4z" fill="#ffffff" stroke="none" opacity=".92"></path>' +
+        '<path d="M17 12.5c3.6-2.4 8-3 12 0" opacity=".8"></path>' +
+      '</g>' +
+      '<g fill="none" stroke="#ffd1e8" stroke-width="2.6" stroke-linecap="round">' +
+        '<path d="M10 21.5c-2.6 2.8-2.6 6.2 0 9"></path>' +
+        '<path d="M6.5 18.5c-4.2 4.6-4.2 11.4 0 16" opacity=".55"></path>' +
+      '</g>' +
+      '<circle cx="20" cy="26" r="2.1" fill="#ff2a6d"></circle></svg>';
+  }
+  function faviconSvg() {
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">' +
+      '<defs><linearGradient id="abzg" x1="0" y1="0" x2="1" y2="1">' +
+      '<stop offset="0" stop-color="#7c3aed"/><stop offset=".5" stop-color="#a855f7"/><stop offset="1" stop-color="#ec4899"/>' +
+      '</linearGradient></defs>' +
+      '<rect width="48" height="48" rx="11" fill="url(#abzg)"/>' +
+      '<g fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">' +
+      '<rect x="15" y="20" width="18" height="13" rx="4"/><path d="M33 24l6-3v12l-6-3z" fill="#fff" stroke="none"/>' +
+      '<path d="M18 13.5c3.4-2.2 7.6-2.7 11.4 0" opacity=".8"/></g>' +
+      '<path d="M11 22.5c-2.4 2.6-2.4 5.9 0 8.5" fill="none" stroke="#ffd1e8" stroke-width="2.4" stroke-linecap="round"/>' +
+      '<circle cx="21" cy="26.5" r="2" fill="#ff2a6d"/></svg>';
+  }
+  function paintIcons() {
+    var ic = document.querySelectorAll('#abzapp .az-ico');
+    for (var i = 0; i < ic.length; i++) ic[i].innerHTML = iconSvg();
+    try {
+      var l = document.createElement('link');
+      l.rel = 'icon'; l.type = 'image/svg+xml';
+      l.href = 'data:image/svg+xml,' + encodeURIComponent(faviconSvg());
+      document.head.appendChild(l);
+    } catch (e) {}
+  }
+
+  /* ---------- sign-in session ---------- */
+  var PASS_HASH = '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9';
+  var USERS = [
+    { email: 'fayselsk@gmail.com', phash: PASS_HASH, role: 'ADMIN', name: 'Faysel SK', idNum: '10000001',
+      agencyName: 'AddaBuzz HQ', agencyCode: 'AGENCY_HQ_01', level: 60, vipLevel: 10 },
+    { email: 'ranababu78@gmail.com', phash: PASS_HASH, role: 'SUPER_AGENT', name: 'Rahim King', idNum: '77881234',
+      agencyName: 'Diamond Star Agency', agencyCode: 'AGENCY_DHAKA_77', level: 52, vipLevel: 7 }
+  ];
+  var DEFAULT_ME = { name: 'Alex Morgan', idNum: '88472910', level: 38, vipLevel: 3,
+    agencyName: 'Diamond Star Agency', agencyCode: 'AGENCY_DHAKA_77' };
+  function roleLabel(r) { return r === 'ADMIN' ? 'ADMIN' : (r === 'SUPER_AGENT' ? 'SUPER AGENT' : 'VIEWER'); }
+  function findUser(email) {
+    for (var i = 0; i < USERS.length; i++) if (USERS[i].email === String(email).toLowerCase()) return USERS[i];
+    return null;
+  }
+  function isStaff() { return ME.role === 'ADMIN' || ME.role === 'SUPER_AGENT'; }
+  function sha256hex(s, cb) {
+    if (!(window.crypto && window.crypto.subtle && window.TextEncoder)) { cb(null); return; }
+    try {
+      window.crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)).then(function (buf) {
+        var u = new Uint8Array(buf), o = '', i;
+        for (i = 0; i < u.length; i++) { var h = u[i].toString(16); if (h.length < 2) h = '0' + h; o += h; }
+        cb(o);
+      }, function () { cb(null); });
+    } catch (e) { cb(null); }
+  }
+  function loginErr(msg) {
+    var e = document.getElementById('az-lerr');
+    if (!e) return;
+    e.textContent = msg || ''; e.hidden = !msg;
+  }
+  function applySession(o) {
+    st.auth = o;
+    var u = findUser(o.e);
+    ME.role = o.r || 'USER';
+    ME.name = o.n || DEFAULT_ME.name;
+    ME.idNum = o.i || DEFAULT_ME.idNum;
+    ME.level = o.l || (u ? u.level : DEFAULT_ME.level);
+    ME.vipLevel = o.v || (u ? u.vipLevel : DEFAULT_ME.vipLevel);
+    ME.agencyName = u ? u.agencyName : (o.a || DEFAULT_ME.agencyName);
+    ME.agencyCode = u ? u.agencyCode : (o.c || DEFAULT_ME.agencyCode);
+    ME.e2eeEnabled = ME.role !== 'USER';
+    var chip = document.getElementById('az-role');
+    if (chip) {
+      chip.textContent = roleLabel(ME.role);
+      chip.className = 'az-role' + (ME.role === 'ADMIN' ? '' : (ME.role === 'SUPER_AGENT' ? ' agent' : ' user'));
+      chip.hidden = false;
+    }
+    var lg = document.getElementById('az-login'); if (lg) lg.hidden = true;
+    render();
+  }
+  function startSession(o) {
+    try { localStorage.setItem('abzauth', JSON.stringify(o)); } catch (e) {}
+    applySession(o);
+    toast('\u2705 Signed in as ' + roleLabel(o.r) + ' \u00b7 ' + (o.e || o.n));
+  }
+  function endSession() {
+    try { localStorage.removeItem('abzauth'); } catch (e) {}
+    st.auth = null;
+    var chip = document.getElementById('az-role'); if (chip) chip.hidden = true;
+    var em = document.getElementById('az-email'), pw = document.getElementById('az-pass');
+    if (em) em.value = ''; if (pw) pw.value = '';
+    loginErr('');
+    var lg = document.getElementById('az-login'); if (lg) lg.hidden = false;
+    closeModal();
+    st.view = 'home';
+  }
+  function doLogin() {
+    var em = document.getElementById('az-email'), pw = document.getElementById('az-pass'), btn = document.getElementById('az-lbtn');
+    var email = String(em.value || '').trim().toLowerCase(), pass = String(pw.value || '');
+    loginErr('');
+    if (!/^[^@\s]+@[^@\s.]+\.[^@\s]+$/.test(email)) { loginErr('Enter a valid email address.'); em.focus(); return; }
+    if (pass.length < 4) { loginErr('Enter your password.'); pw.focus(); return; }
+    btn.disabled = true; btn.textContent = 'Signing in\u2026';
+    sha256hex(pass, function (h) {
+      btn.disabled = false; btn.textContent = 'Login';
+      if (h === null) { loginErr('This browser blocks secure hashing \u2014 open the page over https.'); return; }
+      var u = findUser(email);
+      if (u && u.phash === h) {
+        startSession({ e: u.email, r: u.role, n: u.name, i: u.idNum, at: Date.now() });
+        return;
+      }
+      loginErr(u ? 'Wrong password for ' + u.email + '.'
+                 : 'No staff account for ' + email + ' \u2014 use Sign Up or continue as guest.');
+    });
+  }
+  function openSignUp() {
+    var h = '<div class="az-mtop"><h3>\u{1F54A} Create a viewer account</h3><button type="button" class="az-x" data-act="close">\u2715</button></div>' +
+      '<p class="tip">Staff (Admin / Super Agent) logins are issued by the agency \u2014 you cannot self-register them here. A viewer profile works on this web mirror only; the Android build registers it through Firebase Auth.</p>' +
+      '<div class="az-field" style="margin-top:8px"><span class="az-fico">\u{1F464}</span><input id="az-su-name" placeholder="Display name" aria-label="Display name" /></div>' +
+      '<div class="az-field"><span class="az-fico">&#9993;</span><input id="az-su-mail" type="email" placeholder="Email address" aria-label="Email address" /></div>' +
+      '<div class="az-field"><span class="az-fico">&#128273;</span><input id="az-su-pass" type="password" placeholder="Password" aria-label="Password" /></div>' +
+      '<button type="button" class="az-lbtn" data-act="dosignup">Create &amp; sign in</button>';
+    openModal(h);
+    var n = document.getElementById('az-su-name'); if (n) n.focus();
+  }
+  function doSignUp() {
+    var n = document.getElementById('az-su-name'), m = document.getElementById('az-su-mail'), p = document.getElementById('az-su-pass');
+    var name = String(n.value || '').trim(), email = String(m.value || '').trim().toLowerCase(), pass = String(p.value || '');
+    if (name.length < 2) { toast('Enter a display name'); n.focus(); return; }
+    if (!/^[^@\s]+@[^@\s.]+\.[^@\s]+$/.test(email)) { toast('Enter a valid email address'); m.focus(); return; }
+    if (pass.length < 6) { toast('Password must be at least 6 characters'); p.focus(); return; }
+    if (findUser(email)) { toast('That email already has a staff account \u2014 sign in instead'); return; }
+    startSession({ e: email, r: 'USER', n: name, i: String(10000000 + email.length * 7919 + name.length * 31), at: Date.now() });
+  }
+  function openAccounts() {
+    var h = '<div class="az-mtop"><h3>\u{1F3DB}\uFE0F Sign-in roles</h3><button type="button" class="az-x" data-act="close">\u2715</button></div>' +
+      '<p class="tip">This web mirror only keeps a SHA-256 password challenge in the page \u2014 Firebase Auth in the Android app is the real source of truth. Ask AddaBuzz HQ for the password of an ID.</p><div class="az-kv">' +
+      kv('Admin \u00b7 AddaBuzz HQ', 'fayselsk@gmail.com') +
+      kv('Super Agent \u00b7 Diamond Star', 'ranababu78@gmail.com') +
+      kv('This session', ME.name + ' \u00b7 ' + roleLabel(ME.role)) +
+      kv('User ID', ME.idNum) + kv('Agency code', ME.agencyCode) +
+      kv('Sessions last', 'until you log out') +
+      '</div><button type="button" class="az-pfbtn" style="margin-top:12px" data-act="logout">Switch account</button>';
+    openModal(h);
+  }
+  function fillDemo(email) {
+    var em = document.getElementById('az-email'), pw = document.getElementById('az-pass');
+    if (em) em.value = email;
+    if (pw) pw.focus();
+    loginErr('Password was set by the agency admin when this ID was created.');
+    toast('Email filled \u00b7 type the account password to sign in');
+  }
+
+  function val(x) {
+    if (x === null || x === undefined) return null;
+    if ('stringValue' in x) return x.stringValue;
+    if ('integerValue' in x) return parseInt(x.integerValue, 10);
+    if ('doubleValue' in x) return x.doubleValue;
+    if ('booleanValue' in x) return x.booleanValue;
+    if ('arrayValue' in x) { var a = x.arrayValue.values || [], o = []; for (var i = 0; i < a.length; i++) o.push(val(a[i])); return o; }
+    if ('mapValue' in x) return unmap(x.mapValue.fields);
+    if ('timestampValue' in x) return x.timestampValue;
+    return null;
+  }
+  function unmap(f) { var o = {}; if (f) { for (var k in f) if (f.hasOwnProperty(k)) o[k] = val(f[k]); } return o; }
+  function idOf(n) { var p = String(n).split('/'); return p[p.length - 1]; }
+  function esc(s) {
+    return String(s === null || s === undefined ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  function fmt(n) {
+    n = Number(n) || 0;
+    if (n >= 1000000) return (n / 1000000).toFixed(1).replace('.0', '') + 'M';
+    if (n >= 1000) return (n / 1000).toFixed(1).replace('.0', '') + 'K';
+    return String(n);
+  }
+  function money(n) { return (Number(n) || 0).toLocaleString('en-US'); }
+  function getJSON(url, cb) {
+    try {
+      fetch(url, { method: 'GET', headers: { Accept: 'application/json' } })
+        .then(function (r) { return r.json(); })
+        .then(function (d) { cb(null, d); })
+        .catch(function (e) { cb(e, null); });
+    } catch (e) { cb(e, null); }
+  }
+  function write(url, method, payload, cb) {
+    try {
+      fetch(url, { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+        .then(function (r) { return r.ok ? r.json() : Promise.reject(new Error('http ' + r.status)); })
+        .then(function (d) { cb && cb(null, d); })
+        .catch(function (e) { cb && cb(e, null); });
+    } catch (e) { cb && cb(e, null); }
+  }
+  function toast(t) {
+    var el = document.getElementById('az-toast');
+    if (!el) return;
+    el.textContent = t; el.hidden = false;
+    clearTimeout(toast._t); toast._t = setTimeout(function () { el.hidden = true; }, 2400);
+  }
+  function status(txt, ok) {
+    var s = document.getElementById('az-status');
+    if (!s) return;
+    s.textContent = txt;
+    s.style.color = ok ? '#7CFDB2' : '#ff8fa8';
+  }
+
+  function loadRooms() {
+    getJSON(ROOMS + '?key=' + KEY + '&orderBy=idNum', function (err, data) {
+      if (err || !data || !data.documents) { status('offline \u2014 retrying', false); return; }
+      var list = [];
+      for (var i = 0; i < data.documents.length; i++) {
+        var d = data.documents[i], f = unmap(d.fields);
+        f.docId = idOf(d.name);
+        list.push(f);
+      }
+      st.rooms = list;
+      status('live \u00b7 Firestore streaming', true);
+      var on = document.getElementById('az-onsite');
+      if (on) on.textContent = list.length;
+      renderWallet();
+      render();
+      if (st.cur) {
+        var found = null;
+        for (var k = 0; k < list.length; k++) if (list[k].docId === st.cur) found = list[k];
+        if (found) { st.cur = found.docId; renderStage(); }
+      }
+    });
+  }
+
+  function loadChat() {
+    if (!st.cur) return;
+    getJSON(ROOMS + '/' + st.cur + '/chat?pageSize=200&key=' + KEY, function (err, data) {
+      var box = document.getElementById('az-chat');
+      if (!box) return;
+      if (err || !data || !data.documents) { box.innerHTML = '<div class="az-empty">Chat is quiet right now.</div>'; return; }
+      var docs = data.documents.slice(0);
+      docs.sort(function (a, b) {
+        var ta = unmap(a.fields).createdAt || a.createTime || '';
+        var tb = unmap(b.fields).createdAt || b.createTime || '';
+        return String(ta) < String(tb) ? -1 : (String(ta) > String(tb) ? 1 : 0);
+      });
+      if (docs.length > 80) docs = docs.slice(docs.length - 80);
+      var rows = '';
+      for (var i = 0; i < docs.length; i++) {
+        var f = unmap(docs[i].fields);
+        if (!f.text) continue;
+        var cls = f.isGift ? ' gift' : (f.isSystem ? ' sys' : '');
+        var vip = f.vipLevel ? '<span class="az-vip">VIP ' + esc(f.vipLevel) + '</span>' : '';
+        var who = f.isSystem ? '' : '<span class="az-who ' + (f.gender === 'MALE' ? 'm' : 'f') + '">' + vip + esc(f.user || 'guest') + ':</span>';
+        var body = f.isGift ? (esc(f.giftIcon || '') + ' ' + esc(f.text)) : esc(f.text);
+        rows += '<div class="az-m' + cls + '">' + who + '<span class="az-txt">' + body + '</span></div>';
+      }
+      box.innerHTML = rows || '<div class="az-empty">Say hello \u{1F44B}</div>';
+      st.msgCount = docs.length;
+      box.scrollTop = box.scrollHeight;
+      var stat = document.getElementById('az-msgcount');
+      if (stat) stat.textContent = st.msgCount;
+    });
+  }
+
+  function sendChat(text, gift, price) {
+    if (!st.cur || !text) return;
+    if (price && price > st.coins) { toast('Not enough coins \u2014 open Top Up'); openWallet('topup'); return; }
+    if (price) st.coins -= price;
+    var fields = {
+      user: { stringValue: ME.name },
+      text: { stringValue: String(text).slice(0, 200) },
+      gender: { stringValue: ME.gender },
+      level: { integerValue: String(ME.level) },
+      vipLevel: { integerValue: String(ME.vipLevel) },
+      isSystem: { booleanValue: false },
+      isGift: { booleanValue: !!gift },
+      giftIcon: { stringValue: gift || '' },
+      createdAt: { timestampValue: new Date().toISOString() }
+    };
+    var docId = 'w' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    write(ROOMS + '/' + st.cur + '/chat/' + docId + '?key=' + KEY, 'POST', { fields: fields }, function () { loadChat(); });
+    if (price) bump('charmScore', price);
+    var box = document.getElementById('az-chat');
+    if (box) {
+      var div = document.createElement('div');
+      div.className = 'az-m' + (gift ? ' gift' : '');
+      div.innerHTML = (gift ? '' : '<span class="az-who m">' + esc(ME.name) + ':</span>') +
+        '<span class="az-txt">' + esc((gift ? gift + ' ' : '') + text) + '</span>';
+      box.appendChild(div);
+      box.scrollTop = box.scrollHeight;
+    }
+    renderWallet();
+  }
+
+  function bump(field, delta) {
+    if (!st.cur) return;
+    var r = roomById(st.cur) || {};
+    var next = Math.max(0, (Number(r[field]) || 0) + delta);
+    var p = {}; p[field] = { integerValue: String(next) };
+    write(ROOMS + '/' + st.cur + '?key=' + KEY, 'PATCH',
+      { fields: p, mask: { fieldPaths: [field] }, currentDocument: {} }, function () { loadRooms(); });
+  }
+
+  function boostPK() {
+    var r = roomById(st.cur);
+    if (!r || !r.pkBattle) return;
+    var cost = 500;
+    if (st.coins < cost) { toast('Need ' + cost + ' coins to boost'); openWallet('topup'); return; }
+    st.coins -= cost; renderWallet();
+    var next = (Number(r.pkBattle.leftScore) || 0) + cost;
+    write(ROOMS + '/' + st.cur + '?key=' + KEY, 'PATCH',
+      { fields: { pkBattle: { mapValue: { fields: { leftScore: { integerValue: String(next) } } } } },
+        mask: { fieldPaths: ['pkBattle.leftScore'] }, currentDocument: {} }, function () { loadRooms(); });
+    toast('Boosted PK with ' + cost + ' pts \u{1F525}');
+  }
+
+  function toggleFollow() {
+    var r = roomById(st.cur);
+    if (!r) return;
+    var on = !st.follow[r.docId];
+    st.follow[r.docId] = on;
+    write(ROOMS + '/' + r.docId + '?key=' + KEY, 'PATCH',
+      { fields: { isFollowing: { booleanValue: on } }, mask: { fieldPaths: ['isFollowing'] }, currentDocument: {} },
+      function () { renderStage(); });
+    toast(on ? 'Following ' + r.name : 'Unfollowed');
+  }
+
+  function roomById(id) {
+    for (var i = 0; i < st.rooms.length; i++) if (st.rooms[i].docId === id) return st.rooms[i];
+    return null;
+  }
+
+  function badgeFor(r) {
+    if (r.pkBattle) return '<span class="az-badge pk">\u2694\u{FE0F} PK</span>';
+    if (r.partySeats && r.partySeats.length) return '<span class="az-badge mic">\u{1F399}\u{FE0F} 8-MIC</span>';
+    return '<span class="az-badge live">\u25CF LIVE</span>';
+  }
+  function flagOf(r) { return r.countryFlag || (r.country === 'Bangladesh' ? '\u{1F1E7}\u{1F1E9}' : (r.country === 'India' ? '\u{1F1EE}\u{1F1F3}' : '\u{1F30D}')); }
+
+  function filteredRooms() {
+    var out = [];
+    for (var i = 0; i < st.rooms.length; i++) {
+      var r = st.rooms[i], keep = true;
+      if (st.filter === 'party') keep = !!(r.partySeats && r.partySeats.length);
+      if (st.filter === 'pk') keep = !!r.pkBattle;
+      if (keep) out.push(r);
+    }
+    return out;
+  }
+
+  function viewHome() {
+    var list = filteredRooms(), h = '';
+    h += '<div class="az-filters">';
+    h += '<button type="button" data-filter="live" class="' + (st.filter === 'live' ? 'sel' : '') + '">LIVE</button>';
+    h += '<button type="button" data-filter="party" class="' + (st.filter === 'party' ? 'sel' : '') + '">Party Room</button>';
+    h += '<button type="button" data-filter="pk" class="' + (st.filter === 'pk' ? 'sel' : '') + '">PK Battle</button>';
+    h += '</div>';
+    h += '<div class="az-h1">Hot Broadcasts \u{1F525}</div>';
+    if (!list.length) return h + '<div class="az-empty">No rooms yet.</div>';
+    h += '<div class="az-grid">';
+    for (var i = 0; i < list.length; i++) {
+      var r = list[i];
+      var lat = (r.latencyMs || 0) + 'ms \u2022 ' + (r.fps || 0) + 'fps';
+      var g = r.gender === 'FEMALE' ? 'f' : 'm';
+      h += '<button type="button" class="az-card" data-room="' + esc(r.docId) + '">' +
+        '<div class="az-cover" style="background-image:url(' + esc(r.imageUrl || '') + ')"></div>' +
+        '<div class="az-veil"></div>' + badgeFor(r) +
+        '<span class="az-vw">' + flagOf(r) + ' ' + fmt(r.viewersCount) + '</span>' +
+        '<div class="az-cbody">' +
+        '<div class="az-met"><span class="g-' + g + '">' + (g === 'm' ? '\u2642' : '\u2640') + ' Lv.' + (r.level || 1) + '</span><span>' + esc(lat) + '</span></div>' +
+        '<div class="az-cname">' + esc(r.name || 'host') + '</div>' +
+        '<div class="az-ctitle">' + esc(r.title || '') + '</div>' +
+        '</div></button>';
+    }
+    return h + '</div>';
+  }
+
+  function viewLive() {
+    var r = roomById(st.cur);
+    if (!r) return '<div class="az-empty">Pick a room from Home.</div>';
+    var g = r.gender === 'FEMALE' ? 'f' : 'm';
+    var fol = st.follow[r.docId];
+    var h = '';
+    h += '<div class="az-stage" id="az-stage" style="background-image:url(' + esc(r.imageUrl || '') + ')">' +
+      '<div class="az-srow">' +
+      '<div class="az-host"><div class="az-av" style="background-image:url(' + esc(r.imageUrl || '') + ')"></div>' +
+      '<div><b>' + esc(r.name || 'host') + '</b><small>' + flagOf(r) + ' \u{1F525} ' + fmt(r.viewersCount) + '</small></div>' +
+      '<button type="button" class="az-follow' + (fol ? ' on' : '') + '" data-act="follow">' + (fol ? '\u2713' : '+ Follow') + '</button></div>' +
+      '<div style="display:flex;gap:6px;align-items:center"><span class="az-lag">' + (r.latencyMs || 0) + 'ms \u2022 ' + (r.fps || 0) + 'fps \u2022 ' + esc(r.resolution || '1080p') + '</span>' +
+      '<button type="button" class="az-close" data-act="home">\u2715</button></div>' +
+      '</div>' +
+      '<div class="az-hearts" id="az-hearts">\u2764</div>' +
+      '<div class="az-safety">\u{1F512} Safety: End-to-End Encrypted. Never share bank PIN or OTP.</div>' +
+      '</div>';
+
+    if (r.pkBattle) {
+      var pk = r.pkBattle, tot = (Number(pk.leftScore) || 0) + (Number(pk.rightScore) || 0);
+      var pct = tot ? Math.min(90, Math.max(10, (pk.leftScore / tot) * 100)) : 50;
+      var mm = Math.floor(st.pkTimer / 60), ss = st.pkTimer % 60;
+      h += '<div class="az-pk"><h4>\u2694\u{FE0F} ' + esc(pk.statusText || 'PK BATTLE IN PROGRESS \u{1F525}') + '</h4>' +
+        '<div class="sub">vs ' + esc(pk.opponentName || 'rival') + ' \u00b7 \u23F1 ' + (mm < 10 ? '0' : '') + mm + ':' + (ss < 10 ? '0' : '') + ss +
+        (pk.punishmentText ? ' \u00b7 ' + esc(pk.punishmentText) : '') + '</div>' +
+        '<div class="az-score"><span class="l">' + money(pk.leftScore) + ' Pts</span><span class="r">' + money(pk.rightScore) + ' Pts</span></div>' +
+        '<div class="az-bar"><i style="width:' + pct.toFixed(1) + '%"></i></div>' +
+        '<button type="button" class="az-boost" data-act="boost">Boost PK \u{1F525} (500 \u{1F7E1})</button></div>';
+    }
+
+    if (r.partySeats && r.partySeats.length) {
+      h += '<div class="az-h1" style="margin-top:14px">\u{1F399}\u{FE0F} 8-Mic Party Voice & Video Room</div>';
+      h += '<div class="az-seats">';
+      for (var i = 0; i < 8; i++) {
+        var s = r.partySeats[i] || null;
+        var cls = 'az-seat' + (s && s.isHost ? ' host' : '') + (s && s.isSpeaking ? ' spk' : '') + (s && s.isLocked ? ' lock' : '');
+        var inner;
+        if (s && s.isLocked) inner = '<div class="av">\u{1F512}</div><b>Locked</b>';
+        else if (s && s.userName) inner = '<div class="av" style="background-image:url(' + esc(s.avatarUrl || r.imageUrl || '') + ')"></div><b>' + esc(s.userName) + '</b><small>' + (s.isHost ? '\u{1F451} host' : (s.isSpeaking ? 'speaking' : 'seated')) + '</small>';
+        else inner = '<div class="av">+</div><b>Seat ' + (i + 1) + '</b><small>+ Mic</small>';
+        h += '<div class="' + cls + '">' + inner + '</div>';
+      }
+      h += '</div><div style="font-size:10px;color:#b5a6cc;margin-top:6px">Tap empty seat to speak</div>';
+    }
+
+    h += '<div class="az-acts">' +
+      '<button type="button" data-act="gifts">\u{1F381} Gifts</button>' +
+      '<button type="button" data-act="games">\u{1F3B2} Games</button>' +
+      '<button type="button" data-act="like">\u2764 ' + fmt(r.likes) + '</button>' +
+      '<span class="az-grow">' + esc(r.category || 'chat') + ' \u00b7 ' + esc(r.streamType || 'AUDIO') + ' \u00b7 charm ' + fmt(r.charmScore) + '</span>' +
+      '</div>';
+    return h;
+  }
+
+  function viewRank() {
+    var rows = rankData();
+    var h = '<div class="az-h1">Star Ranking</div><div class="az-filters">';
+    var types = [['star', '\u2B50 Star'], ['wealth', '\u{1F451} Wealth'], ['charm', '\u{1F496} Charm']];
+    for (var t = 0; t < types.length; t++)
+      h += '<button type="button" data-rank="' + types[t][0] + '" class="' + (st.rankType === types[t][0] ? 'sel' : '') + '">' + types[t][1] + '</button>';
+    h += '</div><div class="az-filters">';
+    var per = ['Daily', 'Weekly', 'Monthly', 'All Time'];
+    for (var p = 0; p < per.length; p++)
+      h += '<button type="button" data-period="' + per[p] + '" class="' + (st.rankPeriod === per[p] ? 'sel' : '') + '">' + per[p] + '</button>';
+    h += '</div>';
+    if (!rows.length) return h + '<div class="az-empty">No data yet.</div>';
+    var medals = ['\u{1F948}', '\u{1F451}', '\u{1F949}'];
+    h += '<div class="az-podium">';
+    for (var i = 0; i < 3 && i < rows.length; i++) {
+      var o = [1, 0, 2][i];
+      if (!rows[o]) continue;
+      h += '<div class="az-pod' + (o === 0 ? ' first' : '') + '"><div class="av" style="background-image:url(' + esc(rows[o].avatar) + ')"></div>' +
+        '<div style="font-size:16px">' + medals[o] + '</div><b>' + esc(rows[o].name) + '</b><small>\u{1F48E} ' + fmt(rows[o].score) + '</small></div>';
+    }
+    h += '</div>';
+    for (var j = 3; j < rows.length; j++) {
+      var u = rows[j];
+      h += '<div class="az-row"><span class="no">' + (j + 1) + '</span><div class="av" style="background-image:url(' + esc(u.avatar) + ')"></div>' +
+        '<div class="nm"><b>' + esc(u.name) + '</b><small>' + esc(u.sub) + '</small></div><span class="sc">\u{1F48E} ' + money(u.score) + '</span></div>';
+    }
+    return h;
+  }
+
+  function rankData() {
+    var out = [], i;
+    if (st.rankType === 'charm') {
+      for (i = 0; i < st.rooms.length; i++) {
+        var r = st.rooms[i];
+        out.push({ name: r.name || 'host', sub: (r.category || 'chat') + ' \u00b7 Lv.' + (r.level || 1), score: Number(r.charmScore) || 0, avatar: r.imageUrl || '', docId: r.docId });
+      }
+      out.sort(function (a, b) { return b.score - a.score; });
+      return out;
+    }
+    for (i = 0; i < STAR.length; i++) {
+      var s = STAR[i];
+      var mult = st.rankType === 'wealth' ? (1 + s[4] / 100) : 1;
+      var scale = st.rankPeriod === 'Daily' ? 0.06 : (st.rankPeriod === 'Weekly' ? 0.25 : (st.rankPeriod === 'Monthly' ? 0.6 : 1));
+      out.push({ name: s[0], sub: s[1] + ' \u00b7 Lv.' + s[4], score: Math.round(s[2] * mult * scale),
+        avatar: 'https://images.unsplash.com/' + s[3] + '?auto=format&fit=crop&q=80&w=200' });
+    }
+    return out;
+  }
+
+  function viewMessages() {
+    var h = '<div class="az-h1">Notifications</div>';
+    for (var i = 0; i < NOTIFS.length; i++) {
+      h += '<div class="az-row"><span class="no">\u{1F514}</span><div class="nm"><b>' + esc(NOTIFS[i][0]) + '</b>' +
+        '<small>' + esc(NOTIFS[i][1]) + '</small></div><span class="sc" style="color:#b5a6cc;font-weight:400">' + esc(NOTIFS[i][2]) + '</span></div>';
+    }
+    h += '<div class="az-h1" style="margin-top:16px">Direct Messages</div>';
+    for (var j = 0; j < DMS.length; j++) {
+      var m = DMS[j];
+      h += '<div class="az-row"><div class="av" style="background-image:url(https://images.unsplash.com/' + m[4] + '?auto=format&fit=crop&q=80&w=200)"></div>' +
+        '<div class="nm"><b>' + esc(m[0]) + ' <span style="color:' + (m[3] === 'MALE' ? '#29b6f6' : '#ff4081') + '">' + (m[3] === 'MALE' ? '\u2642' : '\u2640') + '</span></b>' +
+        '<small>' + esc(m[1]) + '</small></div><span class="sc" style="color:#b5a6cc;font-weight:400">' + esc(m[2]) + '</span></div>';
+    }
+    return h;
+  }
+
+  function viewProfile() {
+    function tile(ic, lb, act) {
+      return '<button type="button" class="az-tile" data-act="' + act + '"><i>' + ic + '</i><span>' + esc(lb) + '</span></button>';
+    }
+    function row(ic, lb, act, danger) {
+      return '<button type="button" class="az-li' + (danger ? ' danger' : '') + '" data-act="' + act + '"><em>' + ic + '</em>' +
+        esc(lb) + '<span class="ch">' + (danger ? '\u2192' : '\u203A') + '</span></button>';
+    }
+    var staffBlocks = isStaff() ? (
+      '<div class="az-sec">\u{1F91D} Agent Management<span class="hub">' +
+        (ME.role === 'ADMIN' ? 'Admin \u00b7 all agencies' : 'Agency Hub') + '</span>' +
+        '<button type="button" class="all" data-act="accountlist">Accounts \u2192</button></div>' +
+      '<div class="az-tiles">' +
+        tile('\u{1F465}', 'Agent', 'pfnav:Agent') + tile('\u{1F3A4}', 'Add Host', 'pfnav:Add Host') +
+        tile('\u2795', 'Invite Agent', 'pfnav:Invite Agent') + tile('\u{1FA99}', 'Coins Trading', 'pfnav:Coins Trading') +
+      '</div>' +
+      '<div class="az-tiles" style="grid-template-columns:1fr 1fr">' +
+        tile('\u{1F4B0}', 'Agent Rewards', 'pfnav:Agent Rewards') + tile('\u{1F4C8}', 'Agent Ranking', 'pfnav:Agent Ranking') +
+        tile('\u{1F48E}', 'Diamond Agent', 'pfnav:Diamond Agent') +
+        tile('\u{1F3DB}\uFE0F', 'Super Agent & Admin', 'accountlist') +
+      '</div>') : (
+      '<div class="az-sec">\u{1F91D} Agency<span class="hub">Viewer access</span></div>' +
+      '<div class="az-listwrap">' + row('\u{1F3E2}', 'Apply to open an agency', 'pfnav:Agency apply') +
+        row('\u{1F511}', 'Staff sign-in is issued by AddaBuzz HQ', 'accountlist') + '</div>');
+    return '<div class="az-pf">' +
+      '<div class="az-pfhero">' +
+        '<div class="az-pfav" style="background-image:url(' + AVATAR + ')"><span class="az-pfcam">\u{1F4F7}</span></div>' +
+        '<div class="az-pfname">' + esc(ME.name) + '<em class="az-lvpill">Lv.' + ME.level + '</em></div>' +
+        '<div class="az-pfchips"><span class="az-chip vip">VIP-' + ME.vipLevel + '</span>' +
+          '<span class="az-chip wealth">Wealth Lv.' + ME.wealthLevel + '</span>' +
+          '<span class="az-chip charm">Charm Lv.' + ME.charmLevel + '</span></div>' +
+        '<div class="az-pfid">ID: ' + esc(ME.idNum) + ' \u00b7 ' + roleLabel(ME.role) + ' \u00b7 Agency: ' + esc(ME.agencyName) + ' (' + esc(ME.agencyCode) + ')</div>' +
+        '<div class="az-pfbio">' + esc(ME.bio) + '</div>' +
+        '<div class="az-pfstats"><div><b>' + money(ME.followingCount) + '</b><small>Following</small></div>' +
+          '<div><b>' + money(ME.followersCount) + '</b><small>Followers</small></div>' +
+          '<div><b>Lvl.' + ME.level + '</b><small>Host Grade</small></div></div>' +
+      '</div>' +
+      '<div class="az-pfwallet">' +
+        '<div class="az-pfcard coins"><div class="hd">\u{1F7E1} Coins Balance</div>' +
+          '<div class="amt" id="az-pfcoins">' + money(st.coins) + '</div>' +
+          '<button type="button" class="az-pfbtn" data-act="topup">+ Top Up</button></div>' +
+        '<div class="az-pfcard pts"><div class="hd">\u{1F537} Host Points</div>' +
+          '<div class="amt" id="az-pfpts">' + money(Math.round(st.points / 1000)) + 'K Pts</div>' +
+          '<button type="button" class="az-pfbtn" data-act="withdraw">Withdraw \u2192</button></div>' +
+      '</div>' +
+      '<div class="az-tiles">' +
+        tile('\u{1F381}', 'Reward', 'tasks') + tile('\u{1F3C6}', 'Rank', 'rank') +
+        tile('\u{1F3B2}', 'Games', 'games') + tile('\u{1F6CD}\uFE0F', 'Store', 'pfnav:Store') +
+        tile('\u{1F465}', 'Invite', 'pfnav:Invite') + tile('\u{1F6E1}\uFE0F', 'Honor Level', 'pfnav:Honor Level') +
+        tile('\u{1F496}', 'Fan Club', 'pfnav:Fan Club') + tile('\u{1F396}\uFE0F', 'Medal Wall', 'pfnav:Medal Wall') +
+      '</div>' +
+      staffBlocks +
+      '<div class="az-listwrap">' +
+        row('\u{1F4DD}', 'Daily Tasks & Rewards Center', 'tasks') +
+        row('\u270F\uFE0F', 'Edit Profile & Gender Icon', 'pfnav:Edit Profile') +
+        row('\u{1F6E1}\uFE0F', 'Security, E2EE & Data Backup', 'pfnav:Security') +
+        row('\u{1F310}', 'Switch Language (English)', 'pfnav:Language') +
+        row('\u{1F319}', 'Dark / Neon Theme Mode', 'theme') +
+        row('\u{1F6AA}', 'Log Out', 'logout', true) +
+      '</div>' +
+    '</div>';
+  }
+  function kv(k, v) { return '<div><small>' + esc(k) + '</small><b>' + esc(v) + '</b></div>'; }
+
+  function viewGolive() {
+    var h = '<div class="az-h1">Go Live</div>' +
+      '<div style="font-size:12px;color:#b5a6cc;margin-bottom:10px">Broadcast setup. Publishing a new room doc is disabled in this mirror \u2014 the Android build writes to Firestore.</div>' +
+      '<div class="az-filters"><button type="button" class="sel">AUDIO</button><button type="button">VIDEO</button><button type="button">8-MIC PARTY</button><button type="button">PK BATTLE</button></div>' +
+      '<div class="az-tiers" style="grid-template-columns:repeat(2,1fr)">' +
+      '<div class="az-tier"><b>1080p 60fps</b><small>Ultra \u00b7 4.2 Mbps</small></div>' +
+      '<div class="az-tier"><b>720p 30fps</b><small>Standard \u00b7 1.8 Mbps</small></div></div>' +
+      '<div class="az-kv">' + kv('Category', 'Karaoke Adda') + kv('Title', 'Weeknight Karaoke & Adda') +
+      kv('Seats', '8 mic') + kv('Region', 'asia-south1') + '</div>' +
+      '<div class="az-acts"><button type="button" data-act="golive-demo">START BROADCAST</button></div>';
+    return h;
+  }
+
+  function sideForChat() {
+    var r = roomById(st.cur);
+    if (!r) return '<div class="az-empty">No room selected.</div>';
+    var h = '<div class="az-head"><div><h3>' + esc(r.title || r.name || 'Room') + '</h3>' +
+      '<small>' + esc(r.name || 'host') + ' \u00b7 ' + fmt(r.viewersCount) + ' viewers \u00b7 charm ' + fmt(r.charmScore) +
+      ' \u00b7 <span id="az-msgcount">0</span> msgs</span></div>' +
+      '<button type="button" class="az-x" data-act="home">\u2715</button></div>' +
+      '<div class="az-list" id="az-chat"><div class="az-empty">loading&hellip;</div></div>' +
+      '<form class="az-comp" id="az-form"><input id="az-text" maxlength="200" placeholder="Chat with host & friends..." autocomplete="off" /><button type="submit">Send</button></form>' +
+      '<div class="az-quick" id="az-quick"></div>';
+    return h;
+  }
+  function sideForRank() {
+    var rows = (function () { var t = st.rankType; st.rankType = 'charm'; var d = rankData(); st.rankType = t; return d; })();
+    var h = '<div class="az-head"><div><h3>Charm Ranking \u{1F496}</h3><small>Live hosts by charm score</small></div>' +
+      '<button type="button" class="az-x" data-act="rankall">\u2197</button></div><div class="az-list" style="max-height:none">';
+    for (var i = 0; i < rows.length; i++) {
+      var u = rows[i];
+      h += '<div class="az-row" data-room="' + esc(u.docId || '') + '" style="cursor:pointer"><span class="no">' + (i + 1) + '</span>' +
+        '<div class="av" style="background-image:url(' + esc(u.avatar) + ')"></div>' +
+        '<div class="nm"><b>' + esc(u.name) + '</b><small>' + esc(u.sub) + '</small></div><span class="sc">' + fmt(u.score) + '</span></div>';
+    }
+    return h + '</div>';
+  }
+
+  function renderWallet() {
+    var c = document.getElementById('az-coins'), p = document.getElementById('az-points');
+    if (c) c.textContent = money(st.coins);
+    if (p) p.textContent = fmt(st.points);
+    var pc = document.getElementById('az-pfcoins'), pp = document.getElementById('az-pfpts');
+    if (pc) pc.textContent = money(st.coins);
+    if (pp) pp.textContent = money(Math.round(st.points / 1000)) + 'K Pts';
+  }
+
+  function toggleTheme() {
+    var a = document.getElementById('abzapp');
+    if (!a) return;
+    st.theme = st.theme === 'neon' ? 'dark' : 'neon';
+    if (a.classList) { if (st.theme === 'neon') a.classList.add('neon'); else a.classList.remove('neon'); }
+    try { localStorage.setItem('abztheme', st.theme); } catch (e) {}
+    toast(st.theme === 'neon' ? 'Neon theme mode on' : 'Dark theme mode on');
+  }
+
+  function render() {
+    var v = document.getElementById('az-view');
+    if (!v) return;
+    var tabs = document.querySelectorAll('#abzapp .az-tab');
+    for (var i = 0; i < tabs.length; i++) {
+      var dv = tabs[i].getAttribute('data-view');
+      var isGo = dv === 'golive';
+      tabs[i].className = 'az-tab' + (isGo ? ' go' : '') + (dv === st.view ? ' sel' : '');
+    }
+    if (st.view === 'home') v.innerHTML = viewHome();
+    else if (st.view === 'live') v.innerHTML = viewLive();
+    else if (st.view === 'rank') v.innerHTML = viewRank();
+    else if (st.view === 'messages') v.innerHTML = viewMessages();
+    else if (st.view === 'profile') v.innerHTML = viewProfile();
+    else v.innerHTML = viewGolive();
+
+    var side = document.getElementById('az-side');
+    if (st.view === 'live') {
+      if (st.sideRoom !== st.cur) { st.sideRoom = st.cur; side.innerHTML = sideForChat(); buildQuick(); loadChat(); }
+    } else {
+      st.sideRoom = '';
+      side.innerHTML = sideForRank();
+    }
+  }
+
+  function renderStage() { if (st.view === 'live') { var v = document.getElementById('az-view'); if (v) v.innerHTML = viewLive(); } }
+
+  function buildQuick() {
+    var q = document.getElementById('az-quick');
+    if (!q) return;
+    var picks = [GIFTS[0], GIFTS[1], GIFTS[4], GIFTS[10], GIFTS[11]];
+    var h = '';
+    for (var i = 0; i < picks.length; i++)
+      h += '<button type="button" data-gi="' + i + '">' + picks[i][2] + ' ' + picks[i][1] + '</button>';
+    q.innerHTML = h;
+    q._picks = picks;
+  }
+
+  function openModal(html) {
+    var m = document.getElementById('az-modal'), s = document.getElementById('az-scrim');
+    m.innerHTML = html; m.hidden = false; s.hidden = false;
+  }
+  function closeModal() {
+    var m = document.getElementById('az-modal'), s = document.getElementById('az-scrim');
+    if (m) { m.hidden = true; m.innerHTML = ''; }
+    if (s) s.hidden = true;
+  }
+
+  function openGifts() {
+    var h = '<div class="az-mtop"><h3>\u{1F381} Send a Gift</h3><button type="button" class="az-x" data-act="close">\u2715</button></div>' +
+      '<p class="tip">Coins \u{1F7E1} ' + money(st.coins) + ' \u00b7 gifts add charm to the host</p><div class="az-gifts">';
+    for (var i = 0; i < GIFTS.length; i++)
+      h += '<button type="button" class="az-gift" data-gift="' + i + '"><span>' + GIFTS[i][2] + '</span><b>' + esc(GIFTS[i][0]) + '</b><small>\u{1F7E1} ' + money(GIFTS[i][1]) + '</small></button>';
+    h += '</div>';
+    openModal(h);
+  }
+
+  function openWallet(kind) {
+    var h = '<div class="az-mtop"><h3>' + (kind === 'topup' ? '\u{1F7E1} Top Up Coins' : '\u{1F48E} Withdraw Points') + '</h3>' +
+      '<button type="button" class="az-x" data-act="close">\u2715</button></div>';
+    if (kind === 'topup') {
+      h += '<p class="tip">256-Bit SSL Encrypted & PCI-DSS Compliant Gateway</p><div class="az-tiers">';
+      for (var i = 0; i < TIERS.length; i++) {
+        var t = TIERS[i];
+        h += '<button type="button" class="az-tier' + (st.tier === i ? ' sel' : '') + '" data-tier="' + i + '"><b>' + fmt(t[0] + t[1]) + '</b>' +
+          '<small>' + (t[1] ? '+' + fmt(t[1]) + ' bonus' : 'no bonus') + '</small><small>' + t[2] + ' \u00b7 \u09F3' + money(t[3]) + '</small></button>';
+      }
+      h += '</div><div class="az-methods">';
+      for (var m = 0; m < METHODS.length; m++)
+        h += '<button type="button" data-method="' + esc(METHODS[m]) + '" class="' + (st.method === METHODS[m] ? 'sel' : '') + '">' + esc(METHODS[m]) + '</button>';
+      var sel = TIERS[st.tier];
+      h += '</div><button type="button" class="az-cta" data-act="pay">PAY \u09F3' + money(sel[3]) + ' WITH ' + esc(st.method.toUpperCase()) + '</button>';
+    } else {
+      var w = WPRESETS[st.wpreset];
+      h += '<p class="tip">100,000 Pts = $10 USD \u00b7 USD\u2192BDT \u00d7 120</p>' +
+        '<div class="az-kv" style="grid-template-columns:1fr 1fr"><div><small>Available Host Points</small><b>\u{1F48E} ' + money(st.points) + '</b></div>' +
+        '<div><small>Estimated Value</small><b>$' + w[1] + ' USD (\u09F3' + money(w[1] * 120) + ')</b></div></div><div class="az-tiers" style="margin-top:12px">';
+      for (var p = 0; p < WPRESETS.length; p++) {
+        var q = WPRESETS[p];
+        h += '<button type="button" class="az-tier' + (st.wpreset === p ? ' sel' : '') + '" data-wp="' + p + '"><b>' + fmt(q[0]) + '</b><small>$' + q[1] + ' \u00b7 \u09F3' + money(q[1] * 120) + '</small></button>';
+      }
+      h += '</div><div class="az-methods">';
+      for (var k = 0; k < WMETHODS.length; k++)
+        h += '<button type="button" data-wm="' + esc(WMETHODS[k]) + '" class="' + (st.wmethod === WMETHODS[k] ? 'sel' : '') + '">' + esc(WMETHODS[k]) + '</button>';
+      h += '</div><button type="button" class="az-cta" data-act="confirmw">CONFIRM WITHDRAWAL OF \u09F3' + money(w[1] * 120) + ' ($' + w[1] + ' USD)</button>';
+    }
+    openModal(h);
+  }
+
+  function openGames() {
+    openModal('<div class="az-mtop"><h3>\u{1F3B2} Mini Games</h3><button type="button" class="az-x" data-act="close">\u2715</button></div>' +
+      '<p class="tip">In-room games from the native build (MultiplayerGameScreen).</p>' +
+      '<div class="az-gifts" style="grid-template-columns:repeat(3,1fr)">' +
+      '<button type="button" class="az-gift" data-game="wheel"><span>\u{1F3A1}</span><b>Fortune Wheel</b><small>\u{1F7E1} 50</small></button>' +
+      '<button type="button" class="az-gift" data-game="mines"><span>\u{1F4A3}</span><b>Mines</b><small>\u{1F7E1} 100</small></button>' +
+      '<button type="button" class="az-gift" data-game="slots"><span>\u{1F3B0}</span><b>Slots</b><small>\u{1F7E1} 200</small></button></div>');
+  }
+
+  function playGame(kind) {
+    var cost = kind === 'wheel' ? 50 : (kind === 'mines' ? 100 : 200);
+    if (st.coins < cost) { toast('Not enough coins'); openWallet('topup'); return; }
+    st.coins -= cost; renderWallet();
+    var win = Math.random() < 0.35 ? cost * (2 + Math.floor(Math.random() * 5)) : 0;
+    st.coins += win; renderWallet();
+    closeModal();
+    toast(win ? '\u{1F3B6} You won \u{1F7E1} ' + money(win) : 'No luck this time \u00b7 \u2212' + money(cost));
+  }
+
+  // event wiring (delegated, survives re-render)
+  var root = document.getElementById('abzapp');
+  if (!root) return;
+
+  (function wireLogin() {
+    var lbtn = document.getElementById('az-lbtn');
+    if (lbtn) lbtn.addEventListener('click', doLogin);
+    var eye = document.getElementById('az-eye');
+    if (eye) eye.addEventListener('click', function () {
+      var p = document.getElementById('az-pass');
+      if (!p) return;
+      var reveal = p.type === 'password';
+      p.type = reveal ? 'text' : 'password';
+      eye.innerHTML = reveal ? '\u{1F648}' : '\u{1F441}';
+      eye.setAttribute('aria-label', reveal ? 'Hide password' : 'Show password');
+    });
+    var fa = document.getElementById('az-fill-admin');
+    if (fa) fa.addEventListener('click', function () { fillDemo('fayselsk@gmail.com'); });
+    var fg = document.getElementById('az-fill-agent');
+    if (fg) fg.addEventListener('click', function () { fillDemo('ranababu78@gmail.com'); });
+    var su = root.querySelector ? root.querySelector('.az-signup') : null;
+    if (su) su.addEventListener('click', openSignUp);
+    var gu = root.querySelector ? root.querySelector('.az-guest') : null;
+    if (gu) gu.addEventListener('click', function () {
+      startSession({ e: '', r: 'USER', n: DEFAULT_ME.name, i: DEFAULT_ME.idNum, at: Date.now() });
+    });
+    var fp = root.querySelector ? root.querySelector('.az-forgot') : null;
+    if (fp) fp.addEventListener('click', function () {
+      openModal('<div class="az-mtop"><h3>\u{1F511} Forgot password</h3><button type="button" class="az-x" data-act="close">\u2715</button></div>' +
+        '<p class="tip">Staff and agency passwords are reset by the AddaBuzz HQ admin (fayselsk@gmail.com). ' +
+        'Viewer accounts reset through Firebase Auth in the Android app \u2014 this web mirror cannot mail a reset link.</p>');
+    });
+    root.addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter') return;
+      var id = e.target && e.target.id;
+      if (id === 'az-email' || id === 'az-pass') { e.preventDefault(); doLogin(); }
+      if (id === 'az-su-pass') { e.preventDefault(); doSignUp(); }
+    });
+  })();
+
+  root.addEventListener('click', function (e) {
+    var t = e.target.closest ? e.target.closest('button,[data-room],[data-act]') : null;
+    if (!t) return;
+    var act = t.getAttribute('data-act');
+    if (t.hasAttribute('data-room') && t.getAttribute('data-room')) {
+      st.cur = t.getAttribute('data-room'); st.view = 'live'; st.sideRoom = ''; render(); return;
+    }
+    if (t.hasAttribute('data-filter')) { st.filter = t.getAttribute('data-filter'); render(); return; }
+    if (t.hasAttribute('data-rank')) { st.rankType = t.getAttribute('data-rank'); render(); return; }
+    if (t.hasAttribute('data-period')) { st.rankPeriod = t.getAttribute('data-period'); render(); return; }
+    if (t.hasAttribute('data-tier')) { st.tier = parseInt(t.getAttribute('data-tier'), 10); openWallet('topup'); return; }
+    if (t.hasAttribute('data-method')) { st.method = t.getAttribute('data-method'); openWallet('topup'); return; }
+    if (t.hasAttribute('data-wp')) { st.wpreset = parseInt(t.getAttribute('data-wp'), 10); openWallet('withdraw'); return; }
+    if (t.hasAttribute('data-wm')) { st.wmethod = t.getAttribute('data-wm'); openWallet('withdraw'); return; }
+    if (t.hasAttribute('data-gift')) {
+      var g = GIFTS[parseInt(t.getAttribute('data-gift'), 10)];
+      closeModal(); sendChat('sent ' + g[0] + ' x1 (' + g[1] + ' coins)', g[2], g[1]); return;
+    }
+    if (t.hasAttribute('data-game')) { playGame(t.getAttribute('data-game')); return; }
+    if (t.hasAttribute('data-view')) {
+      st.view = t.getAttribute('data-view');
+      render(); return;
+    }
+    if (!act) return;
+    if (act === 'mdesktop' || act === 'mphone') { st.mode = act === 'mphone' ? 'phone' : 'desktop'; applyMode(); return; }
+    if (act === 'home') { st.view = 'home'; render(); }
+    else if (act === 'close') closeModal();
+    else if (act === 'gifts') openGifts();
+    else if (act === 'games') openGames();
+    else if (act === 'topup') openWallet('topup');
+    else if (act === 'withdraw') openWallet('withdraw');
+    else if (act === 'rank') { st.view = 'rank'; render(); }
+    else if (act === 'rankall') { st.view = 'rank'; render(); }
+    else if (act === 'tasks') { st.view = 'messages'; render(); toast('Host tasks live in the app \u00b7 showing notifications'); }
+    else if (act === 'boost') boostPK();
+    else if (act === 'follow') toggleFollow();
+    else if (act === 'like') likeBurst();
+    else if (act === 'theme') toggleTheme();
+    else if (act === 'dosignup') doSignUp();
+    else if (act === 'signup') openSignUp();
+    else if (act === 'logout') { endSession(); toast('Signed out \u00b7 sign in again to open the app'); }
+    else if (act === 'accountlist') openAccounts();
+    else if (act === 'pfnav:Security') openModal('<div class="az-mtop"><h3>\u{1F6E1}\uFE0F Security</h3>' +
+        '<button type="button" class="az-x" data-act="close">\u2715</button></div><div class="az-kv">' +
+        kv('E2EE chat', ME.e2eeEnabled ? 'on' : 'off') + kv('Two-factor', 'on') + kv('Role', ME.role) +
+        kv('Agency', ME.agencyName) + kv('Agency code', ME.agencyCode) + kv('Data backup', 'auto \u00b7 asia-south1') + '</div>');
+    else if (act.indexOf('pfnav:') === 0) toast(act.slice(6) + ' \u00b7 live in the Android build');
+    else if (act === 'golive-demo') toast('Broadcast preview started locally \u00b7 no room doc written');
+    else if (act === 'pay') { var s = TIERS[st.tier]; st.coins += s[0] + s[1]; renderWallet(); closeModal(); toast('Paid \u09F3' + money(s[3]) + ' \u00b7 +' + money(s[0] + s[1]) + ' coins'); }
+    else if (act === 'confirmw') { var w = WPRESETS[st.wpreset]; if (st.points < w[0]) { toast('Not enough points'); return; } st.points -= w[0]; renderWallet(); closeModal(); toast('Withdrawal of \u09F3' + money(w[1] * 120) + ' queued via ' + st.wmethod); }
+  });
+
+  root.addEventListener('submit', function (e) {
+    if (e.target && e.target.id === 'az-form') {
+      e.preventDefault();
+      var inp = document.getElementById('az-text');
+      var txt = (inp.value || '').trim();
+      if (!txt) return;
+      inp.value = '';
+      sendChat(txt, '', 0);
+    }
+  });
+
+  root.addEventListener('click', function (e) {
+    var q = e.target.closest ? e.target.closest('#az-quick button') : null;
+    if (!q) return;
+    var holder = document.getElementById('az-quick');
+    var picks = holder && holder._picks;
+    if (!picks) return;
+    var g = picks[parseInt(q.getAttribute('data-gi'), 10)];
+    sendChat('sent ' + g[0] + ' x1 (' + g[1] + ' coins)', g[2], g[1]);
+  });
+
+  root.addEventListener('mousedown', function (e) {
+    var sc = e.target.closest ? e.target.closest('#az-stage') : null;
+    if (sc && !(e.target.closest('[data-act]') || e.target.closest('button'))) likeBurst();
+  });
+
+  function likeBurst() {
+    st.likes++;
+    var h = document.getElementById('az-hearts');
+    if (h) { h.className = 'az-hearts'; void h.offsetWidth; h.className = 'az-hearts go'; }
+  }
+
+  var scrim = document.getElementById('az-scrim');
+  if (scrim) scrim.addEventListener('click', closeModal);
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeModal(); });
+
+  setInterval(function () { if (st.pkTimer > 0) { st.pkTimer--; if (st.view === 'live') { var pk = document.querySelector('#abzapp .az-pk .sub'); if (pk) { var mm = Math.floor(st.pkTimer / 60), ss = st.pkTimer % 60; var r = roomById(st.cur); if (r && r.pkBattle) pk.innerHTML = 'vs ' + esc(r.pkBattle.opponentName || 'rival') + ' \u00b7 \u23F1 ' + (mm < 10 ? '0' : '') + mm + ':' + (ss < 10 ? '0' : '') + ss + (r.pkBattle.punishmentText ? ' \u00b7 ' + esc(r.pkBattle.punishmentText) : ''); } } } }, 1000);
+
+  try {
+    var savedMode = localStorage.getItem('abzmode');
+    st.mode = (savedMode === 'phone' || savedMode === 'desktop') ? savedMode : (window.innerWidth >= 760 ? 'desktop' : 'phone');
+  } catch (e) { st.mode = window.innerWidth >= 760 ? 'desktop' : 'phone'; }
+  applyMode();
+  try { st.theme = localStorage.getItem('abztheme') === 'neon' ? 'neon' : 'dark'; } catch (e) { st.theme = 'dark'; }
+  if (st.theme === 'neon') { var az = document.getElementById('abzapp'); if (az && az.classList) az.classList.add('neon'); }
+  window.addEventListener('resize', applyMode);
+
+  paintIcons();
+  var session = null;
+  try { session = JSON.parse(localStorage.getItem('abzauth')); } catch (e) { session = null; }
+  if (session && session.n && (session.r === 'ADMIN' || session.r === 'SUPER_AGENT' || session.r === 'USER')) {
+    applySession(session);
+  } else {
+    try { localStorage.removeItem('abzauth'); } catch (e) {}
+  }
+
+  loadRooms();
+  setInterval(loadRooms, 4000);
+  setInterval(function () { if (st.view === 'live' && st.cur) loadChat(); }, 6000);
+})();
+</script>
+
+</body>
+</html>

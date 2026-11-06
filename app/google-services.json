@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1002525460523",
+    "project_id": "addabuzzlive",
+    "storage_bucket": "addabuzzlive.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1002525460523:android:5df2ccfe51aee4089dc26e",
+        "android_client_info": {
+          "package_name": "com.addabuzzlive.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDBZhUPU4oflbqNOP4vyHFSa65r8TpNdI0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

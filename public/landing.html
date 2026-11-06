@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AddaBuzz Live — Real-time Live Streaming & Adda</title>
+  <meta name="description" content="Broadcast live, join 8-mic party rooms, chat in real time, send gifts, play multiplayer games and earn with the wallet — all in one app.">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg: #0b0714;
+      --card: #160f24;
+      --accent: #a855f7;
+      --accent2: #ec4899;
+      --text: #f3eefc;
+      --muted: #b7a9d1;
+    }
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+    .hero {
+      min-height: 88vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 4rem 1.5rem 3rem;
+      background:
+        radial-gradient(60% 50% at 20% 20%, rgba(168, 85, 247, .25), transparent),
+        radial-gradient(50% 40% at 85% 30%, rgba(236, 72, 153, .22), transparent),
+        radial-gradient(40% 35% at 50% 90%, rgba(59, 130, 246, .18), transparent);
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: .5rem;
+      border: 1px solid rgba(168, 85, 247, .45);
+      background: rgba(168, 85, 247, .12);
+      color: #d8c4ff;
+      padding: .4rem 1rem;
+      border-radius: 999px;
+      font-size: .85rem;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      margin-bottom: 1.5rem;
+    }
+    .badge .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #22c55e;
+      box-shadow: 0 0 10px #22c55e;
+      animation: pulse 1.6s infinite;
+    }
+    @keyframes pulse { 50% { opacity: .4; } }
+    h1 {
+      font-size: clamp(2.4rem, 6vw, 4.5rem);
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      background: linear-gradient(92deg, #c084fc, #f472b6, #c084fc);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .tagline {
+      max-width: 640px;
+      color: var(--muted);
+      font-size: clamp(1rem, 2.2vw, 1.25rem);
+      margin: 1.25rem auto 2.25rem;
+    }
+    .cta-row { display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center; }
+    .btn {
+      display: inline-block;
+      padding: .9rem 2rem;
+      border-radius: 14px;
+      font-weight: 700;
+      font-size: 1rem;
+      text-decoration: none;
+      transition: transform .15s ease, box-shadow .15s ease;
+    }
+    .btn:hover { transform: translateY(-2px); }
+    .btn-primary {
+      color: #fff;
+      background: linear-gradient(92deg, var(--accent), var(--accent2));
+      box-shadow: 0 8px 28px rgba(168, 85, 247, .4);
+    }
+    .btn-ghost {
+      color: var(--text);
+      border: 1px solid rgba(243, 238, 252, .25);
+    }
+    .stats {
+      display: flex;
+      gap: 2.5rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-top: 3rem;
+      color: var(--muted);
+      font-size: .95rem;
+    }
+    .stats b { display: block; color: var(--text); font-size: 1.5rem; }
+    section { padding: 4.5rem 1.5rem; max-width: 1080px; margin: 0 auto; }
+    h2 { font-size: clamp(1.6rem, 3.5vw, 2.2rem); text-align: center; margin-bottom: .6rem; }
+    .sub { text-align: center; color: var(--muted); max-width: 620px; margin: 0 auto 3rem; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1.25rem;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid rgba(168, 85, 247, .16);
+      border-radius: 18px;
+      padding: 1.6rem;
+      transition: border-color .2s ease, transform .2s ease;
+    }
+    .card:hover { border-color: rgba(168, 85, 247, .5); transform: translateY(-3px); }
+    .card .icon { font-size: 1.9rem; margin-bottom: .8rem; }
+    .card h3 { font-size: 1.08rem; margin-bottom: .45rem; }
+    .card p { color: var(--muted); font-size: .93rem; }
+    .band {
+      background: linear-gradient(92deg, rgba(168,85,247,.14), rgba(236,72,153,.14));
+      border-radius: 24px;
+      border: 1px solid rgba(168, 85, 247, .3);
+      text-align: center;
+    }
+    footer {
+      text-align: center;
+      color: var(--muted);
+      font-size: .85rem;
+      padding: 2.5rem 1rem 3rem;
+      border-top: 1px solid rgba(243, 238, 252, .08);
+    }
+  </style>
+</head>
+<body>
+  <div class="hero">
+    <span class="badge"><span class="dot"></span> Live now</span>
+    <h1>AddaBuzz Live</h1>
+    <p class="tagline">Real-time broadcast streaming, 8-mic party rooms, interactive chat, gifts, multiplayer games and a built-in wallet — the adda never stops.</p>
+    <div class="cta-row">
+      <a class="btn btn-primary" href="#features">Explore the app</a>
+      <a class="btn btn-ghost" href="#join">Get early access</a>
+    </div>
+    <div class="stats">
+      <div><b>8-mic</b>party rooms</div>
+      <div><b>Real-time</b>chat &amp; gifts</div>
+      <div><b>Wallet</b>top-up &amp; withdraw</div>
+      <div><b>Games</b>multiplayer arcade</div>
+    </div>
+  </div>
+
+  <section id="features">
+    <h2>Everything the adda needs</h2>
+    <p class="sub">One app for hosting, watching, chatting and playing.</p>
+    <div class="grid">
+      <div class="card">
+        <div class="icon">📡</div>
+        <h3>Go Live in seconds</h3>
+        <p>Broadcast in HD with ultra-low latency and live viewer counts.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🎙️</div>
+        <h3>8-Mic Party Rooms</h3>
+        <p>Karaoke, debates or late-night adda — take a seat and speak live.</p>
+      </div>
+      <div class="card">
+        <div class="icon">💬</div>
+        <h3>Interactive Chat</h3>
+        <p>Real-time messages, reactions and likes that keep streams buzzing.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🎁</div>
+        <h3>Gifts &amp; Charm</h3>
+        <p>Send gifts to your favourite streamers and climb the charm leaderboards.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🎮</div>
+        <h3>Multiplayer Games</h3>
+        <p>Jump into quick arcade games with viewers while the stream runs.</p>
+      </div>
+      <div class="card">
+        <div class="icon">💳</div>
+        <h3>Wallet</h3>
+        <p>Top up coins, reward creators and withdraw your earnings safely.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="join">
+    <div class="band" style="padding:3rem 1.5rem;">
+      <h2>Ready to join the buzz?</h2>
+      <p class="sub" style="margin-bottom:1.8rem;">The Android app is live for testers. More features shipping soon.</p>
+      <a class="btn btn-primary" href="mailto:hello@addabuzzlive.app?subject=AddaBuzz%20Live%20early%20access">Request early access</a>
+    </div>
+  </section>
+
+  <footer>
+    © 2026 AddaBuzz Live · Made with 💜 for the adda
+  </footer>
+</body>
+</html>
