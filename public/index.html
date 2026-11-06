@@ -9,21 +9,17 @@
 <body>
 <div id="abzapp">
  <div class="az-shell">
+  <div class="az-android-bar" aria-hidden="true">
+    <b class="clock" id="az-clock">9:41</b>
+    <span class="az-android-icons">
+      <svg viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1" opacity=".35"/></svg>
+      <svg viewBox="0 0 16 12"><path d="M8 11.4 5.7 8.6a3.4 3.4 0 0 1 4.6 0L8 11.4Zm-4.2-4.9L1.9 4a8.7 8.7 0 0 1 12.2 0l-1.9 2.5a5.8 5.8 0 0 0-8.4 0Z"/></svg>
+      <svg viewBox="0 0 26 12"><rect x="0.75" y="0.75" width="21" height="10.5" rx="2.6" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="3" y="3" width="15" height="6" rx="1.4"/><rect x="23.4" y="4" width="2" height="4" rx="1"/></svg>
+    </span>
+  </div>
   <header class="az-top">
     <div class="az-brand">
       <span class="az-mark"><span class="az-ico"></span><span class="az-logo">AddaBuzz<em>Live</em></span></span>
-      <span class="az-role" id="az-role" hidden></span>
-      <span class="az-onsite"><i></i><b id="az-onsite">0</b> rooms live</span>
-      <span class="az-conn" id="az-status">connecting&hellip;</span>
-    </div>
-    <div class="az-modes" role="group" aria-label="Layout mode">
-      <button type="button" class="az-mode" data-act="mdesktop" title="Desktop layout">&#128421;&#65039; Desktop</button>
-      <button type="button" class="az-mode" data-act="mphone" title="Phone preview">&#128241; Phone</button>
-    </div>
-    <div class="az-wallet">
-      <button type="button" class="az-pill" data-act="topup">&#12897; <b id="az-coins">0</b></button>
-      <button type="button" class="az-pill gold" data-act="withdraw">&#128142; <b id="az-points">0</b></button>
-      <button type="button" class="az-pill ghost" data-act="tasks">&#127873; Tasks</button>
     </div>
   </header>
 
@@ -40,9 +36,12 @@
     <aside class="az-side" id="az-side"></aside>
   </div>
 
+  <div class="az-android-nav" aria-hidden="true"></div>
+
   <div class="az-scrim" id="az-scrim" hidden></div>
   <div class="az-modal" id="az-modal" hidden></div>
   <div class="az-toast" id="az-toast" hidden></div>
+  <input type="file" id="az-photo-input" accept="image/*" hidden />
 
   <section class="az-login" id="az-login">
     <div class="az-lbar"><b>9:41</b><span class="az-lsig"><i></i><i></i><i></i></span><span class="az-lbat"><em></em></span></div>
@@ -294,6 +293,16 @@
   #abzapp .az-li em{font-style:normal;font-size:14px}
   #abzapp .az-li .ch{margin-left:auto;color:#8f7cbd}
   #abzapp .az-li.danger{color:#ff6b6b;border-color:#ff6b6b55;background:#ff6b6b14}
+  #abzapp .az-display{display:flex;flex-direction:column;background:#1c1433;border:1px solid #352054;border-radius:14px;padding:2px 12px}
+  #abzapp .az-drow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 0;font-size:12px;font-weight:600}
+  #abzapp .az-drow+.az-drow{border-top:1px solid #352054}
+  #abzapp .az-drow .lb{display:inline-flex;align-items:center;gap:7px}
+  #abzapp .az-drow .az-modes{margin-left:auto}
+  #abzapp .az-thmodes{display:flex;margin-left:auto;border:1px solid #352054;border-radius:11px;overflow:hidden;background:#140e24}
+  #abzapp .az-thmode{background:transparent;border:0;padding:7px 12px;font-size:12px;color:#b5a6cc;white-space:nowrap}
+  #abzapp .az-thmode.sel{background:linear-gradient(135deg,#ff2a6d,#a855f7);color:#fff;font-weight:700}
+  #abzapp.as-phone .az-drow{padding:8px 0;font-size:11px}
+  #abzapp.as-phone .az-thmode{padding:5px 8px;font-size:11px}
   #abzapp .az-mark{display:inline-flex;align-items:center;gap:10px}
   #abzapp .az-ico{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:38px;height:38px;
     border-radius:11px;background:linear-gradient(135deg,#7c3aed 0%,#a855f7 45%,#ec4899 100%);
@@ -513,6 +522,110 @@
   #abzapp button.az-btile, #abzapp button.az-blay{font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
   #abzapp.as-phone .az-bs{min-height:74dvh;border-radius:0}
   #abzapp.as-phone .az-bzoom u{height:96px}
+
+  /* ---- Profile header: dark card, left avatar + 4 stats (reference layout) ---- */
+  #abzapp .az-pf{gap:16px}
+  #abzapp .az-pfhero{position:relative;overflow:hidden;text-align:left;padding:16px;border-radius:24px;
+    border:1px solid #a855f733;
+    background:radial-gradient(85% 120% at 100% 0%,#a855f72e 0%,transparent 60%),
+      radial-gradient(80% 120% at 0% 100%,#ff2a6d1f 0%,transparent 62%),
+      linear-gradient(180deg,#191030 0%,#0d0819 100%);
+    box-shadow:0 20px 44px #00000066,inset 0 1px 0 #ffffff14}
+  #abzapp .az-pfcover{display:none}
+  #abzapp .az-pfhead{display:flex;align-items:center;gap:14px}
+  #abzapp .az-pfav{width:88px;height:88px;flex:0 0 auto;margin:0;border-radius:26px;position:relative;z-index:1;
+    border:2px solid #a855f7;background:#1c1433 center/cover no-repeat;
+    box-shadow:0 0 0 4px #0c0817,0 10px 26px #00000088,0 0 22px #a855f733}
+  #abzapp .az-pfcam{width:28px;height:28px;right:-5px;bottom:-3px;border-radius:50%;font-size:12px;
+    display:flex;align-items:center;justify-content:center;line-height:1;
+    background:linear-gradient(135deg,#ff2a6d,#a855f7);border:2px solid #0d0819;color:#fff;
+    box-shadow:0 6px 16px #ff2a6d55}
+  #abzapp .az-pfmeta{min-width:0;flex:1 1 auto}
+  #abzapp .az-pfname{display:flex;align-items:center;justify-content:flex-start;gap:7px;font-size:21px;
+    font-weight:900;letter-spacing:.1px;color:#fbf9ff;background:none;-webkit-text-fill-color:currentColor}
+  #abzapp .az-pfname .az-gender{color:#ff5ea3;font-size:16px}
+  #abzapp .az-pfname .az-lvpill{font-size:10.5px;font-weight:800;padding:3px 8px;border-radius:999px;
+    background:linear-gradient(135deg,#ff2a6d,#a855f7);color:#fff;box-shadow:0 4px 12px #ff2a6d44}
+  #abzapp .az-pfid{font-size:11px;color:#9d8fc0;font-weight:700;margin-top:4px;text-shadow:none}
+  #abzapp .az-pfrole{font-size:10.5px;color:#8a92a6;margin-top:2px;line-height:1.35;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #abzapp .az-pfchips{display:flex;justify-content:flex-start;gap:6px;flex-wrap:wrap;margin-top:12px}
+  #abzapp .az-pfchips .az-chip{border-radius:999px;padding:5px 10px;font-size:10.5px;font-weight:800;
+    background:#ffffff10;border:1px solid #ffffff24;color:#e9e2f7;backdrop-filter:blur(6px)}
+  #abzapp .az-pfchips .az-chip.vip{background:#ffd7001f;border-color:#ffd70059;color:#ffd700}
+  #abzapp .az-pfchips .az-chip.ghostchip{background:#ffffff10;border-color:#ffffff24;color:#e9e2f7}
+  #abzapp .az-pfbio{font-size:12px;color:#c2b3da;margin-top:10px;line-height:1.55}
+  #abzapp .az-pfstats{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:14px;
+    padding-top:13px;border-top:1px solid #ffffff14}
+  #abzapp .az-pfstats div{background:none;border:0;border-radius:0;padding:0;text-align:center;box-shadow:none}
+  #abzapp .az-pfstats b{display:block;font-size:19px;font-weight:900;color:#ffffff;
+    font-variant-numeric:tabular-nums;text-shadow:0 0 10px #a855f755}
+  #abzapp .az-pfstats small{font-size:10px;color:#b5a6cc;letter-spacing:.2px}
+  #abzapp .az-pfwallet{gap:12px}
+  #abzapp .az-pfcard{border-radius:20px;border:1px solid #ffffff1f;
+    background:linear-gradient(160deg,#1c1433 0%,#100820 100%);box-shadow:0 10px 30px #00000055,inset 0 1px 0 #ffffff18}
+  #abzapp .az-pfcard.coins{border-color:#ffd7004d;background:linear-gradient(160deg,#2a2208 0%,#120a04 100%);
+    box-shadow:0 12px 28px #00000055,inset 0 1px 0 #ffffff14}
+  #abzapp .az-pfcard.pts{border-color:#ff5ea34d;background:linear-gradient(160deg,#2a0a18 0%,#12040e 100%);
+    box-shadow:0 12px 28px #00000055,inset 0 1px 0 #ffffff14}
+  #abzapp .az-pfcard .hd{color:#c9b8e0}
+  #abzapp .az-pfcard.pts .hd{color:#f0b6d2}
+  #abzapp .az-pfcard .amt{font-weight:900}
+  #abzapp .az-pfcard.coins .amt{color:#ffd700}
+  #abzapp .az-pfcard.pts .amt{color:#ff5ea3}
+  #abzapp .az-pfbtn{border-radius:12px;font-weight:900;
+    background:linear-gradient(90deg,#ffd700,#ff8700);color:#1a1000;box-shadow:0 6px 16px #ffd70033}
+  #abzapp .az-pfcard.pts .az-pfbtn{background:linear-gradient(90deg,#ff2a6d,#ff5ea3);color:#fff}
+  #abzapp .az-pf .az-tiles{gap:10px}
+  #abzapp .az-pf .az-tile{background:linear-gradient(180deg,#1c1433 0%,#120a24 100%);
+    border:1px solid #a855f733;border-radius:14px;box-shadow:inset 0 1px 0 #ffffff12}
+  #abzapp .az-pf .az-tile:hover{border-color:#a855f7;box-shadow:0 8px 22px #a855f733}
+  #abzapp .az-pf .az-tile i{color:#ff2a6d}
+  #abzapp .az-pf .az-sec{color:#fbf9ff;letter-spacing:.3px}
+  #abzapp .az-pf .az-sec .hub{background:linear-gradient(90deg,#00e5ff22,#a855f722);border-color:#00e5ff55;color:#00e5ff}
+  #abzapp .az-pf .az-listwrap{gap:10px}
+  #abzapp .az-pf .az-li{background:linear-gradient(180deg,#1c1433 0%,#120a24 100%);
+    border:1px solid #a855f733;border-radius:14px;box-shadow:inset 0 1px 0 #ffffff12}
+  #abzapp .az-pf .az-li:hover{border-color:#a855f7;transform:translateY(-1px)}
+  #abzapp .az-pf .az-li em{color:#a855f7}
+  #abzapp .az-pf .az-li .ch{color:#c9b8e0}
+  #abzapp .az-pf .az-li.danger{border-color:#ff6b6b55;background:linear-gradient(180deg,#2a0a12 0%,#14040a 100%)}
+  #abzapp .az-pf .az-display{background:linear-gradient(180deg,#1c1433 0%,#120a24 100%);
+    border:1px solid #a855f733;border-radius:16px;box-shadow:inset 0 1px 0 #ffffff12}
+  #abzapp .az-pf .az-drow{border-color:#a855f722}
+  #abzapp .az-pf .az-thmodes,#abzapp .az-pf .az-modes{border-color:#a855f744;background:#0c0817}
+  #abzapp .az-pf .az-thmode.sel,#abzapp .az-pf .az-mode.sel{
+    background:linear-gradient(135deg,#ff2a6d,#a855f7);box-shadow:0 4px 12px #ff2a6d44}
+  #abzapp.as-phone .az-pfhero{padding:14px;border-radius:20px}
+  #abzapp.as-phone .az-pfcover{display:none}
+  #abzapp.as-phone .az-pfav{width:78px;height:78px;border-radius:23px;margin:0}
+  #abzapp.as-phone .az-pfname{font-size:19px}
+  #abzapp.as-phone .az-pfstats b{font-size:17px}
+  #abzapp.as-phone .az-pfcard .amt{font-size:19px}
+  #abzapp .az-phgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+  #abzapp .az-phopt{aspect-ratio:1;border-radius:16px;border:2px solid #352054;background-size:cover;background-position:center;background-color:#1c1433;cursor:pointer;padding:0}
+  #abzapp .az-phopt.sel{border-color:#ff2a6d;box-shadow:0 0 0 3px #ff2a6d33,0 0 18px #ff2a6d55}
+  #abzapp .az-photo-actions{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:10px}
+  #abzapp .az-photo-actions .az-cta{flex:1 1 auto;margin:0}
+
+  /* ---- Android full-screen view (no device frame) ---- */
+  #abzapp .az-android-bar{display:none}
+  #abzapp .az-android-nav{display:none}
+  #abzapp.as-phone{display:flex;padding:0;overflow:hidden;
+    background:radial-gradient(120% 80% at 8% 0%,#1c1240 0%,#140e24 45%,#0c0817 100%)}
+  #abzapp.as-phone .az-shell{width:100%;height:100%;flex:1 1 auto;border:0;border-radius:0;
+    padding:0 10px 12px;background:transparent;box-shadow:none;overflow:hidden}
+  #abzapp.as-phone .az-android-bar{display:flex;align-items:center;justify-content:space-between;
+    height:30px;padding:0 8px;flex:0 0 auto;font-size:12px;font-weight:700;color:#fbf9ff}
+  #abzapp.as-phone .az-android-bar .clock{letter-spacing:.3px;font-variant-numeric:tabular-nums}
+  #abzapp.as-phone .az-android-icons{display:inline-flex;align-items:center;gap:5px;color:#fbf9ff}
+  #abzapp.as-phone .az-android-icons svg{display:block;height:11px;width:auto;fill:currentColor}
+  #abzapp.as-phone .az-android-nav{display:block;position:absolute;left:50%;bottom:5px;transform:translateX(-50%);
+    width:112px;height:4px;border-radius:999px;background:#fbf9ff59;z-index:7;pointer-events:none}
+  #abzapp.as-phone .az-top{border-radius:14px}
+  @media (max-width:640px){
+    #abzapp.as-phone .az-android-bar{height:26px}
+  }
 </style>
 
 <script>
@@ -621,7 +734,7 @@
   function pfKey() { var o = st.auth || {}; return PFKEY + ':' + (o.e || 'guest'); }
   function defaultsPF() {
     return {
-      name: ME.name, gender: 'MALE', bio: ME.bio, av: 0, lang: 'en',
+      name: ME.name, gender: 'MALE', bio: ME.bio, av: 0, photo: '', lang: 'en',
       coins: 18500, points: 520000, diamonds: ME.diamonds || 18500, vip: ME.vipLevel,
       stats: { msgs: 0, gifts: 0, likes: 0, topups: 0, games: 0, boosts: 0, follows: 0, broadcasts: 0, spent: 0, clubs: 0 },
       inv: {}, gear: {}, claims: {}, clubs: {}, agents: defaultAgents(), invites: [], receipts: [], reports: [], apply: null, hosG: 'MALE', payout: 'bKash',
@@ -663,7 +776,7 @@
     if (!st.seatIdx && !st.live) st.mic = !!PF.mic;
     st.cam = PF.cam !== false;
     st.audioOnly = !!PF.audioOnly;
-    AVATAR = 'https://images.unsplash.com/' + (AVATARS[Number(PF.av) || 0] || AVATARS[0]) + '?auto=format&fit=crop&q=80&w=300';
+    AVATAR = PF.photo ? String(PF.photo) : 'https://images.unsplash.com/' + (AVATARS[Number(PF.av) || 0] || AVATARS[0]) + '?auto=format&fit=crop&q=80&w=300';
     renderWallet();
   }
   function agencyPoints() {
@@ -713,8 +826,13 @@
       'Edit Profile & Gender Icon': '\u09AA\u09CD\u09B0\u09CB\u09AB\u09BF\u09B2 \u0993 \u099C\u09C7\u09A8\u09CD\u09A1\u09BE\u09B0 \u0986\u0987\u0995\u09A8',
       'Security, E2EE & Data Backup': '\u09A8\u09BF\u09B0\u09BE\u09AA\u09A4\u09CD\u09A4\u09BE, E2EE \u0993 \u09A1\u09C7\u099F\u09BE \u09AC\u09CD\u09AF\u09BE\u0995\u0986\u09AA',
       'Switch Language': '\u09AD\u09BE\u09B7\u09BE \u09AA\u09B0\u09BF\u09AC\u09B0\u09CD\u09A4\u09A8', 'Dark / Neon Theme Mode': '\u09A1\u09BE\u09B0\u09CD\u0995 / \u09A8\u09BF\u09DF\u09A8 \u09A5\u09BF\u09AE',
+      'Display & Theme': '\u09A1\u09BF\u09B8\u09AA\u09CD\u09B2\u09C7 \u0993 \u09A5\u09BF\u09AE', 'This device': '\u098F\u0987 \u09A1\u09BF\u09AD\u09BE\u0987\u09B8',
+      'Dark': '\u09A1\u09BE\u09B0\u09CD\u0995', 'Neon': '\u09A8\u09BF\u09DF\u09A8', 'Layout': '\u09B2\u09C7\u0986\u0989\u099F',
+      'Change Profile Photo': 'প্রোফাইল ফটো বদলান', 'Upload from device': 'ডিভাইস থেকে আপলোড',
+      'Remove custom photo': 'কাস্টম ফটো মুছুন',
       'Log Out': '\u09B2\u0997 \u0986\u0989\u099F', 'Accounts': '\u0986\u0995\u09BE\u0989\u09A8\u09CD\u099F', 'Following': '\u09AB\u09B2\u09CB\u09DF\u09BF\u0982',
-      'Followers': '\u09AB\u09B2\u09CB\u09DF\u09BE\u09B0', 'Host Grade': '\u09B9\u09CB\u09B8\u09CD\u099F \u0997\u09CD\u09B0\u09C7\u09A1', 'Buy': '\u0995\u09BF\u09A8\u09C1\u09A8',
+      'Followers': '\u09AB\u09B2\u09CB\u09DF\u09BE\u09B0', 'Friends': '\u09AC\u09A8\u09CD\u09A7\u09C1', 'Visitors': '\u09AD\u09BF\u099C\u09BF\u099F\u09B0',
+      'Host Grade': '\u09B9\u09CB\u09B8\u09CD\u099F \u0997\u09CD\u09B0\u09C7\u09A1', 'Buy': '\u0995\u09BF\u09A8\u09C1\u09A8',
       'Own': '\u09AE\u09BE\u09B2\u09BF\u0995\u09BE\u09A8\u09BE', 'Use': '\u09AC\u09CD\u09AF\u09AC\u09B9\u09BE\u09B0', 'On': '\u099A\u09BE\u09B2\u09C1', 'Off': '\u09AC\u09A8\u09CD\u09A7',
       'Join': '\u09AF\u09CB\u0997 \u09A6\u09BF\u09A8', 'Leave': '\u099B\u09BE\u09DC\u09A8', 'Claim': '\u09A8\u09BF\u09A8', 'Locked': '\u09B2\u0995',
       'Earned': '\u0985\u09B0\u09CD\u099C\u09BF\u09A4', 'Save': '\u09B8\u0982\u09B0\u0995\u09CD\u09B7\u09A3', 'Cancel': '\u09AC\u09BE\u09A4\u09BF\u09B2',
@@ -752,6 +870,13 @@
       bs[i].className = 'az-mode' + (on ? ' sel' : '');
     }
     try { localStorage.setItem('abzmode', st.mode); } catch (e) {}
+  }
+
+  function androidClock() {
+    var el = document.getElementById('az-clock');
+    if (!el) return;
+    var d = new Date(), h = d.getHours(), m = d.getMinutes();
+    el.textContent = (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
   }
 
   /* ---------- ADDABUZZ LIVE app icon (drawn, so Blogger sanitising cannot touch it) ---------- */
@@ -1151,6 +1276,7 @@
   }
   function cssUrl(u) {
     var raw = String(u === null || u === undefined ? '' : u).trim();
+    if (/^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(raw)) return esc("'" + raw + "'");
     if (!/^https?:\/\/[^\s'"<>\\]+$/.test(raw)) return '';
     return esc("'" + raw + "'");
   }
@@ -1796,6 +1922,44 @@
     if (n) PF.name = String(n.value || '').trim() || PF.name;
     if (b) PF.bio = String(b.value || '');
   }
+  function openPhotoPicker() {
+    var h = mHead('\u{1F4F7} ' + T('Change Profile Photo')) +
+      '<p class="tip">Upload a photo from this device, or choose a preset below.</p>' +
+      '<div class="az-photo-actions"><button type="button" class="az-cta" data-act="pfupload">\u{1F4F1} ' + T('Upload from device') + '</button>' +
+      (PF.photo ? '<button type="button" class="az-link" data-act="pfphotoclear">' + T('Remove custom photo') + '</button>' : '') +
+      '</div><div class="az-phgrid" id="az-ph-grid">';
+    for (var i = 0; i < AVATARS.length; i++)
+      h += '<button type="button" class="az-phopt' + (!PF.photo && Number(PF.av) === i ? ' sel' : '') + '" data-act="setav:' + i +
+        '" aria-label="Preset photo ' + (i + 1) + '" style="background-image:url(' +
+        cssUrl('https://images.unsplash.com/' + AVATARS[i] + '?auto=format&fit=crop&q=80&w=300') + ')"></button>';
+    openModal(h + '</div>');
+  }
+  function onPhotoPicked(ev) {
+    var input = ev.target, f = input && input.files && input.files[0];
+    if (!f) return;
+    if (!/^image\//.test(String(f.type || ''))) { toast('Please choose an image file'); input.value = ''; return; }
+    var reader = new FileReader();
+    reader.onload = function () {
+      var img = new Image();
+      img.onload = function () {
+        var max = 512, sw = img.width || 1, sh = img.height || 1, sc = Math.min(1, max / Math.max(sw, sh));
+        var w = Math.max(1, Math.round(sw * sc)), h = Math.max(1, Math.round(sh * sc));
+        var cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+        var cx = cv.getContext ? cv.getContext('2d') : null;
+        if (cx) { cx.fillStyle = '#0c0817'; cx.fillRect(0, 0, w, h); cx.drawImage(img, 0, 0, w, h); }
+        var out = '';
+        try { out = cv.toDataURL('image/jpeg', 0.86); } catch (err) { out = String(reader.result || ''); }
+        if (out.indexOf('data:image/') !== 0) { toast('Could not read that image'); return; }
+        PF.photo = out; PF.av = 0; savePF(); applyPF(); closeModal(); render();
+        toast('\u{1F4F7} Profile photo updated');
+      };
+      img.onerror = function () { toast('Could not read that image'); };
+      img.src = String(reader.result || '');
+    };
+    reader.onerror = function () { toast('Could not read that file'); };
+    reader.readAsDataURL(f);
+    input.value = '';
+  }
   function openEditProfile() {
     readPfForm();
     var h = mHead('\u270F\uFE0F ' + T('Edit Profile & Gender Icon')) +
@@ -2366,22 +2530,24 @@
         row('\u{1F511}', 'Staff sign-in is issued by AddaBuzz HQ', 'accountlist') + '</div>');
     return '<div class="az-pf">' +
       '<div class="az-pfhero">' +
-        '<button type="button" class="az-pfav" data-act="pfnav:Edit Profile" style="background-image:url(' + cssUrl(AVATAR) + ')"><span class="az-pfcam">\u{1F4F7}</span></button>' +
-        '<div class="az-pfname' + (PF.gear.neon ? ' az-neonname' : '') + '">' + esc(ME.name) +
-          '<em class="az-gender ' + (ME.gender === 'MALE' ? 'm' : 'f') + '">' + (ME.gender === 'MALE' ? '\u2642' : '\u2640') + '</em>' +
-          '<em class="az-lvpill">Lv.' + ME.level + '</em></div>' +
-        '<div class="az-pfchips"><span class="az-chip vip">VIP-' + ME.vipLevel + '</span>' +
-          '<span class="az-chip wealth">Wealth Lv.' + ME.wealthLevel + '</span>' +
-          '<span class="az-chip charm">Charm Lv.' + ME.charmLevel + '</span>' +
-          '<span class="az-chip ghostchip">' + HONOR[honorIdx()][0] + '</span>' +
-          (gear.length ? '<span class="az-chip ghostchip">' + gear.join(' ') + '</span>' : '') +
-          (Object.keys(PF.clubs).length ? '<span class="az-chip ghostchip">\u{1F496} ' + Object.keys(PF.clubs).length + '</span>' : '') +
+        '<div class="az-pfhead">' +
+          '<button type="button" class="az-pfav" data-act="pfphoto" title="Change profile photo" aria-label="Change profile photo" style="background-image:url(' + cssUrl(AVATAR) + ')"><span class="az-pfcam">\u{1F4F7}</span></button>' +
+          '<div class="az-pfmeta">' +
+            '<div class="az-pfname' + (PF.gear.neon ? ' az-neonname' : '') + '">' + esc(ME.name) +
+              '<em class="az-gender ' + (ME.gender === 'MALE' ? 'm' : 'f') + '">' + (ME.gender === 'MALE' ? '\u2642' : '\u2640') + '</em>' +
+              '<em class="az-lvpill">Lv.' + ME.level + '</em>' +
+              (ME.vipLevel ? ' <span class="az-chip vip">VIP-' + ME.vipLevel + '</span>' : '') + '</div>' +
+            '<div class="az-pfid">ID: ' + esc(ME.idNum) + '</div>' +
+            '<div class="az-pfrole">' + roleLabel(ME.role) + ' \u00b7 Agency: ' + esc(ME.agencyName) + ' (' + esc(ME.agencyCode) + ')</div>' +
+          '</div>' +
         '</div>' +
-        '<div class="az-pfid">ID: ' + esc(ME.idNum) + ' \u00b7 ' + roleLabel(ME.role) + ' \u00b7 Agency: ' + esc(ME.agencyName) + ' (' + esc(ME.agencyCode) + ')</div>' +
         '<div class="az-pfbio">' + esc(ME.bio) + '</div>' +
-        '<div class="az-pfstats"><div><b>' + money(ME.followingCount) + '</b><small>' + T('Following') + '</small></div>' +
+        '<div class="az-pfstats">' +
+          '<div><b>' + money(statOf('follows')) + '</b><small>' + T('Friends') + '</small></div>' +
+          '<div><b>' + money(ME.followingCount) + '</b><small>' + T('Following') + '</small></div>' +
           '<div><b>' + money(ME.followersCount) + '</b><small>' + T('Followers') + '</small></div>' +
-          '<div><b>Lvl.' + ME.level + '</b><small>' + T('Host Grade') + '</small></div></div>' +
+          '<div><b>' + money(statOf('likes')) + '</b><small>' + T('Visitors') + '</small></div>' +
+        '</div>' +
       '</div>' +
       '<div class="az-pfwallet">' +
         '<div class="az-pfcard coins"><div class="hd">\u{1F7E1} ' + T('Coins Balance') + '</div>' +
@@ -2398,12 +2564,25 @@
         tile('\u{1F496}', 'Fan Club', 'pfnav:Fan Club') + tile('\u{1F396}\uFE0F', 'Medal Wall', 'pfnav:Medal Wall') +
       '</div>' +
       staffBlocks +
+      '<div class="az-sec">\u{1F5A5}\uFE0F ' + T('Display & Theme') + '<span class="hub">' + T('This device') + '</span></div>' +
+      '<div class="az-display">' +
+        '<div class="az-drow"><span class="lb">\u{1F319} ' + T('Dark / Neon Theme Mode') + '</span>' +
+          '<div class="az-thmodes">' +
+            '<button type="button" class="az-thmode' + (st.theme === 'dark' ? ' sel' : '') + '" data-act="themedark">\u{1F319} ' + T('Dark') + '</button>' +
+            '<button type="button" class="az-thmode' + (st.theme === 'neon' ? ' sel' : '') + '" data-act="themeneon">\u26A1 ' + T('Neon') + '</button>' +
+          '</div></div>' +
+        '<div class="az-drow"><span class="lb">\u{1F4F1} ' + T('Layout') + '</span>' +
+          '<div class="az-modes">' +
+            '<button type="button" class="az-mode' + (st.mode === 'desktop' ? ' sel' : '') + '" data-act="mdesktop">\u{1F5A5}\uFE0F ' + T('Desktop') + '</button>' +
+            '<button type="button" class="az-mode' + (st.mode === 'phone' ? ' sel' : '') + '" data-act="mphone">\u{1F4F1} ' + T('Phone') + '</button>' +
+          '</div></div>' +
+      '</div>' +
       '<div class="az-listwrap">' +
         row('\u{1F4DD}', 'Daily Tasks & Rewards Center', 'tasks') +
+        row('\u{1F4F7}', 'Change Profile Photo', 'pfphoto') +
         row('\u270F\uFE0F', 'Edit Profile & Gender Icon', 'pfnav:Edit Profile') +
         row('\u{1F6E1}\uFE0F', 'Security, E2EE & Data Backup', 'pfnav:Security') +
         row('\u{1F310}', 'Switch Language', 'pfnav:Language') +
-        row('\u{1F319}', 'Dark / Neon Theme Mode', 'theme') +
         row('\u{1F6AA}', 'Log Out', 'logout', true) +
       '</div>' +
     '</div>';
@@ -2465,13 +2644,16 @@
     if (pp) pp.textContent = money(Math.round(st.points / 1000)) + 'K Pts';
   }
 
-  function toggleTheme() {
+  function toggleTheme() { setTheme(st.theme === 'neon' ? 'dark' : 'neon'); }
+
+  function setTheme(th) {
     var a = document.getElementById('abzapp');
     if (!a) return;
-    st.theme = st.theme === 'neon' ? 'dark' : 'neon';
+    st.theme = th === 'neon' ? 'neon' : 'dark';
     if (a.classList) { if (st.theme === 'neon') a.classList.add('neon'); else a.classList.remove('neon'); }
     try { localStorage.setItem('abztheme', st.theme); } catch (e) {}
     toast(st.theme === 'neon' ? 'Neon theme mode on' : 'Dark theme mode on');
+    if (st.view === 'profile') render();
   }
 
   function render() {
@@ -2654,6 +2836,7 @@
     }
     if (!act) return;
     if (act === 'mdesktop' || act === 'mphone') { st.mode = act === 'mphone' ? 'phone' : 'desktop'; applyMode(); return; }
+    if (act === 'themedark' || act === 'themeneon') { setTheme(act === 'themeneon' ? 'neon' : 'dark'); return; }
     if (act === 'home') { st.view = 'home'; render(); }
     else if (act === 'close') closeModal();
     else if (act === 'gifts') openGifts();
@@ -2677,6 +2860,9 @@
     else if (act === 'sec:public') { PF.publicProfile = PF.publicProfile === false; savePF(); openSecurity(); toast('Public room list \u00b7 ' + (PF.publicProfile ? 'visible' : 'hidden')); }
     else if (act === 'dlbackup') downloadBackup();
     else if (act === 'wipe') wipeDevice();
+    else if (act === 'pfphoto') openPhotoPicker();
+    else if (act === 'pfupload') { var pfi = document.getElementById('az-photo-input'); if (pfi) pfi.click(); }
+    else if (act === 'pfphotoclear') { PF.photo = ''; savePF(); applyPF(); closeModal(); render(); toast('Custom photo removed'); }
     else if (act.indexOf('pfnav:') === 0) openPfnav(act.slice(6));
     else if (act.indexOf('gtype:') === 0) { st.gtype = parseInt(act.slice(6), 10) || 0; render(); }
     else if (act === 'studio-reload') { loadStudio(); toast('Reloading studio options\u2026'); }
@@ -2737,7 +2923,12 @@
     else if (act === 'saveinv') saveInvite();
     else if (act === 'savepf') saveProfile();
     else if (act.indexOf('setgender:') === 0) { PF.gender = act.slice(10) === 'FEMALE' ? 'FEMALE' : 'MALE'; savePF(); openEditProfile(); }
-    else if (act.indexOf('setav:') === 0) { PF.av = parseInt(act.slice(6), 10) || 0; savePF(); applyPF(); openEditProfile(); render(); }
+    else if (act.indexOf('setav:') === 0) {
+      PF.av = parseInt(act.slice(6), 10) || 0; PF.photo = '';
+      savePF(); applyPF();
+      if (document.getElementById('az-ph-grid')) openPhotoPicker(); else openEditProfile();
+      render();
+    }
     else if (act.indexOf('lang:') === 0) setLang(act.slice(5));
     else if (act.indexOf('hosg:') === 0) { PF.hosG = act.slice(5) === 'FEMALE' ? 'FEMALE' : 'MALE'; savePF(); openAddHost(); }
     else if (act === 'savehost') saveHost();
@@ -2802,6 +2993,8 @@
 
   var scrim = document.getElementById('az-scrim');
   if (scrim) scrim.addEventListener('click', closeModal);
+  var photoInput = document.getElementById('az-photo-input');
+  if (photoInput) photoInput.addEventListener('change', onPhotoPicked);
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeModal(); });
 
   setInterval(function () {
@@ -2814,9 +3007,11 @@
 
   try {
     var savedMode = localStorage.getItem('abzmode');
-    st.mode = (savedMode === 'phone' || savedMode === 'desktop') ? savedMode : (window.innerWidth >= 760 ? 'desktop' : 'phone');
-  } catch (e) { st.mode = window.innerWidth >= 760 ? 'desktop' : 'phone'; }
+    st.mode = (savedMode === 'phone' || savedMode === 'desktop') ? savedMode : 'phone';
+  } catch (e) { st.mode = 'phone'; }
   applyMode();
+  androidClock();
+  setInterval(androidClock, 30000);
   try { st.theme = localStorage.getItem('abztheme') === 'neon' ? 'neon' : 'dark'; } catch (e) { st.theme = 'dark'; }
   if (st.theme === 'neon') { var az = document.getElementById('abzapp'); if (az && az.classList) az.classList.add('neon'); }
   window.addEventListener('resize', applyMode);
