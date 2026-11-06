@@ -451,6 +451,68 @@
   #abzapp .az-livestat>div{background:#160f27;border:1px solid #33215a;border-radius:12px;padding:9px}
   #abzapp .az-livestat small{display:block;font-size:9.5px;letter-spacing:1.1px;text-transform:uppercase;color:#9b8ac0}
   #abzapp .az-livestat b{font-size:14px;color:#fbf9ff}
+  #abzapp .az-bs{position:relative;display:flex;flex-direction:column;justify-content:space-between;gap:8px;
+    border-radius:16px;overflow:hidden;min-height:430px;padding:8px 0 4px;background:#0b0714 center/cover no-repeat}
+  #abzapp .az-bs>div{position:relative;z-index:1}
+  #abzapp .az-bs .az-bveil{position:absolute;inset:0;z-index:0;background:linear-gradient(180deg,#00000088,#00000018 42%,#000000aa)}
+  #abzapp .az-bsrow{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:0 10px}
+  #abzapp .az-bscard{display:flex;gap:9px;align-items:center;background:#ffffff22;border-radius:14px;padding:8px}
+  #abzapp .az-bcover{width:56px;height:56px;border-radius:10px;flex:0 0 auto;background:#00000070 center/cover no-repeat;
+    color:#fff;font-size:9px;font-weight:800;line-height:1.15;display:grid;place-items:center;text-align:center}
+  #abzapp .az-bstitle{flex:1 1 140px;min-width:0;text-align:left;background:none;border:0;color:#fff;padding:0;font-size:15px;font-weight:800}
+  #abzapp .az-bstitle.ph{color:#e7dcff;font-weight:600}
+  #abzapp .az-bchips{display:flex;gap:7px;overflow:auto;padding:0 2px}
+  #abzapp .az-bchip{font-size:11.5px;font-weight:700;color:#efe4ff;background:#ffffff24;border:1px solid #ffffff3d;
+    border-radius:999px;padding:6px 13px;white-space:nowrap;flex:0 0 auto}
+  #abzapp .az-bchip.on{background:#fff;color:#180f2b;border-color:#fff;font-weight:800}
+  #abzapp .az-bsbanner{display:flex;gap:8px;align-items:center;justify-content:space-between;border-radius:12px;padding:7px 10px;
+    background:linear-gradient(90deg,#6d2611,#c8901f 52%,#6d2611);border:1px solid #ffd873aa}
+  #abzapp .az-bsbanner b{font-size:13px;font-style:italic;color:#ffe6a3;letter-spacing:.4px}
+  #abzapp .az-bsbanner span{font-size:10.5px;color:#fff8e6}
+  #abzapp .az-bzoom{display:flex;flex-direction:column;align-items:center;gap:7px;background:#00000078;border-radius:12px;padding:9px 7px}
+  #abzapp .az-bzoom i{font-style:normal;font-size:14px;color:#fff;line-height:1;padding:2px 6px;cursor:pointer}
+  #abzapp .az-bzoom u{text-decoration:none;display:block;position:relative;width:3px;height:72px;background:#ffffff66;border-radius:2px}
+  #abzapp .az-bzoom u em{position:absolute;left:-4px;width:11px;height:11px;border-radius:50%;background:#fff}
+  #abzapp .az-bzoom b{font-size:11px;color:#fff;font-weight:700}
+  #abzapp .az-bhint{background:#000000b0;color:#fff;font-size:11.5px;line-height:1.35;border-radius:10px;padding:8px 10px;text-align:center}
+  #abzapp .az-bmodes{display:flex;gap:6px;justify-content:center}
+  #abzapp .az-bmode{font-size:12.5px;font-weight:800;color:#d9c9f2;background:#00000060;border:0;border-radius:999px;padding:7px 22px}
+  #abzapp .az-bmode.on{background:#5b4bf6;color:#fff}
+  #abzapp .az-blays{display:flex;gap:10px;align-items:center;overflow:auto;padding:2px}
+  #abzapp .az-blay{width:46px;height:34px;flex:0 0 auto;border-radius:7px;background:#ffffff2e;display:grid;gap:2px;padding:3px;border:0}
+  #abzapp .az-blay i{display:block;background:#ffffff9c;border-radius:2px}
+  #abzapp .az-blay.on{background:#ffffffef}
+  #abzapp .az-blay.on i{background:#180f2b}
+  #abzapp .az-bbar{display:flex;gap:8px;align-items:center;padding:0 10px}
+  #abzapp .az-bicon{width:40px;height:40px;flex:0 0 auto;border-radius:50%;background:#ffffff26;color:#fff;font-size:16px;border:0}
+  #abzapp .az-bicon.on{background:#ffe08a;color:#3a2405}
+  #abzapp .az-bgo{flex:1;background:#5b4bf6;border:0;border-radius:999px;color:#fff;font-size:15px;font-weight:800;padding:12px}
+  #abzapp .az-bgo.stop{background:#ff2a55}
+  #abzapp .az-btabs{display:flex;gap:26px;justify-content:center;padding:8px 0 2px}
+  #abzapp .az-btab{position:relative;background:none;border:0;color:#9c8bb8;font-size:15px;font-weight:700;padding:6px 4px}
+  #abzapp .az-btab.on{color:#fff;font-weight:900}
+  #abzapp .az-btab.on:after{content:"";position:absolute;left:18%;right:18%;bottom:-1px;height:3px;border-radius:2px;background:#fff}
+  #abzapp .az-btiles{display:grid;gap:6px;padding:0 10px}
+  #abzapp .az-btiles.lay0{grid-template-columns:repeat(2,1fr)}
+  #abzapp .az-btiles.lay1{grid-template-columns:repeat(3,1fr)}
+  #abzapp .az-btiles.lay2{grid-template-columns:repeat(4,1fr)}
+  #abzapp .az-btiles.lay3{grid-template-columns:repeat(2,1fr)}
+  #abzapp .az-btiles.lay3 .az-btile:first-child{grid-column:span 2;min-height:86px}
+  #abzapp .az-btile{min-height:62px;border-radius:10px;background:#00000078;border:1px solid #ffffff2e;color:#fff;
+    font-size:11px;padding:6px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px}
+  #abzapp .az-btile .av{width:26px;height:26px;border-radius:50%;background:#ffffff26 center/cover no-repeat}
+  #abzapp .az-btile.host{border-color:#ffd873}
+  #abzapp .az-btile.spk{border-color:#00e5ff}
+  #abzapp .az-btile.lock{opacity:.5}
+  #abzapp .az-btile b{font-size:11px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+  #abzapp .az-btile small{font-size:9.5px;color:#cbb9e6}
+  #abzapp .az-bstat{display:flex;gap:8px;justify-content:space-around;background:#00000088;border-radius:12px;padding:7px 8px}
+  #abzapp .az-bstat div{text-align:center}
+  #abzapp .az-bstat small{display:block;font-size:9.5px;color:#c3b1de;letter-spacing:.4px}
+  #abzapp .az-bstat b{font-size:12.5px;color:#fff}
+  #abzapp button.az-btile, #abzapp button.az-blay{font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+  #abzapp.as-phone .az-bs{min-height:74dvh;border-radius:0}
+  #abzapp.as-phone .az-bzoom u{height:96px}
 </style>
 
 <script>
@@ -501,7 +563,8 @@
   var st = { rooms: [], cur: null, view: 'home', filter: 'live', chat: [], sideRoom: '', rankType: 'star', rankPeriod: 'Daily',
     coins: 18500, points: 520000, tier: 0, method: 'bKash', wpreset: 0, wmethod: 'bKash', follow: {}, likes: 0, pkTimer: 128, msgCount: 0,
     mode: 'desktop', theme: 'dark', gtype: 0, lang: 'en', live: null, rkMetric: 'pts',
-    mic: false, cam: true, seatIdx: 0, hand: false, mute: false, audioOnly: false };
+    mic: false, cam: true, seatIdx: 0, hand: false, mute: false, audioOnly: false,
+    bs: { tab: 'live', mode: 'video', cat: 0, zoom: 130, lay: 0, beauty: false, title: '', flip: false, region: false, gift: 1 } };
 
   var studio = null;
 
@@ -1981,12 +2044,140 @@
   function cancelApply() { PF.apply = null; savePF(); openAgencyApply(); toast('Application withdrawn'); }
 
   /* ---------- own broadcast session: one page per broadcast type ---------- */
-  function liveKindOf(t) {
-    var id = String((t && (t.id || t.label)) || '').toUpperCase();
-    if (id.indexOf('PARTY') >= 0) return 'party';
-    if (id.indexOf('PK') >= 0) return 'pk';
-    if (id.indexOf('AUDIO') >= 0 || id.indexOf('MIC') >= 0) return 'audio';
-    return 'video';
+  var BCATS = ['Chatting', 'Singing', 'Dancing', 'Mall', 'Gaming', 'Talk Show'];
+  var BLAYS = ['2 \u00d7 2 grid', '3 \u00d7 2 grid', '4 \u00d7 2 grid', 'Host + list'];
+
+  function bsZoom(v, act) {
+    var z = Math.max(100, Math.min(200, Number(v) || 130));
+    var pos = ((z - 100) / 100) * 100, a = act || 'bzoom';
+    return '<div class="az-bzoom"><button type="button" data-act="' + a + ':10" aria-label="Zoom in"><i>+</i></button>' +
+      '<u><em style="bottom:calc(' + pos.toFixed(0) + '% - 6px)"></em></u><b>' + z + '%</b>' +
+      '<button type="button" data-act="' + a + ':-10" aria-label="Zoom out"><i>\u2212</i></button></div>';
+  }
+  function bsCard() {
+    var t = String(st.bs.title || '').trim();
+    return '<div class="az-bscard">' +
+      '<button type="button" class="az-bcover" data-act="bcover" style="background-image:url(' + cssUrl(AVATAR) + ')">Change Cover</button>' +
+      '<button type="button" class="az-bstitle' + (t ? '' : ' ph') + '" data-act="btitle">' +
+      esc(t || 'Please enter the content') + ' \u270E</button></div>';
+  }
+  function bsChips() {
+    var h = '<div class="az-bchips">', i;
+    for (i = 0; i < BCATS.length; i++)
+      h += '<button type="button" class="az-bchip' + (i === st.bs.cat ? ' on' : '') + '" data-act="bcat:' + i + '">' + esc(BCATS[i]) + '</button>';
+    return h + '</div>';
+  }
+  function bsBanner() {
+    return '<div class="az-bsbanner"><b>Lucky Gift Ranking</b><span>Daily Top1: \u{1F7E3} ' + money(1000000) +
+      ' / 3-Day Top1: \u{1F7E3} ' + money(3000000) + '</span></div>';
+  }
+  function bsModes() {
+    return '<div class="az-bmodes">' +
+      '<button type="button" class="az-bmode' + (st.bs.mode === 'video' ? ' on' : '') + '" data-act="bmode:video">Video</button>' +
+      '<button type="button" class="az-bmode' + (st.bs.mode === 'voice' ? ' on' : '') + '" data-act="bmode:voice">Voice</button></div>';
+  }
+  function bsLays(act, cur) {
+    var cells = [4, 6, 8, 5], h = '<div class="az-blays">', i, a = act || 'blayout';
+    cur = cur === undefined || cur === null ? st.bs.lay : cur;
+    for (i = 0; i < 4; i++) {
+      var j, inner = '';
+      for (j = 0; j < cells[i]; j++) inner += '<i></i>';
+      h += '<button type="button" class="az-blay' + (i === cur ? ' on' : '') + '" data-act="' + a + ':' + i +
+        '" aria-label="' + esc(BLAYS[i]) + '" title="' + esc(BLAYS[i]) + '">' + inner + '</button>';
+    }
+    return h + '</div>';
+  }
+  function bsTabs() {
+    var tabs = [['live', 'Live'], ['party', 'Party'], ['pk', 'PK']], h = '<div class="az-btabs">', i;
+    for (i = 0; i < tabs.length; i++)
+      h += '<button type="button" class="az-btab' + (st.bs.tab === tabs[i][0] ? ' on' : '') + '" data-act="btab:' + tabs[i][0] + '">' + tabs[i][1] + '</button>';
+    return h + '</div>';
+  }
+  function bsTopRow() {
+    return '<div class="az-bsrow"><button type="button" class="az-bicon" data-act="home" aria-label="Close">\u2715</button>' +
+      '<div style="display:flex;gap:8px">' +
+      '<button type="button" class="az-bicon' + (st.bs.flip ? ' on' : '') + '" data-act="bflip" aria-label="Flip camera">\u{1F4F7}</button>' +
+      '<button type="button" class="az-bicon" data-act="bsound" aria-label="Sound">' + (st.mute ? '\u{1F507}' : '\u{1F50A}') + '</button>' +
+      '</div></div>';
+  }
+  function bsCta() {
+    var label = st.bs.tab === 'party' ? 'Hold A Party' : (st.bs.tab === 'pk' ? 'Start PK Battle' : 'Go Live');
+    return '<div class="az-bbar"><button type="button" class="az-bicon' + (st.bs.beauty ? ' on' : '') + '" data-act="bbeauty" aria-label="Beauty filter">\u2728</button>' +
+      '<button type="button" class="az-bgo" data-act="golive-start">' + label + '</button>' +
+      '<button type="button" class="az-bicon" data-act="bmore" aria-label="More options">\u22EF</button></div>';
+  }
+  function bsFrame(bg, inner) {
+    return '<div class="az-bs" style="background-image:url(' + cssUrl(bg) + ')"><div class="az-bveil"></div>' + inner + '</div>';
+  }
+  function bsHint(tab, mode) {
+    if (tab === 'party') return 'Party room \u00b7 up to 8 guests on mic. Pick the seat layout before you start.';
+    if (tab === 'pk') return 'PK battle \u00b7 5-minute 1v1 clash. Gift points move the score bar.';
+    if (mode === 'voice') return 'Voice-only adda \u00b7 camera stays off, viewers see your cover art.';
+    return 'Please keep centered and have your head and shoulders in the frame';
+  }
+  function broadcastConsole() {
+    var tab = st.bs.tab, bg = AVATAR;
+    var inner = bsTopRow() +
+      '<div style="padding:0 10px;display:flex;flex-direction:column;gap:8px">' + bsCard() + bsChips() + bsBanner() + '</div>' +
+      '<div class="az-bsrow" style="align-items:flex-end"><div style="flex:1;display:flex;flex-direction:column;gap:8px">' +
+      '<div class="az-bhint">' + esc(bsHint(tab, st.bs.mode)) + '</div>' + (tab === 'pk' ? '' : bsModes()) +
+      (tab === 'party' ? bsLays() : '') + '</div>' + bsZoom(st.bs.zoom, 'bzoom') + '</div>' +
+      bsCta() + bsTabs();
+    return bsFrame(bg, inner);
+  }
+  function openSetupTitle() {
+    var h = mHead('\u270F Broadcast title') +
+      '<div class="az-field"><span class="az-fico">\u{1F3AC}</span><input id="az-bs-title" maxlength="48" value="' +
+      esc(st.bs.title || '') + '" placeholder="Please enter the content" aria-label="Broadcast title" /></div>' +
+      '<p class="tip" style="margin-top:10px">Shown on your cover card and in the room list while you are on air.</p>' +
+      '<button type="button" class="az-cta" data-act="savebtitle">' + T('Save') + '</button>';
+    openModal(h);
+  }
+  function saveSetupTitle() {
+    var el = document.getElementById('az-bs-title'), t = String(el && el.value || '').trim();
+    if (t.length < 3) { toast('Give the broadcast a title (min 3 characters)'); return; }
+    st.bs.title = t; closeModal(); render(); toast('\u270F Title set \u00b7 ' + t);
+  }
+  function openSetupCover() {
+    var h = mHead('\u{1F5BC} Change cover') + '<div class="az-queue">', i;
+    for (i = 0; i < AVATARS.length; i++) {
+      h += '<button type="button" class="az-qrow" data-act="bav:' + i + '"><span class="av" style="background-image:url(' +
+        cssUrl('https://images.unsplash.com/' + AVATARS[i] + '?auto=format&fit=crop&q=80&w=300') + ')"></span>' +
+        '<span class="grow">Cover ' + (i + 1) + '</span><span>' + (Number(PF.av) === i ? '\u2713 current' : 'use') + '</span></button>';
+    }
+    openModal(h + '</div>');
+  }
+  function openSetupMore() {
+    var l = ['bmore:mirror', 'bmore:region', 'bmore:gifts', 'bmore:mode'];
+    var names = ['Mirror preview', 'List room in Bangladesh only', 'Gift effects level', 'Switch broadcast mode'];
+    var h = mHead('\u22EF More options') + '<div class="az-queue">', i;
+    for (i = 0; i < l.length; i++)
+      h += '<button type="button" class="az-qrow" data-act="' + l[i] + '"><span class="grow">' + esc(names[i]) + '</span>' +
+        '<span>' + esc(bsMoreValue(i)) + '</span></button>';
+    openModal(h + '</div>');
+  }
+  function bsClamp(v) { return Math.max(100, Math.min(200, Number(v) || 130)); }
+  function bsMoreValue(i) {
+    if (i === 0) return st.bs.flip ? 'mirrored' : 'normal';
+    if (i === 1) return st.bs.region ? 'Bangladesh only' : 'everywhere';
+    if (i === 2) return ['Off', 'Neon', 'Full'][(Number(st.bs.gift) || 0) % 3];
+    return KIND[bsKind()][1];
+  }
+  function bsMorePick(opt) {
+    if (opt === 'mirror') { st.bs.flip = !st.bs.flip; closeModal(); render(); toast(st.bs.flip ? '\u{1F4F7} Preview mirrored' : '\u{1F4F7} Preview normal'); return; }
+    if (opt === 'region') { st.bs.region = !st.bs.region; closeModal(); render(); toast(st.bs.region ? '\u{1F30F} Room listed in Bangladesh only' : '\u{1F30F} Room listed everywhere'); return; }
+    if (opt === 'gifts') { st.bs.gift = ((Number(st.bs.gift) || 0) + 1) % 3; closeModal(); render(); toast('\u{1F381} Gift effects \u00b7 ' + bsMoreValue(2)); return; }
+    if (opt === 'mode') {
+      var order = ['live', 'party', 'pk'], i = order.indexOf(st.bs.tab);
+      st.bs.tab = order[(i + 1) % 3]; closeModal(); render();
+      toast('\u{1F4DF} Broadcast mode \u00b7 ' + KIND[bsKind()][1]); return;
+    }
+    closeModal();
+  }
+  function bsKind() {
+    if (st.bs.tab === 'party') return 'party';
+    if (st.bs.tab === 'pk') return 'pk';
+    return st.bs.mode === 'voice' ? 'audio' : 'video';
   }
   function liveCell(k, v) { return '<div><small>' + k + '</small><b>' + esc(String(v)) + '</b></div>'; }
   function liveStats(l, extra) {
@@ -1999,21 +2190,11 @@
       '<button type="button" data-act="lshare">\u{1F4AC} Copy room link</button>' +
       '<span class="grow">Device-local session</span></div>';
   }
-  function openLiveSetup() {
-    var t = (studio && studio.types[st.gtype]) || {}, k = liveKindOf(t);
-    var h = mHead('\u{1F4DF} ' + T('Go Live')) +
-      '<div class="az-pkind"><i>' + KIND[k][0] + '</i><div><b>' + KIND[k][1] + '</b><small>' + KIND[k][2] + '</small></div></div>' +
-      '<div class="az-kv">' + kv('Mode', t.label) + kv('Seats', t.seats) + kv('Format', t.desc) + '</div>' +
-      '<div class="az-field" style="margin-top:10px"><span class="az-fico">\u{1F3AC}</span><input id="az-live-title" maxlength="48" value="' +
-      esc((studio && studio.def && studio.def.title) || '') + '" placeholder="Room title" aria-label="Room title" /></div>' +
-      '<p class="tip" style="margin-top:10px">The session runs on this device only. Nothing is added to the shared room list, so no viewer is routed to you.</p>' +
-      '<button type="button" class="az-cta" data-act="livego">' + T('Start') + ' ' + esc(KIND[k][1]) + '</button>';
-    openModal(h);
-  }
   function startLive() {
-    var el = document.getElementById('az-live-title'), title = String(el && el.value || '').trim();
-    if (title.length < 3) { toast('Give the room a title (min 3 characters)'); if (el) el.focus(); return; }
-    var t = (studio && studio.types[st.gtype]) || {}, k = liveKindOf(t), i, seats = null;
+    var k = bsKind(), title = String(st.bs.title || '').trim();
+    if (title.length < 3) { toast('Add a broadcast title first (min 3 characters)'); openSetupTitle(); return; }
+    var t = (studio && studio.types && studio.types[st.gtype]) || {}, i, seats = null;
+    var seatLabel = k === 'party' ? '8 seats' : (k === 'pk' ? '1v1 clash' : (k === 'audio' ? 'Voice only' : 'Camera live'));
     if (k === 'party') {
       seats = [];
       for (i = 0; i < 8; i++) seats.push(i === 0 ?
@@ -2021,7 +2202,9 @@
         { userName: '', avatarUrl: '', isHost: false, isSpeaking: false, isLocked: false });
     }
     st.live = {
-      kind: k, mode: t.label || 'BROADCAST', seats: t.seats || '1 mic', title: title,
+      kind: k, mode: t.label || KIND[k][1], seats: seatLabel, title: title,
+      cat: BCATS[st.bs.cat] || 'Chatting', lay: st.bs.lay, zoom: Number(st.bs.zoom) || 130,
+      beauty: !!st.bs.beauty, flip: !!st.bs.flip,
       at: Date.now(), viewers: 1, charm: 0, board: seats, pk: k === 'pk' ? { left: 0, right: 260, end: Date.now() + 300000 } : null
     };
     st.mic = true; st.cam = k !== 'audio'; st.seatIdx = k === 'party' ? 1 : 0;
@@ -2036,19 +2219,46 @@
     toast('\u23F9 ' + KIND[(l && l.kind) || 'video'][1] + ' ended \u00b7 ' + liveTime(secs) + ' on air \u00b7 ' +
       fmt(l.viewers) + ' viewers \u00b7 ' + fmt(l.charm) + ' charm');
   }
+  function lCard(l) {
+    return '<div class="az-bscard"><button type="button" class="az-bcover" data-act="lcover" style="background-image:url(' +
+      cssUrl(AVATAR) + ')">Change Cover</button>' +
+      '<button type="button" class="az-bstitle" data-act="ltitle">' + esc(l.title) + ' \u270E</button></div>';
+  }
+  function lChips(l) {
+    var h = '<div class="az-bchips">', i;
+    for (i = 0; i < BCATS.length; i++)
+      h += '<button type="button" class="az-bchip' + (BCATS[i] === l.cat ? ' on' : '') + '" data-act="lcat:' + i + '">' + esc(BCATS[i]) + '</button>';
+    return h + '</div>';
+  }
+  function lStats(l, extra) {
+    var secs = Math.floor((Date.now() - l.at) / 1000);
+    return '<div class="az-bstat"><div><small>ON AIR</small><b>' + liveTime(secs) + '</b></div>' +
+      '<div><small>VIEWERS</small><b>' + fmt(l.viewers) + '</b></div>' +
+      '<div><small>CHARM</small><b>' + fmt(l.charm) + '</b></div>' +
+      '<div><small>MODE</small><b>' + esc(l.seats) + '</b></div>' + (extra || '') + '</div>';
+  }
+  function lBar(l) {
+    return '<div class="az-bbar"><button type="button" class="az-bicon' + (st.mic ? ' on' : '') + '" data-act="mic" aria-label="Mic">' +
+      (st.mic ? '\u{1F3A4}' : '\u{1F507}') + '</button>' +
+      '<button type="button" class="az-bgo stop" data-act="livestop">End ' + esc(KIND[l.kind][1]) + '</button>' +
+      '<button type="button" class="az-bicon" data-act="lshare" aria-label="Copy room link">\u22EF</button></div>';
+  }
+  function lNote() {
+    return '<div class="az-acts" style="margin-top:10px"><span class="grow">Device-local session \u00b7 not listed in the shared room feed</span>' +
+      '<button type="button" data-act="lshare">\u{1F4AC} Copy room link</button></div>';
+  }
   function liveVideoPage(l) {
-    var h = '<div class="az-pkind"><i>\u{1F4F9}</i><div><b>SOLO VIDEO LIVE \u00b7 ON AIR</b><small>' +
-      esc(l.title) + '</small></div></div>';
-    h += '<div class="az-stage" id="az-stage" style="background-image:url(' + cssUrl(AVATAR) + ')">' +
-      '<div class="az-srow"><div class="az-host"><div class="az-av" style="background-image:url(' + cssUrl(AVATAR) + ')"></div>' +
-      '<div><b>' + esc(ME.name) + '</b><small>' + esc(l.title) + '</small></div>' +
-      '<span class="az-rec"><i></i>REC</span></div>' +
-      '<div style="display:flex;gap:6px;align-items:center"><span class="az-lag">you are the host</span></div></div>' +
-      heartsFx() + safetyNote() + '</div>';
-    h += liveStats(l, liveCell('Feed', 'Camera live')) +
-      '<div class="az-strip">' + micBtn() + camBtn() +
-      '<button type="button" class="az-tgl" data-act="ltitle">\u270F Room title</button></div>' + liveFoot();
-    return h;
+    var top = '<div class="az-bsrow"><span class="az-rec"><i></i>REC \u00b7 ' + esc(KIND.video[1]) + '</span>' +
+      '<div style="display:flex;gap:8px">' +
+      '<button type="button" class="az-bicon' + (l.beauty ? ' on' : '') + '" data-act="lbeauty" aria-label="Beauty filter">\u2728</button>' +
+      '<button type="button" class="az-bicon' + (st.cam ? '' : ' on') + '" data-act="cam" aria-label="Camera">' + (st.cam ? '\u{1F4F7}' : '\u{1F648}') + '</button>' +
+      '</div></div>';
+    var inner = top +
+      '<div style="padding:0 10px;display:flex;flex-direction:column;gap:8px">' + lCard(l) + lChips(l) + bsBanner() + '</div>' +
+      '<div class="az-bsrow" style="align-items:flex-end"><div style="flex:1;display:flex;flex-direction:column;gap:8px">' +
+      '<div class="az-bhint">' + esc(st.cam ? bsHint('live', 'video') : 'Camera off \u00b7 viewers see your cover art until you switch it back on') + '</div>' + lStats(l) + '</div>' +
+      bsZoom(l.zoom, 'livezoom') + '</div>' + lBar(l);
+    return bsFrame(AVATAR, inner) + lNote();
   }
   function liveAudioPage(l) {
     var h = '<div class="az-aud"><div class="az-pkind"><i>\u{1F3A4}</i><div><b>AUDIO ADDA \u00b7 ON AIR</b><small>' +
@@ -2063,25 +2273,29 @@
     return h + liveStats(l, liveCell('Mode', 'Voice only')) + liveFoot();
   }
   function livePartyPage(l) {
-    var board = l.board || [], onMic = 0, i;
-    for (i = 0; i < board.length; i++) if (board[i] && board[i].isSpeaking) onMic++;
-    var h = '<div class="az-pkind"><i>\u{1F399}\u{FE0F}</i><div><b>8-MIC PARTY ROOM \u00b7 ON AIR</b><small>' +
-      esc(l.title) + '</small></div></div><div class="az-seats">';
+    var board = l.board || [], onMic = 0, i, tiles = '';
     for (i = 0; i < 8; i++) {
-      var s = board[i] || { userName: '', isHost: false, isSpeaking: false, isLocked: false };
-      var cls = 'az-seat' + (s.isHost ? ' host' : '') + (s.isSpeaking ? ' spk' : '') + (s.isLocked ? ' lock' : '') +
-        (s.mine || (s.isHost && i === 0) ? ' own' : '');
-      var inner = s.isLocked && !s.userName ? '<div class="av">\u{1F512}</div><b>Locked</b><small>tap to open</small>' :
+      var s = board[i] || { userName: '', avatarUrl: '', isHost: false, isSpeaking: false, isLocked: false };
+      if (s.isSpeaking) onMic++;
+      var cls = 'az-btile' + (s.isHost ? ' host' : '') + (s.isSpeaking ? ' spk' : '') + (s.isLocked ? ' lock' : '');
+      var cell = s.isLocked && !s.userName ? '<div class="av">\u{1F512}</div><b>Locked</b><small>tap to open</small>' :
         (s.userName ? '<div class="av" style="background-image:url(' + cssUrl(s.avatarUrl || AVATAR) + ')"></div><b>' +
           esc(s.userName) + '</b><small>' + (s.isHost ? '\u{1F451} you (host)' : (s.isSpeaking ? '\u{1F3A4} on mic' : 'muted')) + '</small>' :
           '<div class="av">+</div><b>Seat ' + (i + 1) + '</b><small>+ Mic</small>');
-      h += '<button type="button" class="' + cls + '" data-act="lseat:' + (i + 1) + '">' + inner + '</button>';
+      tiles += '<button type="button" class="' + cls + '" data-act="lseat:' + (i + 1) + '">' + cell + '</button>';
     }
-    h += '</div><div class="az-seattop">' + micBtn() + camBtn() +
-      '<button type="button" class="az-tgl" data-act="ltitle">\u270F Room title</button>' +
-      '<button type="button" class="az-tgl" data-act="lshare">\u{1F464}+ Invite to seat</button>' +
-      '<span class="az-lag">' + onMic + '/8 on mic</span></div>';
-    return h + liveStats(l, liveCell('Host chair', 'Seat 1 \u00b7 yours')) + liveFoot();
+    var top = '<div class="az-bsrow"><span class="az-rec"><i></i>REC \u00b7 ' + esc(KIND.party[1]) + '</span>' +
+      '<div style="display:flex;gap:8px">' +
+      '<button type="button" class="az-bicon' + (l.beauty ? ' on' : '') + '" data-act="lbeauty" aria-label="Beauty filter">\u2728</button>' +
+      '<button type="button" class="az-bicon" data-act="cam" aria-label="Camera">' + (st.cam ? '\u{1F4F7}' : '\u{1F648}') + '</button>' +
+      '</div></div>';
+    var inner = top +
+      '<div style="padding:0 10px;display:flex;flex-direction:column;gap:8px">' + lCard(l) + lChips(l) + '</div>' +
+      '<div class="az-btiles lay' + (Number(l.lay) || 0) + '">' + tiles + '</div>' +
+      '<div class="az-bsrow" style="align-items:flex-end"><div style="flex:1;display:flex;flex-direction:column;gap:8px">' +
+      lStats(l, '<div><small>ON MIC</small><b>' + onMic + '/8</b></div>') + bsLays('llayout', Number(l.lay) || 0) +
+      '</div>' + bsZoom(l.zoom, 'livezoom') + '</div>' + lBar(l);
+    return bsFrame(AVATAR, inner) + lNote();
   }
   function livePkPage(l) {
     var pk = l.pk || { left: 0, right: 0, end: Date.now() }, left = Math.max(0, Math.floor((pk.end - Date.now()) / 1000));
@@ -2210,20 +2424,10 @@
   function viewGolive() {
     var h = '<div class="az-h1">' + T('Go Live') + '</div>';
     if (st.live) return h + livePanel();
-    if (!studio) {
-      return h + '<div class="az-empty">' + T('Studio loading') + ' \u00b7 ' +
-        '<button type="button" data-act="studio-reload">' + T('Reload') + '</button></div>';
-    }
-    var t = studio.types[st.gtype] || {}, d = studio.def, i, k = liveKindOf(t);
-    h += '<div class="az-filters">';
-    for (i = 0; i < studio.types.length; i++)
-      h += '<button type="button" ' + (i === st.gtype ? 'class="sel" ' : '') + 'data-act="gtype:' + i + '">' +
-        esc(studio.types[i].label) + '</button>';
-    h += '</div>' + kindRibbon(k, '') + '<div class="az-kv">' + kv('Mode', t.label) + kv('Format', t.desc) + kv('Category', t.category) +
-      kv('Title', d.title) + kv('Seats', t.seats) +
-      (PF.gear.mic ? kv('Mic ring', T('Golden Mic Ring')) : '') + '</div>' +
-      '<div class="az-acts"><button type="button" data-act="golive-open">' + T('Start') + ' ' + esc(KIND[k][1]) + '</button>' +
-      '<span class="grow">' + T('Studio ready') + '</span></div>';
+    h += broadcastConsole();
+    h += '<div class="az-acts" style="margin-top:10px"><span class="grow">Session runs on this device only \u00b7 nothing is added to the shared room list</span>' +
+      (studio ? '<span class="az-lag">studio config: ' + esc(studio.types.length) + ' modes</span>'
+        : '<button type="button" data-act="studio-reload">' + T('Reload') + ' studio</button>') + '</div>';
     return h;
   }
 
@@ -2476,11 +2680,34 @@
     else if (act.indexOf('pfnav:') === 0) openPfnav(act.slice(6));
     else if (act.indexOf('gtype:') === 0) { st.gtype = parseInt(act.slice(6), 10) || 0; render(); }
     else if (act === 'studio-reload') { loadStudio(); toast('Reloading studio options\u2026'); }
-    else if (act === 'golive-open') openLiveSetup();
-    else if (act === 'livego') startLive();
+    else if (act.indexOf('btab:') === 0) {
+      var bt = act.slice(5);
+      st.bs.tab = bt === 'party' || bt === 'pk' ? bt : 'live';
+      if (st.bs.tab === 'party') st.bs.mode = 'video';
+      render();
+    }
+    else if (act.indexOf('bmode:') === 0) { st.bs.mode = act.slice(6) === 'voice' ? 'voice' : 'video'; render(); }
+    else if (act.indexOf('bcat:') === 0) { st.bs.cat = parseInt(act.slice(5), 10) || 0; render(); }
+    else if (act.indexOf('bzoom:') === 0) { st.bs.zoom = bsClamp((Number(st.bs.zoom) || 130) + (parseInt(act.slice(6), 10) || 0)); render(); }
+    else if (act.indexOf('blayout:') === 0) { st.bs.lay = parseInt(act.slice(8), 10) || 0; render(); }
+    else if (act === 'bbeauty') { st.bs.beauty = !st.bs.beauty; render(); toast(st.bs.beauty ? '\u2728 Beauty filter on' : 'Beauty filter off'); }
+    else if (act === 'bflip') { st.bs.flip = !st.bs.flip; render(); toast(st.bs.flip ? '\u{1F4F7} Front camera' : '\u{1F4F7} Back camera'); }
+    else if (act === 'bsound') { st.mute = !st.mute; render(); toast(st.mute ? '\u{1F507} Preview sound off' : '\u{1F50A} Preview sound on'); }
+    else if (act === 'btitle') openSetupTitle();
+    else if (act === 'savebtitle') saveSetupTitle();
+    else if (act === 'bcover') openSetupCover();
+    else if (act === 'bmore') openSetupMore();
+    else if (act.indexOf('bmore:') === 0) bsMorePick(act.slice(6));
+    else if (act.indexOf('bav:') === 0) { PF.av = parseInt(act.slice(4), 10) || 0; savePF(); applyPF(); closeModal(); render(); toast('\u{1F5BC} Cover updated'); }
+    else if (act === 'golive-start') startLive();
     else if (act === 'livestop') stopLive();
     else if (act === 'ltitle') openLiveTitle();
     else if (act === 'savelivetitle') saveLiveTitle();
+    else if (act === 'lcover') openSetupCover();
+    else if (act === 'lbeauty') { if (st.live) { st.live.beauty = !st.live.beauty; render(); toast(st.live.beauty ? '\u2728 Beauty on air' : 'Beauty filter off'); } }
+    else if (act.indexOf('lcat:') === 0) { if (st.live) { st.live.cat = BCATS[parseInt(act.slice(5), 10) || 0] || 'Chatting'; render(); toast('\u{1F3F7} Category \u00b7 ' + st.live.cat); } }
+    else if (act.indexOf('llayout:') === 0) { if (st.live) { st.live.lay = parseInt(act.slice(8), 10) || 0; render(); } }
+    else if (act.indexOf('livezoom:') === 0) { if (st.live) { st.live.zoom = bsClamp((Number(st.live.zoom) || 130) + (parseInt(act.slice(9), 10) || 0)); render(); } }
     else if (act === 'lshare') copyRoomLink();
     else if (act === 'lboost') boostLivePK();
     else if (act.indexOf('lseat:') === 0) takeLiveSeat(parseInt(act.slice(6), 10) || 1);
