@@ -95,15 +95,27 @@ object FirestoreSources {
     }
 
     fun seatUser(roomId: Long, seatIndex: Int, user: UserProfile) {
-        val path = "partySeats.${seatIndex - 1}"
-        room(roomId)?.update(
-            hashMapOf<String, Any>(
-                "$path.userName" to user.name,
-                "$path.avatarUrl" to user.avatarUrl,
-                "$path.gender" to user.gender.name,
-                "$path.isSpeaking" to true
-            )
-        )
+        val docRef = room(roomId) ?: return
+        db?.runTransaction { transaction ->
+            val snapshot = transaction.get(docRef)
+            if (!snapshot.exists()) return@runTransaction
+            val streamer = runCatching { snapshot.toStreamer() }.getOrNull() ?: return@runTransaction
+            val updatedSeats = streamer.partySeats.map { seat ->
+                if (seat.index == seatIndex && seat.userName == null && !seat.isLocked) {
+                    seat.copy(
+                        userName = user.name,
+                        avatarUrl = user.avatarUrl,
+                        gender = user.gender,
+                        isSpeaking = true
+                    )
+                } else seat
+            }
+            transaction.update(docRef, "partySeats", updatedSeats.map { it.toPayload() })
+        }
+    }
+
+    fun deleteRoom(roomId: Long) {
+        room(roomId)?.delete()
     }
 
     fun incrementPKLeftScore(roomId: Long, delta: Int) {

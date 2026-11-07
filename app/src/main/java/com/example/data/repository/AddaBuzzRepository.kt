@@ -410,6 +410,27 @@ class AddaBuzzRepository {
         FirestoreSources.incrementCharmScore(streamerId, points.toLong())
     }
 
+    fun sendDirectMessage(senderName: String, text: String) {
+        val newDm = DirectMessage(
+            id = System.currentTimeMillis(),
+            senderName = senderName,
+            avatarUrl = _userProfile.value.avatarUrl,
+            lastMessage = text,
+            time = "Just now",
+            unreadCount = 0,
+            gender = _userProfile.value.gender
+        )
+        _directMessages.update { listOf(newDm) + it.filter { dm -> dm.senderName != senderName } }
+    }
+
+    fun removeBroadcastStream(roomId: Long) {
+        _streamers.update { list -> list.filter { it.id != roomId } }
+        synchronized(unpublishedRooms) {
+            unpublishedRooms.removeAll { it.id == roomId }
+        }
+        FirestoreSources.deleteRoom(roomId)
+    }
+
     fun addBroadcastStream(title: String, category: String, streamType: StreamType): Streamer {
         val user = _userProfile.value
         val seats = if (streamType == StreamType.PARTY_ROOM) {
