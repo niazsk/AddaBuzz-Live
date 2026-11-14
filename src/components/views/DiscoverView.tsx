@@ -1,0 +1,425 @@
+import React from 'react';
+import { Bell, Eye, Radio, Search, Users, Play, X, Database } from 'lucide-react';
+import { LiveRoom, RoomCategory, RoomMode, UserProfile } from '../../types/app';
+import { ROOM_CATEGORIES } from '../../data/previewData';
+import { RoomCard } from '../cards/RoomCard';
+import { StreamerCard } from '../cards/StreamerCard';
+import { MediaImage } from '../ui/MediaImage';
+import { Avatar } from '../ui/Avatar';
+
+interface DiscoverViewProps {
+  rooms: LiveRoom[];
+  users: UserProfile[];
+  searchQuery: string;
+  onSearchChange: (q: string) => void;
+  selectedCategory: RoomCategory;
+  onSelectCategory: (cat: RoomCategory) => void;
+  selectedMode: 'ALL' | RoomMode;
+  onSelectMode: (mode: 'ALL' | RoomMode) => void;
+  followingUids: string[];
+  blockedUids: string[];
+  isAdminUser: boolean;
+  onToggleFollow: (uid: string) => void;
+  onJoinRoom: (room: LiveRoom) => void;
+  onOpenUserProfile: (user: UserProfile) => void;
+  onOpenNotifications: () => void;
+  onOpenGoLive: () => void;
+  onSeedStarterData: () => void;
+  unreadNotificationsCount: number;
+}
+
+export const DiscoverView: React.FC<DiscoverViewProps> = ({
+  rooms,
+  users,
+  searchQuery,
+  onSearchChange,
+  selectedCategory,
+  onSelectCategory,
+  selectedMode,
+  onSelectMode,
+  followingUids,
+  blockedUids,
+  isAdminUser,
+  onToggleFollow,
+  onJoinRoom,
+  onOpenUserProfile,
+  onOpenNotifications,
+  onOpenGoLive,
+  onSeedStarterData,
+  unreadNotificationsCount,
+}) => {
+  const getHost = (hostUid: string): UserProfile =>
+    users.find((u) => u.uid === hostUid) ?? {
+      uid: hostUid,
+      platformId: 'AB-HOST',
+      username: 'host',
+      displayName: 'Live Host',
+      bio: '',
+      country: 'USA',
+      gender: 'Prefer not to say',
+      accountType: 'USER',
+      avatarColor: '#6366F1',
+      coverGradient: 'linear-gradient(135deg, #2E1065 0%, #1E3A8A 100%)',
+      followersCount: 0,
+      followingCount: 0,
+      isOnline: true,
+      showPresence: true,
+      lastActiveLabel: 'Live now',
+    };
+
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+
+  const visibleRooms = rooms.filter((room) => {
+    if (blockedUids.includes(room.hostUid)) return false;
+    const host = getHost(room.hostUid);
+    const matchesCategory =
+      selectedCategory === 'All' || room.category === selectedCategory;
+    const matchesMode = selectedMode === 'ALL' || room.mode === selectedMode;
+    const matchesQuery =
+      !normalizedQuery ||
+      room.title.toLowerCase().includes(normalizedQuery) ||
+      room.category.toLowerCase().includes(normalizedQuery) ||
+      host.displayName.toLowerCase().includes(normalizedQuery) ||
+      host.username.toLowerCase().includes(normalizedQuery);
+    return matchesCategory && matchesMode && matchesQuery;
+  });
+
+  const featuredRoom =
+    rooms.find((r) => r.isFeatured && !blockedUids.includes(r.hostUid)) ?? visibleRooms[0];
+  const featuredHost = featuredRoom ? getHost(featuredRoom.hostUid) : undefined;
+
+  const filteredCreators = users.filter((u) => {
+    if (blockedUids.includes(u.uid)) return false;
+    if (!normalizedQuery) return true;
+    return (
+      u.displayName.toLowerCase().includes(normalizedQuery) ||
+      u.username.toLowerCase().includes(normalizedQuery) ||
+      u.country.toLowerCase().includes(normalizedQuery)
+    );
+  });
+
+  const popularCreators = [...filteredCreators]
+    .sort((a, b) => b.followersCount - a.followersCount)
+    .slice(0, 4);
+
+  const newStreamers = filteredCreators
+    .filter((u) => u.isNewCreator || u.followersCount < 7000)
+    .slice(0, 4);
+
+  return (
+    <div className="space-y-8 pb-8">
+      {/* Desktop Top Utility Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="relative flex-1 max-w-xl">
+          <Search
+            className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
+            aria-hidden="true"
+          />
+          <input
+            type="search"
+            value={searchQuery}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder="Search live rooms, creators, or categories..."
+            aria-label="Search live rooms and creators"
+            className="w-full h-11 pl-10 pr-10 rounded-xl bg-[#111420] border border-white/[0.08] focus:border-sky-500/60 focus:outline-none text-sm text-white placeholder:text-slate-500 transition-colors"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => onSearchChange('')}
+              aria-label="Clear search"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-white"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+        <div className="hidden lg:flex items-center gap-3 shrink-0">
+          <span className="text-xs font-mono text-slate-400 whitespace-nowrap">
+            addabuzz-live-usa
+          </span>
+          <button
+            type="button"
+            onClick={onOpenNotifications}
+            aria-label="Notifications"
+            className="relative h-10 px-3.5 rounded-xl bg-[#111420] border border-white/[0.08] hover:border-white/15 text-slate-200 hover:text-white inline-flex items-center gap-2 text-xs font-medium transition-colors whitespace-nowrap shrink-0"
+          >
+            <Bell className="w-4 h-4 text-sky-400" />
+            <span>Alerts</span>
+            {unreadNotificationsCount > 0 && (
+              <span className="font-mono tabular-nums text-sky-400 font-semibold">
+                {unreadNotificationsCount}
+              </span>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Empty Database Bootstrap State (only shown when Firestore has 0 live rooms) */}
+      {rooms.length === 0 && (
+        <section className="rounded-2xl bg-[#111420] border border-white/[0.08] p-8 text-center space-y-4">
+          <h1 className="font-display text-2xl font-bold text-white">
+            AddaBuzz Live USA is ready
+          </h1>
+          <p className="text-sm text-slate-400 max-w-lg mx-auto leading-relaxed">
+            Your Firestore database <span className="font-mono text-sky-300">addabuzz-live-usa</span> currently has no active rooms. Start the first live room now{isAdminUser ? ' or seed starter community rooms into Firestore.' : '.'}
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={onOpenGoLive}
+              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-500 hover:to-blue-500 text-white text-sm font-medium inline-flex items-center gap-2"
+            >
+              <Radio className="w-4 h-4" />
+              <span>Start First Live Room</span>
+            </button>
+            {isAdminUser && (
+              <button
+                type="button"
+                onClick={onSeedStarterData}
+                className="px-5 py-2.5 rounded-xl bg-white/[0.08] hover:bg-white/[0.14] text-white text-sm font-medium inline-flex items-center gap-2"
+              >
+                <Database className="w-4 h-4 text-sky-400" />
+                <span>Seed Starter Community Rooms</span>
+              </button>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* Hero Featured Live Spotlight */}
+      {featuredRoom && featuredHost && !normalizedQuery && selectedCategory === 'All' && (
+        <section aria-label="Featured live broadcast">
+          <div className="rounded-2xl bg-[#111420] border border-white/[0.08] overflow-hidden grid grid-cols-1 lg:grid-cols-12 items-stretch">
+            <div className="lg:col-span-7 relative min-h-[240px] sm:min-h-[300px] lg:min-h-[340px]">
+              <MediaImage
+                src={featuredRoom.thumbnailUrl}
+                alt={featuredRoom.title}
+                fallbackGradient={featuredRoom.fallbackGradient}
+                fallbackTitle={featuredRoom.title}
+                className="w-full h-full object-cover lg:absolute lg:inset-0"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#0B0D14] via-black/30 to-transparent" />
+              <div className="absolute top-4 left-4 flex items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-2.5 py-1 text-xs font-semibold text-white">
+                  <Radio className="w-3.5 h-3.5" aria-hidden="true" />
+                  <span>Featured Live</span>
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-lg bg-black/65 backdrop-blur-sm px-2.5 py-1 text-xs font-mono tabular-nums text-slate-100">
+                  <Eye className="w-3.5 h-3.5 text-sky-400" aria-hidden="true" />
+                  <span>{featuredRoom.viewerCount.toLocaleString()} watching</span>
+                </span>
+              </div>
+            </div>
+
+            <div className="lg:col-span-5 p-6 sm:p-7 flex flex-col justify-between gap-6">
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-xs text-slate-400">
+                  <span>{featuredRoom.category}</span>
+                  <span aria-hidden="true">·</span>
+                  <span>
+                    {featuredRoom.mode === 'MULTI_GUEST'
+                      ? 'Multi-Guest Room'
+                      : featuredRoom.mode === 'AUDIO'
+                      ? 'Audio Live'
+                      : 'Video Live'}
+                  </span>
+                  <span aria-hidden="true">·</span>
+                  <span className="font-mono tabular-nums">{featuredRoom.startedAtLabel}</span>
+                </div>
+
+                <h1 className="font-display text-2xl sm:text-3xl font-bold text-white leading-tight">
+                  {featuredRoom.title}
+                </h1>
+
+                <p className="text-sm text-slate-300 leading-relaxed">
+                  {featuredRoom.description}
+                </p>
+
+                <button
+                  type="button"
+                  onClick={() => onOpenUserProfile(featuredHost)}
+                  className="inline-flex items-center gap-3 pt-1 text-left group"
+                >
+                  <Avatar
+                    name={featuredHost.displayName}
+                    color={featuredHost.avatarColor}
+                    size="md"
+                    isLiveRing
+                  />
+                  <div>
+                    <p className="text-sm font-semibold text-white group-hover:text-sky-300 transition-colors">
+                      {featuredHost.displayName}
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      @{featuredHost.username} · {featuredHost.country}
+                    </p>
+                  </div>
+                </button>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-white/[0.07]">
+                <div className="flex items-center gap-2 text-xs text-slate-300">
+                  <Users className="w-4 h-4 text-sky-400" aria-hidden="true" />
+                  <span>Up to 8 multi-guest seats</span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => onJoinRoom(featuredRoom)}
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-500 hover:to-blue-500 text-white text-sm font-medium inline-flex items-center gap-2 transition-all active:scale-[0.98] whitespace-nowrap shrink-0"
+                >
+                  <Play className="w-4 h-4 fill-current" aria-hidden="true" />
+                  <span>Watch Live</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Category & Mode Filters */}
+      {rooms.length > 0 && (
+        <>
+          <section aria-label="Room filters" className="space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <h2 className="font-display text-lg font-semibold text-white">
+                Live Rooms
+              </h2>
+
+              <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-[#111420] border border-white/[0.08] self-start sm:self-auto">
+                {(
+                  [
+                    { id: 'ALL', label: 'All Modes' },
+                    { id: 'VIDEO', label: 'Video' },
+                    { id: 'AUDIO', label: 'Audio' },
+                    { id: 'MULTI_GUEST', label: '8-Seat Multi' },
+                  ] as const
+                ).map((modeTab) => (
+                  <button
+                    key={modeTab.id}
+                    type="button"
+                    onClick={() => onSelectMode(modeTab.id)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap shrink-0 ${
+                      selectedMode === modeTab.id
+                        ? 'bg-violet-600 text-white'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {modeTab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 overflow-x-auto pb-1">
+              {ROOM_CATEGORIES.map((category) => {
+                const active = selectedCategory === category;
+                return (
+                  <button
+                    key={category}
+                    type="button"
+                    onClick={() => onSelectCategory(category)}
+                    className={`px-3.5 py-2 rounded-xl text-xs font-medium transition-colors whitespace-nowrap shrink-0 min-h-[38px] ${
+                      active
+                        ? 'bg-white text-[#08090E] font-semibold'
+                        : 'bg-[#111420] text-slate-300 border border-white/[0.08] hover:border-white/20 hover:text-white'
+                    }`}
+                  >
+                    {category}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          {/* Filtered Live Rooms Grid */}
+          <section aria-label="Active live rooms">
+            {visibleRooms.length === 0 ? (
+              <div className="rounded-2xl bg-[#111420] border border-white/[0.08] p-10 text-center space-y-3">
+                <p className="font-display text-base font-semibold text-white">
+                  No live rooms match your current filter
+                </p>
+                <p className="text-sm text-slate-400 max-w-md mx-auto">
+                  Reset the category or search query to explore all active rooms.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onSelectCategory('All');
+                    onSelectMode('ALL');
+                    onSearchChange('');
+                  }}
+                  className="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-medium transition-colors"
+                >
+                  Show All Live Rooms
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                {visibleRooms.map((room) => (
+                  <RoomCard
+                    key={room.roomId}
+                    room={room}
+                    host={getHost(room.hostUid)}
+                    onJoinRoom={onJoinRoom}
+                    onOpenHostProfile={onOpenUserProfile}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+        </>
+      )}
+
+      {/* Popular Streamers */}
+      {popularCreators.length > 0 && (
+        <section aria-label="Popular streamers" className="space-y-4">
+          <div className="flex items-baseline justify-between">
+            <h2 className="font-display text-lg font-semibold text-white">
+              Popular Streamers
+            </h2>
+            <span className="text-xs text-slate-400">Most followed hosts</span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {popularCreators.map((creator) => (
+              <StreamerCard
+                key={creator.uid}
+                user={creator}
+                isFollowing={followingUids.includes(creator.uid)}
+                onToggleFollow={onToggleFollow}
+                onOpenProfile={onOpenUserProfile}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* New & Recommended Streamers */}
+      {newStreamers.length > 0 && (
+        <section aria-label="New streamers" className="space-y-4">
+          <div className="flex items-baseline justify-between">
+            <h2 className="font-display text-lg font-semibold text-white">
+              Recommended & New Creators
+            </h2>
+            <span className="text-xs text-slate-400">Rising voices</span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {newStreamers.map((creator) => (
+              <StreamerCard
+                key={creator.uid}
+                user={creator}
+                isFollowing={followingUids.includes(creator.uid)}
+                onToggleFollow={onToggleFollow}
+                onOpenProfile={onOpenUserProfile}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+    </div>
+  );
+};

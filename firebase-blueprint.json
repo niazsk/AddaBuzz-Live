@@ -1,0 +1,316 @@
+{
+  "entities": {
+    "UserPublicProfile": {
+      "title": "UserPublicProfile",
+      "description": "Publicly visible creator and viewer profile without PII.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "platformId": { "type": "string", "minLength": 3, "maxLength": 32 },
+        "username": { "type": "string", "minLength": 3, "maxLength": 32, "pattern": "^[a-z0-9_]+$" },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "bio": { "type": "string", "maxLength": 300 },
+        "country": { "type": "string", "maxLength": 64 },
+        "gender": { "type": "string", "enum": ["Male", "Female", "Prefer not to say"] },
+        "accountType": { "type": "string", "enum": ["USER", "AGENT", "SUPER_AGENT"] },
+        "avatarColor": { "type": "string", "maxLength": 24 },
+        "coverGradient": { "type": "string", "maxLength": 160 },
+        "followersCount": { "type": "number" },
+        "followingCount": { "type": "number" },
+        "isOnline": { "type": "boolean" },
+        "showPresence": { "type": "boolean" },
+        "lastActiveLabel": { "type": "string", "maxLength": 48 },
+        "isNewCreator": { "type": "boolean" },
+        "isSuspended": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "uid",
+        "platformId",
+        "username",
+        "displayName",
+        "accountType",
+        "followersCount",
+        "followingCount",
+        "isOnline",
+        "showPresence",
+        "isSuspended",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "UserPrivateInfo": {
+      "title": "UserPrivateInfo",
+      "description": "Owner-only PII and private account metadata.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "email": { "type": "string", "format": "email", "maxLength": 160 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "createdAt", "updatedAt"]
+    },
+    "UsernameReservation": {
+      "title": "UsernameReservation",
+      "description": "Atomic username uniqueness reservation mapping.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "username": { "type": "string", "minLength": 3, "maxLength": 32, "pattern": "^[a-z0-9_]+$" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "username", "createdAt"]
+    },
+    "FollowEdge": {
+      "title": "FollowEdge",
+      "description": "Directed follower relationship.",
+      "type": "object",
+      "properties": {
+        "followerUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "targetUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["followerUid", "targetUid", "createdAt"]
+    },
+    "BlockEdge": {
+      "title": "BlockEdge",
+      "description": "Directed user block relationship.",
+      "type": "object",
+      "properties": {
+        "blockerUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "blockedUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["blockerUid", "blockedUid", "createdAt"]
+    },
+    "LiveRoom": {
+      "title": "LiveRoom",
+      "description": "Active or ended live broadcast room.",
+      "type": "object",
+      "properties": {
+        "roomId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "hostUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "description": { "type": "string", "maxLength": 400 },
+        "category": { "type": "string", "enum": ["Popular", "Music", "Entertainment", "Friendship", "Chat", "Gaming", "Talent", "New Live"] },
+        "mode": { "type": "string", "enum": ["VIDEO", "AUDIO", "MULTI_GUEST"] },
+        "status": { "type": "string", "enum": ["LIVE", "ENDED"] },
+        "viewerCount": { "type": "number" },
+        "isPrivateFollowersOnly": { "type": "boolean" },
+        "isFeatured": { "type": "boolean" },
+        "thumbnailUrl": { "type": "string", "maxLength": 300 },
+        "fallbackGradient": { "type": "string", "maxLength": 160 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["roomId", "hostUid", "title", "category", "mode", "status", "viewerCount", "isPrivateFollowersOnly", "createdAt", "updatedAt"]
+    },
+    "RoomSeat": {
+      "title": "RoomSeat",
+      "description": "One of maximum 8 guest seats in a live room.",
+      "type": "object",
+      "properties": {
+        "seatNumber": { "type": "number" },
+        "status": { "type": "string", "enum": ["AVAILABLE", "REQUESTED", "OCCUPIED", "LOCKED"] },
+        "occupantUid": { "type": "string", "maxLength": 128 },
+        "occupantName": { "type": "string", "maxLength": 64 },
+        "occupantUsername": { "type": "string", "maxLength": 32 },
+        "occupantAvatarColor": { "type": "string", "maxLength": 24 },
+        "isMuted": { "type": "boolean" },
+        "isSpeaking": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["seatNumber", "status", "updatedAt"]
+    },
+    "RoomJoinRequest": {
+      "title": "RoomJoinRequest",
+      "description": "Guest request to join an open seat.",
+      "type": "object",
+      "properties": {
+        "requestId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "roomId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "username": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "avatarColor": { "type": "string", "maxLength": 24 },
+        "preferredSeatNumber": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["requestId", "roomId", "uid", "username", "displayName", "createdAt"]
+    },
+    "RoomMessage": {
+      "title": "RoomMessage",
+      "description": "Live room chat comment or virtual gift broadcast event.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "roomId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "username": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "accountType": { "type": "string", "enum": ["USER", "AGENT", "SUPER_AGENT"] },
+        "text": { "type": "string", "minLength": 1, "maxLength": 400 },
+        "isGiftEvent": { "type": "boolean" },
+        "giftName": { "type": "string", "maxLength": 48 },
+        "giftCurrency": { "type": "string", "enum": ["COIN", "DIAMOND"] },
+        "giftAmount": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "roomId", "uid", "username", "displayName", "accountType", "text", "createdAt"]
+    },
+    "Conversation": {
+      "title": "Conversation",
+      "description": "Two-party direct messaging thread.",
+      "type": "object",
+      "properties": {
+        "conversationId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "memberUids": { "type": "array" },
+        "lastMessageText": { "type": "string", "maxLength": 500 },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["conversationId", "memberUids", "createdAt", "updatedAt"]
+    },
+    "DirectMessage": {
+      "title": "DirectMessage",
+      "description": "Message inside a private conversation.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "senderUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "memberUids": { "type": "array" },
+        "text": { "type": "string", "minLength": 1, "maxLength": 1000 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "senderUid", "memberUids", "text", "createdAt"]
+    },
+    "WalletAccount": {
+      "title": "WalletAccount",
+      "description": "Separate Coin and Diamond virtual balance record (no top-up).",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "coinBalance": { "type": "number" },
+        "diamondBalance": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "coinBalance", "diamondBalance", "createdAt", "updatedAt"]
+    },
+    "WalletTransaction": {
+      "title": "WalletTransaction",
+      "description": "Immutable Coin or Diamond ledger entry.",
+      "type": "object",
+      "properties": {
+        "transactionId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "currency": { "type": "string", "enum": ["COIN", "DIAMOND"] },
+        "direction": { "type": "string", "enum": ["CREDIT", "DEBIT"] },
+        "amount": { "type": "number" },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "counterparty": { "type": "string", "maxLength": 64 },
+        "idempotencyKey": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["transactionId", "uid", "currency", "direction", "amount", "reason", "idempotencyKey", "createdAt"]
+    },
+    "AccountPromotion": {
+      "title": "AccountPromotion",
+      "description": "Immutable Super Agent User-to-Agent promotion audit log.",
+      "type": "object",
+      "properties": {
+        "promotionId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "actorUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "actorUsername": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "targetUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "targetUsername": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "beforeType": { "type": "string", "enum": ["USER"] },
+        "afterType": { "type": "string", "enum": ["AGENT"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["promotionId", "actorUid", "actorUsername", "targetUid", "targetUsername", "beforeType", "afterType", "createdAt"]
+    },
+    "SafetyReport": {
+      "title": "SafetyReport",
+      "description": "User or room moderation report.",
+      "type": "object",
+      "properties": {
+        "reportId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "targetType": { "type": "string", "enum": ["ROOM", "USER"] },
+        "targetId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "targetLabel": { "type": "string", "minLength": 1, "maxLength": 140 },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 240 },
+        "reporterUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "reporterUsername": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "status": { "type": "string", "enum": ["OPEN", "REVIEWED", "RESOLVED"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["reportId", "targetType", "targetId", "targetLabel", "reason", "reporterUid", "reporterUsername", "status", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": { "$ref": "#/entities/UserPublicProfile" },
+      "description": "Public user profiles (zero PII)."
+    },
+    "/userPrivate/{uid}": {
+      "schema": { "$ref": "#/entities/UserPrivateInfo" },
+      "description": "Owner-only private user PII such as email."
+    },
+    "/usernames/{username}": {
+      "schema": { "$ref": "#/entities/UsernameReservation" },
+      "description": "Unique normalized username reservation records."
+    },
+    "/follows/{followId}": {
+      "schema": { "$ref": "#/entities/FollowEdge" },
+      "description": "Directed follow relationships."
+    },
+    "/blocks/{blockId}": {
+      "schema": { "$ref": "#/entities/BlockEdge" },
+      "description": "Directed user block relationships."
+    },
+    "/liveRooms/{roomId}": {
+      "schema": { "$ref": "#/entities/LiveRoom" },
+      "description": "Live video, audio, and multi-guest rooms."
+    },
+    "/liveRooms/{roomId}/seats/{seatId}": {
+      "schema": { "$ref": "#/entities/RoomSeat" },
+      "description": "Up to 8 multi-guest seats per room."
+    },
+    "/liveRooms/{roomId}/joinRequests/{requestId}": {
+      "schema": { "$ref": "#/entities/RoomJoinRequest" },
+      "description": "Guest seat join requests awaiting host decision."
+    },
+    "/liveRooms/{roomId}/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/RoomMessage" },
+      "description": "Real-time room comments and gift events."
+    },
+    "/conversations/{conversationId}": {
+      "schema": { "$ref": "#/entities/Conversation" },
+      "description": "Private 1:1 conversations."
+    },
+    "/conversations/{conversationId}/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/DirectMessage" },
+      "description": "Messages within a private conversation."
+    },
+    "/wallets/{uid}": {
+      "schema": { "$ref": "#/entities/WalletAccount" },
+      "description": "User Coin and Diamond virtual balances."
+    },
+    "/wallets/{uid}/transactions/{transactionId}": {
+      "schema": { "$ref": "#/entities/WalletTransaction" },
+      "description": "Immutable Coin and Diamond ledger entries."
+    },
+    "/accountPromotions/{promotionId}": {
+      "schema": { "$ref": "#/entities/AccountPromotion" },
+      "description": "Audit records for Super Agent User-to-Agent promotions."
+    },
+    "/reports/{reportId}": {
+      "schema": { "$ref": "#/entities/SafetyReport" },
+      "description": "Safety and moderation reports."
+    }
+  }
+}
