@@ -1102,8 +1102,6 @@ export default function App() {
               blockedUids={blockedUids}
               coinBalance={coinBalance}
               diamondBalance={diamondBalance}
-              isOfflineSimulated={isOffline}
-              onToggleOfflineSimulated={() => setOfflineSimulated((v) => !v)}
               onUpdateProfile={async (updates) => {
                 if (!currentUser) return;
                 await updateOwnProfile(currentUser.uid, updates);

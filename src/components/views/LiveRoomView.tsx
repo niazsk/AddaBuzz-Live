@@ -238,6 +238,24 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
     }
   }, [mediaActive, cameraOff]);
 
+  // Auto-start camera/mic once when the host or a seated guest enters the room
+  const autoStartedRef = useRef(false);
+  useEffect(() => {
+    autoStartedRef.current = false;
+  }, [room.roomId]);
+  useEffect(() => {
+    if (
+      !canPublishLocalMedia ||
+      mediaActive ||
+      autoStartedRef.current ||
+      isOfflineSimulated
+    ) {
+      return;
+    }
+    autoStartedRef.current = true;
+    void startOrRestartMedia(cameraFacing);
+  }, [canPublishLocalMedia, mediaActive, isOfflineSimulated, room.roomId]);
+
   const handleToggleMic = () => {
     const next = !micMuted;
     setMicMuted(next);
