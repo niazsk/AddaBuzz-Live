@@ -58,6 +58,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     currentUser?.gender ?? 'Prefer not to say'
   );
   const [showPresence, setShowPresence] = useState(currentUser?.showPresence ?? true);
+  const [comingSoon, setComingSoon] = useState<string | null>(null);
 
   if (!currentUser) {
     return (
@@ -83,6 +84,48 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   }
 
   const blockedUsers = allUsers.filter((u) => blockedUids.includes(u.uid));
+
+  const featureTiles = [
+    { id: 'reward', label: 'Reward', icon: '🎁' },
+    { id: 'rank', label: 'Rank', icon: '🏆' },
+    { id: 'games', label: 'Games', icon: '🎲' },
+    { id: 'store', label: 'Store', icon: '🛍️' },
+    { id: 'invite', label: 'Invite', icon: '👥' },
+    { id: 'honor', label: 'Honor Level', icon: '🛡️' },
+    { id: 'fanclub', label: 'Fan Club', icon: '💖' },
+    { id: 'medal', label: 'Medal Wall', icon: '🎖️' },
+  ];
+
+  const agentTiles = [
+    { id: 'agent', label: 'Agent', icon: '👥' },
+    { id: 'add-host', label: 'Add Host', icon: '🎤' },
+    { id: 'invite-agent', label: 'Invite Agent', icon: '➕' },
+    { id: 'coins-trading', label: 'Coins Trading', icon: '🪙' },
+    { id: 'agent-rewards', label: 'Agent Rewards', icon: '💰', wide: true },
+    { id: 'agent-ranking', label: 'Agent Ranking', icon: '📈', wide: true },
+  ];
+
+  const isAgentUser =
+    currentUser.accountType === 'AGENT' ||
+    currentUser.accountType === 'SUPER_AGENT';
+
+  const renderTile = (tile: { id: string; label: string; icon: string; wide?: boolean }) => (
+    <button
+      key={tile.id}
+      type="button"
+      onClick={() => setComingSoon(tile.label)}
+      className={`rounded-2xl bg-[#111420] border border-white/[0.08] hover:border-violet-500/40 p-4 flex flex-col items-center gap-2.5 transition-colors ${
+        tile.wide ? 'sm:col-span-2' : ''
+      }`}
+    >
+      <span className="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-600/70 to-fuchsia-600/50 flex items-center justify-center text-2xl">
+        {tile.icon}
+      </span>
+      <span className="text-xs font-medium text-slate-200 text-center leading-tight">
+        {tile.label}
+      </span>
+    </button>
+  );
 
   const startEditing = () => {
     setDisplayName(currentUser.displayName);
@@ -304,6 +347,30 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           <span className="text-xs text-sky-400 font-medium">Open</span>
         </button>
       </div>
+
+      {/* Feature shortcuts */}
+      <section className="space-y-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {featureTiles.map(renderTile)}
+        </div>
+        {comingSoon && (
+          <p className="rounded-xl bg-violet-500/10 border border-violet-500/30 px-4 py-2.5 text-xs text-violet-200">
+            {comingSoon} — coming soon.
+          </p>
+        )}
+      </section>
+
+      {/* Agent Management */}
+      {isAgentUser && (
+        <section className="space-y-3">
+          <h2 className="font-display text-lg font-bold text-white">
+            Agent Management
+          </h2>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {agentTiles.map(renderTile)}
+          </div>
+        </section>
+      )}
 
       {/* Online-First Connectivity Preview & Blocked Users */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
