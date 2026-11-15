@@ -389,7 +389,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
             fallbackTitle={room.title}
             className="absolute inset-0 w-full h-full object-cover"
           />
-        ) : (
+        ) : !showVideoFeed ? (
           <div
             className="absolute inset-0 flex items-center justify-center"
             style={{ background: room.fallbackGradient }}
@@ -422,7 +422,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
               </div>
             </div>
           </div>
-        )}
+        ) : null}
         <div className="absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-black/70 to-transparent" />
         <div className="absolute inset-x-0 bottom-0 h-64 bg-gradient-to-t from-black/85 via-black/40 to-transparent" />
       </div>
