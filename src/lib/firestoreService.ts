@@ -69,6 +69,24 @@ export function isSuperAgentBootstrapEmail(email?: string | null): boolean {
   return SUPER_AGENT_BOOTSTRAP_EMAILS.includes(email.trim().toLowerCase());
 }
 
+export const ADMIN_PLATFORM_ID = '111111';
+export const SUPER_AGENT_PLATFORM_ID = '112200';
+export const USER_PLATFORM_ID_START = 112201;
+
+async function nextUserPlatformId(): Promise<string> {
+  const ref = doc(db, 'counters', 'platformIds');
+  return runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists()) {
+      tx.set(ref, { next: USER_PLATFORM_ID_START + 1 });
+      return String(USER_PLATFORM_ID_START);
+    }
+    const cur = Math.max(Number(snap.data().next) || USER_PLATFORM_ID_START, USER_PLATFORM_ID_START);
+    tx.set(ref, { next: cur + 1 });
+    return String(cur);
+  });
+}
+
 const clampStr = (val: string, max: number) => val.trim().slice(0, max);
 
 const formatTimestamp = (ts: unknown): string => {
@@ -207,9 +225,14 @@ export async function completeUserOnboarding(
 
   const isBootstrappedSuperAgent =
     isSuperAgentBootstrapEmail(firebaseUser.email) && firebaseUser.emailVerified;
+  const isAdminBoot =
+    isAdminBootstrapEmail(firebaseUser.email) && firebaseUser.emailVerified;
 
-  const platformNum = 100000 + Math.floor(Math.random() * 899999);
-  const platformId = `AB-${platformNum}`;
+  const platformId = isAdminBoot
+    ? '111111'
+    : isBootstrappedSuperAgent
+    ? '112200'
+    : await nextUserPlatformId();
   const displayName = clampStr(
     input.displayName || firebaseUser.displayName || normalized,
     64

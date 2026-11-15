@@ -50,7 +50,7 @@ export const WalletView: React.FC<WalletViewProps> = ({
     setTransferMsg(null);
     try {
       await onTransferCoins(recipient, Math.floor(value));
-      setTransferMsg({ tone: 'ok', text: `Sent ${Math.floor(value).toLocaleString()} coins to @${recipient.username}.` });
+      setTransferMsg({ tone: 'ok', text: `Sent ${Math.floor(value).toLocaleString()} coins to ID ${recipient.platformId}.` });
       setAmount('');
     } catch (err) {
       setTransferMsg({ tone: 'err', text: err instanceof Error ? err.message : 'Transfer failed.' });
@@ -138,7 +138,7 @@ export const WalletView: React.FC<WalletViewProps> = ({
                 <option value="">Select account…</option>
                 {recipients.map((u) => (
                   <option key={u.uid} value={u.uid}>
-                    {u.displayName} (@{u.username})
+                    {u.platformId}
                   </option>
                 ))}
               </select>

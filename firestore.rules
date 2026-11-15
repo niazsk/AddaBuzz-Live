@@ -293,6 +293,18 @@ service cloud.firestore {
     // --- Collection Rules ---
 
     // Public creator profiles (zero PII)
+    match /counters/platformIds {
+      allow get: if isVerifiedUser();
+      allow create: if isVerifiedUser() &&
+        incoming().keys().hasOnly(['next']) &&
+        incoming().next is int &&
+        incoming().next == 112202;
+      allow update: if isVerifiedUser() &&
+        incoming().keys().hasOnly(['next']) &&
+        incoming().next is int &&
+        incoming().next == existing().next + 1;
+    }
+
     match /users/{uid} {
       allow get: if isValidId(uid);
       allow list: if resource.data.isSuspended == false;
@@ -312,7 +324,7 @@ service cloud.firestore {
         isValidId(uid) &&
         isValidUserPublic(incoming(), uid) &&
         incoming().uid == existing().uid &&
-        incoming().platformId == existing().platformId &&
+        (isAdmin() || incoming().platformId == existing().platformId) &&
         incoming().createdAt == existing().createdAt &&
         incoming().updatedAt == request.time && (
           isAdmin() ||
