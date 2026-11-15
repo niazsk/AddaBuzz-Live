@@ -424,6 +424,8 @@ service cloud.firestore {
             (incoming().viewerCount == existing().viewerCount + 1 || incoming().viewerCount == existing().viewerCount - 1)
           )
         );
+      allow delete: if isAdmin() ||
+        (isSignedIn() && resource.data.hostUid == request.auth.uid);
 
       // 8 Multi-Guest Seats
       match /seats/{seatId} {
