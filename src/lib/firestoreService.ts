@@ -391,6 +391,7 @@ export function subscribeLiveRooms(
           category: d.category,
           mode: d.mode,
           hostUid: String(d.hostUid),
+          status: d.status === 'ENDED' ? 'ENDED' : 'LIVE',
           thumbnailUrl: d.thumbnailUrl ? String(d.thumbnailUrl) : undefined,
           fallbackGradient: String(
             d.fallbackGradient ??

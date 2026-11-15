@@ -90,6 +90,7 @@ export interface LiveRoom {
   category: Exclude<RoomCategory, 'All'>;
   mode: RoomMode;
   hostUid: string;
+  status: 'LIVE' | 'ENDED';
   thumbnailUrl?: string;
   fallbackGradient: string;
   viewerCount: number;
