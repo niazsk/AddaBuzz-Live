@@ -776,6 +776,53 @@ export default function App() {
     );
   }
 
+  // Auth gate: nothing in the app is accessible until sign-in + onboarding complete
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen bg-[#08090E] text-[#F4F6FB] flex items-center justify-center px-4 py-8">
+        <SignInView
+          currentUser={null}
+          userEmail={firebaseUser?.email}
+          needsEmailVerification={needsEmailVerification}
+          needsOnboarding={needsOnboarding}
+          defaultDisplayName={firebaseUser?.displayName ?? ''}
+          showBackToDiscover={false}
+          onBackToDiscover={() => {}}
+          onGoogleSignIn={async () => {
+            await signInWithGooglePopup();
+          }}
+          onEmailSignIn={async (email, password) => {
+            await signInWithEmailPassword(email, password);
+          }}
+          onEmailRegister={async (email, password, name) => {
+            await registerWithEmailPassword(email, password, name);
+          }}
+          onSendPasswordReset={sendPasswordReset}
+          onResendVerification={resendVerificationEmail}
+          onRefreshVerification={handleRefreshVerification}
+          onCompleteOnboarding={async (payload) => {
+            const activeAuthUser = auth.currentUser ?? firebaseUser;
+            if (!activeAuthUser) return;
+            const created = await completeUserOnboarding(activeAuthUser, payload);
+            setCurrentUser(created);
+            setNeedsOnboarding(false);
+            pushToast(
+              'Account created in Firestore!',
+              `@${created.username} (${created.accountType})`,
+              'success'
+            );
+          }}
+          onSignOut={async () => {
+            await signOutFirebase();
+            pushToast('Signed out');
+          }}
+          onOpenAdminPanel={() => setActiveSection('admin')}
+        />
+        <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+      </div>
+    );
+  }
+
   // Fullscreen Live Room View
   if (activeRoom) {
     const host = users.find((u) => u.uid === activeRoom.hostUid) ??

@@ -21,10 +21,7 @@ export const GoLiveModal: React.FC<GoLiveModalProps> = ({
   onStartLiveRoom,
 }) => {
   const [mode, setMode] = useState<RoomMode>('MULTI_GUEST');
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
   const [category, setCategory] = useState<Exclude<RoomCategory, 'All'>>('Music');
-  const [isPrivateFollowersOnly, setIsPrivateFollowersOnly] = useState(false);
   const [consentMicCam, setConsentMicCam] = useState(true);
 
   if (!open) return null;
@@ -37,16 +34,13 @@ export const GoLiveModal: React.FC<GoLiveModalProps> = ({
     e.preventDefault();
     if (!consentMicCam) return;
     onStartLiveRoom({
-      title: title.trim() || 'Late-Night Adda & Open Stage',
+      title: 'Late-Night Adda & Open Stage',
       description:
-        description.trim() ||
         'Welcome to the room — grab one of 8 guest seats or drop a comment.',
       category,
       mode,
-      isPrivateFollowersOnly,
+      isPrivateFollowersOnly: false,
     });
-    setTitle('');
-    setDescription('');
   };
 
   return (
@@ -109,58 +103,21 @@ export const GoLiveModal: React.FC<GoLiveModalProps> = ({
           </div>
 
           <label className="block space-y-1.5">
-            <span className="text-xs font-medium text-slate-300">Room Title</span>
-            <input
-              type="text"
-              required
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g., Acoustic Guitar & Rooftop Stories"
-              className="w-full h-10 px-3.5 rounded-xl bg-[#090B12] border border-white/[0.09] text-sm text-white placeholder:text-slate-500 focus:border-sky-500/60 focus:outline-none"
-            />
+            <span className="text-xs font-medium text-slate-300">Category</span>
+            <select
+              value={category}
+              onChange={(e) =>
+                setCategory(e.target.value as Exclude<RoomCategory, 'All'>)
+              }
+              className="w-full h-10 px-3 rounded-xl bg-[#090B12] border border-white/[0.09] text-sm text-white focus:border-sky-500/60 focus:outline-none"
+            >
+              {selectableCategories.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
+            </select>
           </label>
-
-          <label className="block space-y-1.5">
-            <span className="text-xs font-medium text-slate-300">Description</span>
-            <textarea
-              rows={2}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Tell viewers what this live room is about..."
-              className="w-full p-3.5 rounded-xl bg-[#090B12] border border-white/[0.09] text-sm text-white placeholder:text-slate-500 focus:border-sky-500/60 focus:outline-none"
-            />
-          </label>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <label className="block space-y-1.5">
-              <span className="text-xs font-medium text-slate-300">Category</span>
-              <select
-                value={category}
-                onChange={(e) =>
-                  setCategory(e.target.value as Exclude<RoomCategory, 'All'>)
-                }
-                className="w-full h-10 px-3 rounded-xl bg-[#090B12] border border-white/[0.09] text-sm text-white focus:border-sky-500/60 focus:outline-none"
-              >
-                {selectableCategories.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="block space-y-1.5">
-              <span className="text-xs font-medium text-slate-300">Audience Access</span>
-              <select
-                value={isPrivateFollowersOnly ? 'followers' : 'public'}
-                onChange={(e) => setIsPrivateFollowersOnly(e.target.value === 'followers')}
-                className="w-full h-10 px-3 rounded-xl bg-[#090B12] border border-white/[0.09] text-sm text-white focus:border-sky-500/60 focus:outline-none"
-              >
-                <option value="public">Public Discovery</option>
-                <option value="followers">Followers Only</option>
-              </select>
-            </label>
-          </div>
 
           <label className="flex items-start gap-2.5 rounded-xl bg-white/[0.03] border border-white/[0.07] p-3 cursor-pointer">
             <input

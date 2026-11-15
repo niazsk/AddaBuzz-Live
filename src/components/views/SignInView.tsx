@@ -45,6 +45,7 @@ interface SignInViewProps {
   }) => Promise<void>;
   onSignOut: () => Promise<void>;
   onOpenAdminPanel: () => void;
+  showBackToDiscover?: boolean;
 }
 
 function formatAuthError(err: unknown): string {
@@ -84,6 +85,7 @@ export const SignInView: React.FC<SignInViewProps> = ({
   onCompleteOnboarding,
   onSignOut,
   onOpenAdminPanel,
+  showBackToDiscover = true,
 }) => {
   const [authTab, setAuthTab] = useState<'signin' | 'register'>('signin');
   const [email, setEmail] = useState('');
@@ -217,29 +219,24 @@ export const SignInView: React.FC<SignInViewProps> = ({
 
   return (
     <div className="max-w-4xl mx-auto py-4 pb-12 space-y-6">
-      <div className="flex items-center justify-between gap-4">
-        <button
-          type="button"
-          onClick={onBackToDiscover}
-          className="inline-flex items-center gap-2 text-xs font-medium text-slate-300 hover:text-white bg-white/[0.05] hover:bg-white/[0.1] px-3.5 py-2 rounded-xl transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Back to Discover</span>
-        </button>
+      {showBackToDiscover && (
+        <div className="flex items-center justify-between gap-4">
+          <button
+            type="button"
+            onClick={onBackToDiscover}
+            className="inline-flex items-center gap-2 text-xs font-medium text-slate-300 hover:text-white bg-white/[0.05] hover:bg-white/[0.1] px-3.5 py-2 rounded-xl transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Back to Discover</span>
+          </button>
+        </div>
+      )}
 
-        <span className="text-xs font-mono text-slate-400">
-          Firebase Project: <strong className="text-sky-300">addabuzz-live-usa</strong>
-        </span>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left Auth Card */}
-        <section className="lg:col-span-7 rounded-2xl bg-[#111420] border border-white/[0.09] overflow-hidden shadow-2xl">
+      <div className="max-w-xl mx-auto">
+        {/* Auth Card */}
+        <section className="rounded-2xl bg-[#111420] border border-white/[0.09] overflow-hidden shadow-2xl">
           <div className="px-6 py-5 border-b border-white/[0.08] flex items-center justify-between">
             <BrandLogo />
-            <span className="text-[11px] font-mono text-violet-300 bg-violet-500/15 border border-violet-500/30 px-2.5 py-1 rounded-lg">
-              Secure Access
-            </span>
           </div>
 
           <div className="p-6 space-y-5">
@@ -500,10 +497,6 @@ export const SignInView: React.FC<SignInViewProps> = ({
                       ? 'Sign in to AddaBuzz Live'
                       : 'Create your AddaBuzz account'}
                   </h1>
-                  <p className="text-xs text-slate-400 leading-relaxed">
-                    Sign in with Email & Password or Google to stream, claim
-                    guest seats, manage Coins & Diamonds, or open Admin controls.
-                  </p>
                 </div>
 
                 {/* Mode Tabs */}
@@ -672,55 +665,6 @@ export const SignInView: React.FC<SignInViewProps> = ({
             )}
           </div>
         </section>
-
-        {/* Right Info & Admin Setup Guide */}
-        <aside className="lg:col-span-5 space-y-4">
-          <div className="rounded-2xl bg-[#111420] border border-white/[0.08] p-5 space-y-3">
-            <div className="flex items-center gap-2 text-violet-300">
-              <ShieldCheck className="w-5 h-5" />
-              <h2 className="font-display text-base font-semibold text-white">
-                App Admin & RBAC Setup
-              </h2>
-            </div>
-            <p className="text-xs text-slate-300 leading-relaxed">
-              Verified accounts for{' '}
-              <span className="font-mono text-sky-300">fayselsk@gmail.com</span>{' '}
-              and{' '}
-              <span className="font-mono text-sky-300">niazskapp@gmail.com</span>{' '}
-              are configured in Firestore Security Rules as authorized App Admins
-              and automatically receive{' '}
-              <span className="font-mono text-violet-300">SUPER_AGENT</span>{' '}
-              privileges upon verified onboarding.
-            </p>
-            <ol className="space-y-1.5 text-xs text-slate-400 list-decimal list-inside leading-relaxed">
-              <li>
-                In Firebase Console (
-                <span className="font-mono text-slate-200">
-                  addabuzz-live-usa
-                </span>
-                ), open <strong className="text-slate-200">Authentication → Sign-in method</strong> and enable{' '}
-                <strong className="text-slate-200">Email/Password</strong>.
-              </li>
-              <li>
-                Use <strong className="text-slate-200">Create Account</strong> (or add the user in Firebase Console → Users), verify the email link, and complete profile onboarding.
-              </li>
-              <li>
-                Sign in anytime on this page to manage User → Agent promotions, safety reports, and community seeding.
-              </li>
-            </ol>
-          </div>
-
-          <div className="rounded-2xl bg-[#111420] border border-white/[0.08] p-5 space-y-2">
-            <h3 className="font-display text-sm font-semibold text-white">
-              Online-First Security
-            </h3>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Authentication, profile uniqueness, virtual Coins & Diamonds
-              balances, and 8-seat multi-guest approvals are verified server-side
-              by Firebase Auth and Firestore Security Rules.
-            </p>
-          </div>
-        </aside>
       </div>
     </div>
   );
