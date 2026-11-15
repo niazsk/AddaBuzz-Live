@@ -493,6 +493,40 @@ service cloud.firestore {
           (isOwner(viewerUid) || isRoomHost(roomId) || isAdmin());
       }
 
+      // WebRTC guest-seat signaling: guestRtc/{guestUid}__{viewerUid}
+      match /guestRtc/{signalId} {
+        allow get: if isValidId(roomId) && isValidId(signalId) && isSignedIn();
+        allow list: if isValidId(roomId) && isSignedIn();
+        allow create: if isVerifiedUser() &&
+          isValidId(roomId) &&
+          isValidId(signalId) &&
+          signalId.split('__').size() == 2 &&
+          isValidId(signalId.split('__')[0]) &&
+          isValidId(signalId.split('__')[1]) &&
+          isOwner(signalId.split('__')[1]) &&
+          exists(/databases/$(database)/documents/liveRooms/$(roomId)) &&
+          get(/databases/$(database)/documents/liveRooms/$(roomId)).data.status == 'LIVE' &&
+          incoming().keys().hasOnly(['viewerUid', 'createdAt']) &&
+          incoming().viewerUid == signalId.split('__')[1] &&
+          incoming().createdAt == request.time;
+        allow update: if isVerifiedUser() &&
+          isValidId(roomId) &&
+          isValidId(signalId) &&
+          signalId.split('__').size() == 2 &&
+          (isOwner(signalId.split('__')[1]) ||
+            request.auth.uid == signalId.split('__')[0] ||
+            isRoomHost(roomId) || isAdmin()) &&
+          incoming().keys().hasOnly(['viewerUid', 'offer', 'answer', 'hostCandidates', 'viewerCandidates', 'createdAt']) &&
+          incoming().viewerUid == existing().viewerUid;
+        allow delete: if isVerifiedUser() &&
+          isValidId(roomId) &&
+          isValidId(signalId) &&
+          signalId.split('__').size() == 2 &&
+          (isOwner(signalId.split('__')[1]) ||
+            request.auth.uid == signalId.split('__')[0] ||
+            isRoomHost(roomId) || isAdmin());
+      }
+
       // Live Room Chat & Gift Events
       match /messages/{messageId} {
         allow get: if isValidId(roomId) && isValidId(messageId);

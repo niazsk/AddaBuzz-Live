@@ -42,15 +42,21 @@ interface RtcSignalDoc {
   viewerCandidates?: string[];
 }
 
-const rtcDoc = (roomId: string, viewerUid: string) =>
-  doc(db, 'liveRooms', roomId, 'rtc', viewerUid);
+const signalDoc = (roomId: string, colName: string, docId: string) =>
+  doc(db, 'liveRooms', roomId, colName, docId);
 
 function serializeCandidate(candidate: RTCIceCandidate): string {
   return JSON.stringify(candidate.toJSON());
 }
 
-// Host: one RTCPeerConnection per viewer, signaling via liveRooms/{roomId}/rtc/{viewerUid}
-export function startHostBroadcast(roomId: string, stream: MediaStream): () => void {
+// Publisher: one RTCPeerConnection per viewer. `docIdToViewer` maps a signaling
+// doc id to the viewer uid it belongs to (null = not this publisher's doc).
+function startPublisherBroadcast(
+  roomId: string,
+  colName: string,
+  docIdToViewer: (docId: string) => string | null,
+  stream: MediaStream
+): () => void {
   const sessionId = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const peers = new Map<string, { pc: RTCPeerConnection; unsub: () => void }>();
   let stopped = false;
@@ -63,9 +69,9 @@ export function startHostBroadcast(roomId: string, stream: MediaStream): () => v
     peers.delete(viewerUid);
   };
 
-  const attachViewer = (viewerUid: string) => {
+  const attachViewer = (docId: string, viewerUid: string) => {
     if (stopped || peers.has(viewerUid)) return;
-    const ref = rtcDoc(roomId, viewerUid);
+    const ref = signalDoc(roomId, colName, docId);
     const pc = new RTCPeerConnection(RTC_CONFIG);
     stream.getTracks().forEach((track) => pc.addTrack(track, stream));
 
@@ -123,13 +129,15 @@ export function startHostBroadcast(roomId: string, stream: MediaStream): () => v
   };
 
   const unsubCollection = onSnapshot(
-    collection(db, 'liveRooms', roomId, 'rtc'),
+    collection(db, 'liveRooms', roomId, colName),
     (snap) => {
       snap.docChanges().forEach((change) => {
+        const viewerUid = docIdToViewer(change.doc.id);
+        if (!viewerUid) return;
         if (change.type === 'removed') {
-          closePeer(change.doc.id);
+          closePeer(viewerUid);
         } else {
-          attachViewer(change.doc.id);
+          attachViewer(change.doc.id, viewerUid);
         }
       });
     }
@@ -144,14 +152,15 @@ export function startHostBroadcast(roomId: string, stream: MediaStream): () => v
 
 export type ViewerStreamState = 'connecting' | 'live' | 'ended';
 
-// Viewer: request the host's stream and receive it over WebRTC
-export function joinViewerStream(
+// Viewer: receive one publisher's stream over WebRTC from a signaling doc.
+function joinPublisherStream(
   roomId: string,
-  viewerUid: string,
+  colName: string,
+  docId: string,
   onStream: (stream: MediaStream | null) => void,
   onState: (state: ViewerStreamState) => void
 ): () => void {
-  const ref = rtcDoc(roomId, viewerUid);
+  const ref = signalDoc(roomId, colName, docId);
   let pc: RTCPeerConnection | null = null;
   let answeredSessionId: string | null = null;
   let appliedHostCandidates = 0;
@@ -185,7 +194,9 @@ export function joinViewerStream(
 
   setupPeer();
   onState('connecting');
-  setDoc(ref, { viewerUid, createdAt: serverTimestamp() }).catch(() => {});
+  setDoc(ref, { viewerUid: docId.split('__').pop(), createdAt: serverTimestamp() }).catch(
+    () => {}
+  );
 
   const unsub = onSnapshot(ref, async (snap) => {
     const data = snap.data() as RtcSignalDoc | undefined;
@@ -227,4 +238,51 @@ export function joinViewerStream(
     onStream(null);
     deleteDoc(ref).catch(() => {});
   };
+}
+
+// Host: broadcast to every viewer via liveRooms/{roomId}/rtc/{viewerUid}
+export function startHostBroadcast(roomId: string, stream: MediaStream): () => void {
+  return startPublisherBroadcast(roomId, 'rtc', (id) => id, stream);
+}
+
+// Seated guest: broadcast via liveRooms/{roomId}/guestRtc/{guestUid}__{viewerUid}
+export function startGuestBroadcast(
+  roomId: string,
+  guestUid: string,
+  stream: MediaStream
+): () => void {
+  const prefix = `${guestUid}__`;
+  return startPublisherBroadcast(
+    roomId,
+    'guestRtc',
+    (id) => (id.startsWith(prefix) ? id.slice(prefix.length) : null),
+    stream
+  );
+}
+
+// Viewer: receive the host's live stream
+export function joinViewerStream(
+  roomId: string,
+  viewerUid: string,
+  onStream: (stream: MediaStream | null) => void,
+  onState: (state: ViewerStreamState) => void
+): () => void {
+  return joinPublisherStream(roomId, 'rtc', viewerUid, onStream, onState);
+}
+
+// Viewer: receive one seated guest's live stream
+export function joinGuestStream(
+  roomId: string,
+  guestUid: string,
+  viewerUid: string,
+  onStream: (stream: MediaStream | null) => void,
+  onState: (state: ViewerStreamState) => void
+): () => void {
+  return joinPublisherStream(
+    roomId,
+    'guestRtc',
+    `${guestUid}__${viewerUid}`,
+    onStream,
+    onState
+  );
 }
