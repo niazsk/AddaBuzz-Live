@@ -4,7 +4,6 @@ import {
   ShieldAlert,
   ShieldCheck,
   CheckCircle2,
-  Database,
 } from 'lucide-react';
 import {
   AccountPromotionRecord,
@@ -21,7 +20,6 @@ interface AdminRolesViewProps {
   reports: ReportRecord[];
   onPromoteUserToAgent: (target: UserProfile) => void;
   onResolveReport: (reportId: string) => void;
-  onSeedStarterData: () => void;
   onOpenAuth: () => void;
   isOffline: boolean;
 }
@@ -34,11 +32,10 @@ export const AdminRolesView: React.FC<AdminRolesViewProps> = ({
   reports,
   onPromoteUserToAgent,
   onResolveReport,
-  onSeedStarterData,
   onOpenAuth,
   isOffline,
 }) => {
-  const isSuperAgent = currentUser?.accountType === 'SUPER_AGENT' || isAdminUser;
+  const isSuperAgent = currentUser?.accountType === 'SUPER_AGENT';
   const eligibleUsers = users.filter((u) => u.accountType === 'USER');
 
   return (
@@ -52,18 +49,6 @@ export const AdminRolesView: React.FC<AdminRolesViewProps> = ({
             Firestore-enforced RBAC: User ID, Agent ID, and Super Agent-only User-to-Agent promotion.
           </p>
         </div>
-
-        {isAdminUser && (
-          <button
-            type="button"
-            onClick={onSeedStarterData}
-            disabled={isOffline}
-            className="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 disabled:opacity-45 text-xs font-semibold text-white inline-flex items-center gap-2 whitespace-nowrap shrink-0"
-          >
-            <Database className="w-4 h-4" />
-            <span>Seed Starter Community Rooms</span>
-          </button>
-        )}
       </div>
 
       {/* Role Hierarchy Summary */}
@@ -128,8 +113,9 @@ export const AdminRolesView: React.FC<AdminRolesViewProps> = ({
             {!isSuperAgent && (
               <div className="rounded-xl bg-amber-500/10 border border-amber-500/25 px-4 py-3 text-xs text-amber-200">
                 Firestore Security Rules enforce that only a verified{' '}
-                <strong className="font-mono">SUPER_AGENT</strong> or platform admin can promote a{' '}
+                <strong className="font-mono">SUPER_AGENT</strong> can promote a{' '}
                 <strong className="font-mono">USER</strong> to <strong className="font-mono">AGENT</strong>.
+                Admin accounts handle safety moderation only.
               </div>
             )}
 
@@ -255,7 +241,7 @@ export const AdminRolesView: React.FC<AdminRolesViewProps> = ({
                         <CheckCircle2 className="w-4 h-4" />
                         <span>Resolved</span>
                       </span>
-                    ) : isSuperAgent ? (
+                    ) : isSuperAgent || isAdminUser ? (
                       <button
                         type="button"
                         onClick={() => onResolveReport(report.reportId)}

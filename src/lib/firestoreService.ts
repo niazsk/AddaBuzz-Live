@@ -50,18 +50,23 @@ import {
   UserProfile,
   WalletTransaction,
 } from '../types/app';
-import { INITIAL_ROOMS, INITIAL_USERS } from '../data/previewData';
 
 export const ADMIN_BOOTSTRAP_EMAIL = 'niazskapp@gmail.com';
 export const ADMIN_BOOTSTRAP_EMAILS = [
   'niazskapp@gmail.com',
   'fayselsk@gmail.com',
-  'ranababu78@gmail.com',
 ];
+
+export const SUPER_AGENT_BOOTSTRAP_EMAILS = ['ranababu78@gmail.com'];
 
 export function isAdminBootstrapEmail(email?: string | null): boolean {
   if (!email) return false;
   return ADMIN_BOOTSTRAP_EMAILS.includes(email.trim().toLowerCase());
+}
+
+export function isSuperAgentBootstrapEmail(email?: string | null): boolean {
+  if (!email) return false;
+  return SUPER_AGENT_BOOTSTRAP_EMAILS.includes(email.trim().toLowerCase());
 }
 
 const clampStr = (val: string, max: number) => val.trim().slice(0, max);
@@ -200,8 +205,8 @@ export async function completeUserOnboarding(
     throw new Error(`Username @${normalized} is already taken. Please choose another.`);
   }
 
-  const isBootstrappedAdmin =
-    isAdminBootstrapEmail(firebaseUser.email) && firebaseUser.emailVerified;
+  const isBootstrappedSuperAgent =
+    isSuperAgentBootstrapEmail(firebaseUser.email) && firebaseUser.emailVerified;
 
   const platformNum = 100000 + Math.floor(Math.random() * 899999);
   const platformId = `AB-${platformNum}`;
@@ -227,7 +232,7 @@ export async function completeUserOnboarding(
     bio: 'New creator on AddaBuzz Live.',
     country,
     gender: input.gender,
-    accountType: isBootstrappedAdmin ? 'SUPER_AGENT' : 'USER',
+    accountType: isBootstrappedSuperAgent ? 'SUPER_AGENT' : 'USER',
     avatarColor: '#6366F1',
     coverGradient: 'linear-gradient(135deg, #3B0764 0%, #1E3A8A 60%, #09090E 100%)',
     followersCount: 0,
@@ -1282,76 +1287,3 @@ export async function resolveReportDoc(reportId: string): Promise<void> {
   }
 }
 
-export async function seedStarterCommunityData(): Promise<void> {
-  const batch = writeBatch(db);
-
-  for (const user of INITIAL_USERS.slice(0, 6)) {
-    batch.set(doc(db, 'users', user.uid), {
-      uid: user.uid,
-      platformId: user.platformId,
-      username: user.username,
-      displayName: user.displayName,
-      bio: user.bio,
-      country: user.country,
-      gender: user.gender,
-      accountType: user.accountType,
-      avatarColor: user.avatarColor,
-      coverGradient: user.coverGradient,
-      followersCount: user.followersCount,
-      followingCount: user.followingCount,
-      isOnline: user.isOnline,
-      showPresence: user.showPresence,
-      lastActiveLabel: user.lastActiveLabel,
-      isNewCreator: Boolean(user.isNewCreator),
-      isSuspended: false,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    });
-  }
-
-  for (const room of INITIAL_ROOMS.slice(0, 5)) {
-    batch.set(doc(db, 'liveRooms', room.roomId), {
-      roomId: room.roomId,
-      hostUid: room.hostUid,
-      title: room.title,
-      description: room.description,
-      category: room.category,
-      mode: room.mode,
-      status: 'LIVE',
-      viewerCount: room.viewerCount,
-      isPrivateFollowersOnly: false,
-      isFeatured: Boolean(room.isFeatured),
-      ...(room.thumbnailUrl ? { thumbnailUrl: room.thumbnailUrl } : {}),
-      fallbackGradient: room.fallbackGradient,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    });
-
-    for (const seat of room.seats) {
-      batch.set(
-        doc(db, 'liveRooms', room.roomId, 'seats', `seat_${seat.seatNumber}`),
-        {
-          seatNumber: seat.seatNumber,
-          status: seat.status,
-          ...(seat.occupantUid ? { occupantUid: seat.occupantUid } : {}),
-          ...(seat.occupantName ? { occupantName: seat.occupantName } : {}),
-          ...(seat.occupantUsername ? { occupantUsername: seat.occupantUsername } : {}),
-          ...(seat.occupantAvatarColor
-            ? { occupantAvatarColor: seat.occupantAvatarColor }
-            : {}),
-          ...(typeof seat.isMuted === 'boolean' ? { isMuted: seat.isMuted } : {}),
-          ...(typeof seat.isSpeaking === 'boolean'
-            ? { isSpeaking: seat.isSpeaking }
-            : {}),
-          updatedAt: serverTimestamp(),
-        }
-      );
-    }
-  }
-
-  try {
-    await batch.commit();
-  } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, 'seedStarterCommunityData');
-  }
-}

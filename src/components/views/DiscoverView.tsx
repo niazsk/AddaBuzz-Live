@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bell, Eye, Radio, Search, Users, Play, X, Database } from 'lucide-react';
+import { Bell, Eye, Radio, Search, Users, Play, X } from 'lucide-react';
 import { LiveRoom, RoomCategory, RoomMode, UserProfile } from '../../types/app';
 import { ROOM_CATEGORIES } from '../../data/previewData';
 import { RoomCard } from '../cards/RoomCard';
@@ -18,13 +18,11 @@ interface DiscoverViewProps {
   onSelectMode: (mode: 'ALL' | RoomMode) => void;
   followingUids: string[];
   blockedUids: string[];
-  isAdminUser: boolean;
   onToggleFollow: (uid: string) => void;
   onJoinRoom: (room: LiveRoom) => void;
   onOpenUserProfile: (user: UserProfile) => void;
   onOpenNotifications: () => void;
   onOpenGoLive: () => void;
-  onSeedStarterData: () => void;
   unreadNotificationsCount: number;
 }
 
@@ -39,13 +37,11 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
   onSelectMode,
   followingUids,
   blockedUids,
-  isAdminUser,
   onToggleFollow,
   onJoinRoom,
   onOpenUserProfile,
   onOpenNotifications,
   onOpenGoLive,
-  onSeedStarterData,
   unreadNotificationsCount,
 }) => {
   const getHost = (hostUid: string): UserProfile =>
@@ -136,9 +132,6 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
         </div>
 
         <div className="hidden lg:flex items-center gap-3 shrink-0">
-          <span className="text-xs font-mono text-slate-400 whitespace-nowrap">
-            addabuzz-live-usa
-          </span>
           <button
             type="button"
             onClick={onOpenNotifications}
@@ -156,14 +149,14 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
         </div>
       </div>
 
-      {/* Empty Database Bootstrap State (only shown when Firestore has 0 live rooms) */}
+      {/* Empty state (only shown when there are 0 live rooms) */}
       {rooms.length === 0 && (
         <section className="rounded-2xl bg-[#111420] border border-white/[0.08] p-8 text-center space-y-4">
           <h1 className="font-display text-2xl font-bold text-white">
-            AddaBuzz Live USA is ready
+            No live rooms right now
           </h1>
           <p className="text-sm text-slate-400 max-w-lg mx-auto leading-relaxed">
-            Your Firestore database <span className="font-mono text-sky-300">addabuzz-live-usa</span> currently has no active rooms. Start the first live room now{isAdminUser ? ' or seed starter community rooms into Firestore.' : '.'}
+            Be the first one to go live and start the conversation.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3">
             <button
@@ -174,16 +167,6 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
               <Radio className="w-4 h-4" />
               <span>Start First Live Room</span>
             </button>
-            {isAdminUser && (
-              <button
-                type="button"
-                onClick={onSeedStarterData}
-                className="px-5 py-2.5 rounded-xl bg-white/[0.08] hover:bg-white/[0.14] text-white text-sm font-medium inline-flex items-center gap-2"
-              >
-                <Database className="w-4 h-4 text-sky-400" />
-                <span>Seed Starter Community Rooms</span>
-              </button>
-            )}
           </div>
         </section>
       )}

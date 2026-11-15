@@ -16,6 +16,7 @@ import {
 import { GenderOption, UserProfile } from '../../types/app';
 import {
   isAdminBootstrapEmail,
+  isSuperAgentBootstrapEmail,
   isUsernameAvailable,
 } from '../../lib/firestoreService';
 import { BrandLogo } from '../ui/BrandLogo';
@@ -323,7 +324,11 @@ export const SignInView: React.FC<SignInViewProps> = ({
                     Signed in as <strong className="text-white">{userEmail}</strong>.
                     Firestore Security Rules require a verified email before creating your{' '}
                     <span className="font-mono text-sky-300">
-                      {isAdminBootstrapEmail(userEmail) ? 'SUPER_AGENT (Admin)' : 'USER'}
+                      {isAdminBootstrapEmail(userEmail)
+                        ? 'Admin'
+                        : isSuperAgentBootstrapEmail(userEmail)
+                        ? 'SUPER_AGENT'
+                        : 'USER'}
                     </span>{' '}
                     profile.
                   </p>
@@ -398,7 +403,13 @@ export const SignInView: React.FC<SignInViewProps> = ({
                     {isAdminBootstrapEmail(userEmail) && (
                       <span className="text-violet-300 font-medium">
                         {' '}
-                        This account will be provisioned as App Admin (SUPER_AGENT).
+                        This account will be provisioned as App Admin.
+                      </span>
+                    )}
+                    {isSuperAgentBootstrapEmail(userEmail) && (
+                      <span className="text-violet-300 font-medium">
+                        {' '}
+                        This account will be provisioned as Super Agent.
                       </span>
                     )}
                   </p>

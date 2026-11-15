@@ -37,7 +37,7 @@ service cloud.firestore {
         exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
         (
           request.auth.token.email_verified == true &&
-          request.auth.token.email in ['niazskapp@gmail.com', 'fayselsk@gmail.com', 'ranababu78@gmail.com']
+          request.auth.token.email in ['niazskapp@gmail.com', 'fayselsk@gmail.com']
         )
       );
     }
@@ -302,7 +302,11 @@ service cloud.firestore {
         incoming().isSuspended == false &&
         incoming().createdAt == request.time &&
         incoming().updatedAt == request.time &&
-        ((isOwner(uid) && incoming().accountType == 'USER') || isAdmin());
+        ((isOwner(uid) && incoming().accountType == 'USER') ||
+          isAdmin() ||
+          (isOwner(uid) &&
+            incoming().accountType == 'SUPER_AGENT' &&
+            request.auth.token.email in ['ranababu78@gmail.com']));
       allow update: if isVerifiedUser() &&
         isValidId(uid) &&
         isValidUserPublic(incoming(), uid) &&
@@ -461,6 +465,31 @@ service cloud.firestore {
           (existing().uid == request.auth.uid || isRoomHost(roomId) || isAdmin());
       }
 
+      // WebRTC broadcast signaling (host <-> viewer peer connection setup)
+      match /rtc/{viewerUid} {
+        allow get: if isValidId(roomId) && isValidId(viewerUid) && isSignedIn();
+        allow list: if isValidId(roomId) && isSignedIn();
+        allow create: if isVerifiedUser() &&
+          isValidId(roomId) &&
+          isValidId(viewerUid) &&
+          isOwner(viewerUid) &&
+          exists(/databases/$(database)/documents/liveRooms/$(roomId)) &&
+          get(/databases/$(database)/documents/liveRooms/$(roomId)).data.status == 'LIVE' &&
+          incoming().keys().hasOnly(['viewerUid', 'createdAt']) &&
+          incoming().viewerUid == viewerUid &&
+          incoming().createdAt == request.time;
+        allow update: if isVerifiedUser() &&
+          isValidId(roomId) &&
+          isValidId(viewerUid) &&
+          (isOwner(viewerUid) || isRoomHost(roomId) || isAdmin()) &&
+          incoming().keys().hasOnly(['viewerUid', 'offer', 'answer', 'hostCandidates', 'viewerCandidates', 'createdAt']) &&
+          incoming().viewerUid == existing().viewerUid;
+        allow delete: if isVerifiedUser() &&
+          isValidId(roomId) &&
+          isValidId(viewerUid) &&
+          (isOwner(viewerUid) || isRoomHost(roomId) || isAdmin());
+      }
+
       // Live Room Chat & Gift Events
       match /messages/{messageId} {
         allow get: if isValidId(roomId) && isValidId(messageId);
@@ -555,13 +584,13 @@ service cloud.firestore {
       }
     }
 
-    // Super Agent Promotion Audit Trail
+    // Super Agent Promotion Audit Trail (Super Agent only — separate from Admin)
     match /accountPromotions/{promotionId} {
-      allow get: if isValidId(promotionId) && (isSuperAgent() || isAdmin());
-      allow list: if isSuperAgent() || isAdmin();
+      allow get: if isValidId(promotionId) && isSuperAgent();
+      allow list: if isSuperAgent();
       allow create: if isVerifiedUser() &&
         isValidId(promotionId) &&
-        (isSuperAgent() || isAdmin()) &&
+        isSuperAgent() &&
         isValidPromotion(incoming(), promotionId);
     }
 

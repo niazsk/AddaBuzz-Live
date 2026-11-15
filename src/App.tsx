@@ -19,7 +19,7 @@ import {
   UserProfile,
   WalletTransaction,
 } from './types/app';
-import { GIFT_CATALOG, INITIAL_NOTIFICATIONS } from './data/previewData';
+import { GIFT_CATALOG } from './data/previewData';
 import { auth } from './lib/firebase';
 import {
   adjustRoomViewerCountDoc,
@@ -39,7 +39,6 @@ import {
   requestRoomSeatDoc,
   resendVerificationEmail,
   resolveReportDoc,
-  seedStarterCommunityData,
   sendDirectMessageDoc,
   sendPasswordReset,
   sendVirtualGiftTransaction,
@@ -115,8 +114,7 @@ export default function App() {
   const [activeDirectMessages, setActiveDirectMessages] = useState<DirectMessage[]>([]);
   const [promotions, setPromotions] = useState<AccountPromotionRecord[]>([]);
   const [reports, setReports] = useState<ReportRecord[]>([]);
-  const [notifications, setNotifications] =
-    useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
 
   // Modals & Drawers
   const [goLiveOpen, setGoLiveOpen] = useState(false);
@@ -287,16 +285,15 @@ export default function App() {
       }
     });
 
-    const canModerate =
-      currentUser.accountType === 'SUPER_AGENT' || isAdminUser;
+    const isSuperAgentUser = currentUser.accountType === 'SUPER_AGENT';
 
-    const unsubPromos = canModerate
+    const unsubPromos = isSuperAgentUser
       ? subscribePromotions((recs) => setPromotions(recs))
       : () => {};
 
     const unsubReports = subscribeReports(
       currentUser.uid,
-      canModerate,
+      isSuperAgentUser || isAdminUser,
       (reps) => setReports(reps)
     );
 
@@ -740,31 +737,6 @@ export default function App() {
     }
   };
 
-  const handleSeedStarterData = async () => {
-    if (!isAdminUser) {
-      pushToast(
-        'Admin only',
-        'Starter community seeding requires the project admin account.',
-        'warning'
-      );
-      return;
-    }
-    try {
-      await seedStarterCommunityData();
-      pushToast(
-        'Starter rooms & creators seeded',
-        'Real documents written to Firestore addabuzz-live-usa.',
-        'success'
-      );
-    } catch (err) {
-      pushToast(
-        'Seed failed',
-        err instanceof Error ? err.message : 'Unable to seed starter data.',
-        'error'
-      );
-    }
-  };
-
   if (!authReady) {
     return (
       <div className="min-h-screen bg-[#08090E] text-white flex items-center justify-center">
@@ -1043,7 +1015,6 @@ export default function App() {
               onSelectMode={setSelectedMode}
               followingUids={followingUids}
               blockedUids={blockedUids}
-              isAdminUser={isAdminUser}
               onToggleFollow={handleToggleFollow}
               onJoinRoom={(r) => setActiveRoomId(r.roomId)}
               onOpenUserProfile={(u) => setInspectedUser(u)}
@@ -1051,7 +1022,6 @@ export default function App() {
               onOpenGoLive={() => {
                 if (requireSignedIn()) setGoLiveOpen(true);
               }}
-              onSeedStarterData={handleSeedStarterData}
               unreadNotificationsCount={unreadNotificationsCount}
             />
           )}
@@ -1129,7 +1099,6 @@ export default function App() {
                 await resolveReportDoc(reportId);
                 pushToast('Report marked resolved', undefined, 'success');
               }}
-              onSeedStarterData={handleSeedStarterData}
               onOpenAuth={() => setActiveSection('signin')}
               isOffline={isOffline}
             />

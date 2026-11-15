@@ -21,6 +21,8 @@ import {
   Users,
   Video,
   VideoOff,
+  Volume2,
+  VolumeX,
   X,
 } from 'lucide-react';
 import {
@@ -35,6 +37,11 @@ import {
   LocalMediaHandle,
   startLocalMediaCapture,
 } from '../../lib/mediaProvider';
+import {
+  ViewerStreamState,
+  joinViewerStream,
+  startHostBroadcast,
+} from '../../lib/webrtcBroadcast';
 import { Avatar } from '../ui/Avatar';
 import { MediaImage } from '../ui/MediaImage';
 import { GiftArtwork } from '../ui/GiftArtwork';
@@ -125,7 +132,12 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
 
   const mediaHandleRef = useRef<LocalMediaHandle | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
+
+  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+  const [remoteMuted, setRemoteMuted] = useState(true);
+  const [broadcastState, setBroadcastState] = useState<ViewerStreamState>('connecting');
 
   const [chatInput, setChatInput] = useState('');
   const [guestPanelOpen, setGuestPanelOpen] = useState(false);
@@ -239,6 +251,39 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
     void startOrRestartMedia(cameraFacing);
   }, [canPublishLocalMedia, mediaActive, isOfflineSimulated, room.roomId]);
 
+  // Host: broadcast the local stream to every viewer over WebRTC
+  useEffect(() => {
+    if (!isOwnerHost || !mediaActive || isOfflineSimulated) return;
+    const stream = mediaHandleRef.current?.stream;
+    if (!stream) return;
+    const stopBroadcast = startHostBroadcast(room.roomId, stream);
+    return stopBroadcast;
+  }, [isOwnerHost, mediaActive, isOfflineSimulated, room.roomId]);
+
+  // Viewer: receive the host's live stream
+  const isViewer = Boolean(currentUser) && !canPublishLocalMedia;
+  const viewerUid = currentUser?.uid;
+  useEffect(() => {
+    if (!isViewer || !viewerUid || room.status !== 'LIVE' || isOfflineSimulated) {
+      setRemoteStream(null);
+      return;
+    }
+    setRemoteMuted(true);
+    const leave = joinViewerStream(
+      room.roomId,
+      viewerUid,
+      setRemoteStream,
+      setBroadcastState
+    );
+    return leave;
+  }, [isViewer, viewerUid, room.roomId, room.status, isOfflineSimulated]);
+
+  useEffect(() => {
+    if (remoteVideoRef.current) {
+      remoteVideoRef.current.srcObject = remoteStream;
+    }
+  }, [remoteStream, room.mode]);
+
   const handleToggleMic = () => {
     const next = !micMuted;
     setMicMuted(next);
@@ -281,7 +326,10 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
     setChatInput('');
   };
 
-  const showVideoFeed = mediaActive && room.mode !== 'AUDIO' && !cameraOff;
+  const hasRemoteVideo = Boolean(remoteStream) && room.mode !== 'AUDIO';
+  const showLocalVideo = mediaActive && room.mode !== 'AUDIO' && !cameraOff;
+  const showVideoFeed =
+    showLocalVideo || (!canPublishLocalMedia && hasRemoteVideo);
   const showCoverImage = !showVideoFeed && room.mode !== 'AUDIO' && !cameraOff;
   const hostSpeaking = !micMuted && (mediaActive ? audioLevel > 10 : true);
 
@@ -292,7 +340,20 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
     <div className="fixed inset-0 bg-[#07080D] text-white overflow-hidden">
       {/* Full-screen stage background */}
       <div className="absolute inset-0">
-        {showVideoFeed ? (
+        {remoteStream && (
+          <video
+            ref={remoteVideoRef}
+            autoPlay
+            playsInline
+            muted={remoteMuted}
+            className={
+              room.mode === 'AUDIO'
+                ? 'hidden'
+                : 'absolute inset-0 w-full h-full object-cover'
+            }
+          />
+        )}
+        {showLocalVideo ? (
           <video
             ref={videoRef}
             autoPlay
@@ -436,6 +497,41 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
           <p className="text-xs text-rose-200 bg-rose-950/80 backdrop-blur-md border border-rose-500/40 rounded-full px-4 py-2">
             {mediaError}
           </p>
+        </div>
+      )}
+
+      {/* Viewer: sound toggle + connection status */}
+      {isViewer && remoteStream && (
+        <div className="absolute top-16 inset-x-0 z-20 flex justify-center px-4">
+          <button
+            type="button"
+            onClick={() => setRemoteMuted((m) => !m)}
+            className={`inline-flex items-center gap-1.5 rounded-full backdrop-blur-md border px-3.5 py-1.5 text-[11px] font-semibold transition-colors ${
+              remoteMuted
+                ? 'bg-cyan-500/85 border-cyan-300/50 text-white animate-pulse'
+                : 'bg-black/50 border-white/15 text-slate-200'
+            }`}
+          >
+            {remoteMuted ? (
+              <>
+                <VolumeX className="w-3.5 h-3.5" />
+                <span>Tap for sound</span>
+              </>
+            ) : (
+              <>
+                <Volume2 className="w-3.5 h-3.5" />
+                <span>Sound on</span>
+              </>
+            )}
+          </button>
+        </div>
+      )}
+      {isViewer && !remoteStream && room.status === 'LIVE' && !isOfflineSimulated && (
+        <div className="absolute top-16 inset-x-0 z-20 flex justify-center px-4">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-black/55 backdrop-blur-md border border-white/15 px-3.5 py-1.5 text-[11px] text-slate-200">
+            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+            {broadcastState === 'ended' ? 'Stream ended' : 'Connecting to live…'}
+          </span>
         </div>
       )}
 

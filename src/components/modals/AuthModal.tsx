@@ -14,6 +14,7 @@ import {
 import { GenderOption } from '../../types/app';
 import {
   isAdminBootstrapEmail,
+  isSuperAgentBootstrapEmail,
   isUsernameAvailable,
 } from '../../lib/firestoreService';
 import { BrandLogo } from '../ui/BrandLogo';
@@ -313,7 +314,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   {isAdminBootstrapEmail(userEmail) && (
                     <span className="text-violet-300 font-medium">
                       {' '}
-                      App Admin (SUPER_AGENT) role will be assigned automatically.
+                      App Admin role will be assigned automatically.
+                    </span>
+                  )}
+                  {isSuperAgentBootstrapEmail(userEmail) && (
+                    <span className="text-violet-300 font-medium">
+                      {' '}
+                      Super Agent role will be assigned automatically.
                     </span>
                   )}
                 </p>
@@ -328,7 +335,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   required
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="e.g., samir_live"
+                  placeholder="your_username"
                   className="w-full h-10 px-3.5 rounded-xl bg-[#090B12] border border-white/[0.09] text-sm text-white focus:border-sky-500/60 focus:outline-none"
                 />
                 {usernameStatus === 'checking' && (
