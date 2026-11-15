@@ -56,6 +56,7 @@ export const ADMIN_BOOTSTRAP_EMAIL = 'niazskapp@gmail.com';
 export const ADMIN_BOOTSTRAP_EMAILS = [
   'niazskapp@gmail.com',
   'fayselsk@gmail.com',
+  'ranababu78@gmail.com',
 ];
 
 export function isAdminBootstrapEmail(email?: string | null): boolean {
