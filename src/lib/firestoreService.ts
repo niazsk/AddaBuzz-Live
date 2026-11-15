@@ -173,6 +173,8 @@ export async function fetchUserProfile(uid: string): Promise<UserProfile | null>
         d.coverGradient ??
           'linear-gradient(135deg, #3B0764 0%, #1E3A8A 60%, #09090E 100%)'
       ),
+      avatarUrl: d.avatarUrl ? String(d.avatarUrl) : undefined,
+      coverUrl: d.coverUrl ? String(d.coverUrl) : undefined,
       followersCount: Number(d.followersCount ?? 0),
       followingCount: Number(d.followingCount ?? 0),
       isOnline: Boolean(d.isOnline ?? true),
@@ -321,18 +323,23 @@ export async function updateOwnProfile(
     country: string;
     gender: GenderOption;
     showPresence: boolean;
+    avatarUrl?: string;
+    coverUrl?: string;
   }
 ): Promise<void> {
   const path = `users/${uid}`;
   try {
-    await updateDoc(doc(db, 'users', uid), {
+    const payload: Record<string, unknown> = {
       displayName: clampStr(updates.displayName, 64),
       bio: clampStr(updates.bio, 300),
       country: clampStr(updates.country, 64),
       gender: updates.gender,
       showPresence: updates.showPresence,
       updatedAt: serverTimestamp(),
-    });
+    };
+    if (updates.avatarUrl !== undefined) payload.avatarUrl = updates.avatarUrl;
+    if (updates.coverUrl !== undefined) payload.coverUrl = updates.coverUrl;
+    await updateDoc(doc(db, 'users', uid), payload);
   } catch (error) {
     handleFirestoreError(error, OperationType.UPDATE, path);
   }
@@ -365,6 +372,8 @@ export function subscribePublicUsers(
           coverGradient: String(
             d.coverGradient ?? 'linear-gradient(135deg, #2E1065 0%, #1E3A8A 100%)'
           ),
+          avatarUrl: d.avatarUrl ? String(d.avatarUrl) : undefined,
+          coverUrl: d.coverUrl ? String(d.coverUrl) : undefined,
           followersCount: Number(d.followersCount ?? 0),
           followingCount: Number(d.followingCount ?? 0),
           isOnline: Boolean(d.isOnline ?? false),

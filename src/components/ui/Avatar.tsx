@@ -3,6 +3,7 @@ import React from 'react';
 interface AvatarProps {
   name: string;
   color?: string;
+  src?: string;
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
   isLiveRing?: boolean;
   isSpeaking?: boolean;
@@ -20,6 +21,7 @@ const SIZE_CLASSES: Record<NonNullable<AvatarProps['size']>, string> = {
 export const Avatar: React.FC<AvatarProps> = ({
   name,
   color = '#6366F1',
+  src,
   size = 'md',
   isLiveRing = false,
   isSpeaking = false,
@@ -34,7 +36,7 @@ export const Avatar: React.FC<AvatarProps> = ({
 
   return (
     <div
-      className={`relative inline-flex shrink-0 items-center justify-center rounded-full font-display font-semibold text-white select-none ${
+      className={`relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full font-display font-semibold text-white select-none ${
         SIZE_CLASSES[size]
       } ${
         isSpeaking
@@ -48,7 +50,11 @@ export const Avatar: React.FC<AvatarProps> = ({
       }}
       aria-label={name}
     >
-      <span>{initials || 'AB'}</span>
+      {src ? (
+        <img src={src} alt={name} className="w-full h-full object-cover" />
+      ) : (
+        <span>{initials || 'AB'}</span>
+      )}
     </div>
   );
 };

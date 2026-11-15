@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   BadgeCheck,
+  Camera,
   Check,
   ChevronRight,
   Coins,
@@ -25,6 +26,7 @@ import {
 } from 'lucide-react';
 import { AppSection, GenderOption, UserProfile } from '../../types/app';
 import { Avatar } from '../ui/Avatar';
+import { ProfileImageKind, uploadProfileImage } from '../../lib/profileImages';
 
 interface ProfileViewProps {
   currentUser: UserProfile | null;
@@ -39,6 +41,8 @@ interface ProfileViewProps {
     country: string;
     gender: GenderOption;
     showPresence: boolean;
+    avatarUrl?: string;
+    coverUrl?: string;
   }) => Promise<void>;
   onUnblockUser: (uid: string) => void;
   onOpenSection: (section: AppSection) => void;
@@ -96,6 +100,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const [showPresence, setShowPresence] = useState(currentUser?.showPresence ?? true);
   const [comingSoon, setComingSoon] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [photoBusy, setPhotoBusy] = useState<ProfileImageKind | null>(null);
+  const [photoMsg, setPhotoMsg] = useState<string | null>(null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const coverInputRef = useRef<HTMLInputElement>(null);
 
   if (!currentUser) {
     return (
@@ -160,6 +168,31 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     }
   };
 
+  const handlePhotoPick =
+    (kind: ProfileImageKind) => async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      e.target.value = '';
+      if (!file) return;
+      setPhotoBusy(kind);
+      setPhotoMsg(null);
+      try {
+        const url = await uploadProfileImage(currentUser.uid, kind, file);
+        await onUpdateProfile({
+          displayName: currentUser.displayName,
+          bio: currentUser.bio,
+          country: currentUser.country,
+          gender: currentUser.gender,
+          showPresence: currentUser.showPresence,
+          ...(kind === 'avatar' ? { avatarUrl: url } : { coverUrl: url }),
+        });
+        setPhotoMsg(kind === 'avatar' ? 'Profile photo updated.' : 'Wall photo updated.');
+      } catch (err) {
+        setPhotoMsg(err instanceof Error ? err.message : 'Photo upload failed.');
+      } finally {
+        setPhotoBusy(null);
+      }
+    };
+
   const renderTile = (tile: Tile) => {
     const Icon = tile.icon;
     return (
@@ -187,9 +220,22 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       <div className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-[#111420]">
         <div
           className="h-36 sm:h-44 w-full relative"
-          style={{ background: currentUser.coverGradient }}
+          style={{
+            background: currentUser.coverUrl
+              ? `center / cover no-repeat url(${currentUser.coverUrl})`
+              : currentUser.coverGradient,
+          }}
         >
           <div className="absolute inset-0 bg-gradient-to-t from-[#111420] via-transparent to-transparent" />
+          <button
+            type="button"
+            onClick={() => coverInputRef.current?.click()}
+            disabled={photoBusy !== null}
+            aria-label="Change wall photo"
+            className="absolute top-3 left-3 w-9 h-9 rounded-full bg-black/40 backdrop-blur-md border border-white/15 hover:bg-black/60 disabled:opacity-50 flex items-center justify-center text-white transition-colors"
+          >
+            <Camera className="w-4 h-4" />
+          </button>
           <div className="absolute top-3 right-3 flex items-center gap-2">
             <button
               type="button"
@@ -212,12 +258,24 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
         <div className="px-5 sm:px-7 pb-6 -mt-12 relative">
           <div className="flex items-end justify-between gap-3">
-            <Avatar
-              name={currentUser.displayName}
-              color={currentUser.avatarColor}
-              size="xl"
-              className="ring-4 ring-[#111420]"
-            />
+            <div className="relative">
+              <Avatar
+                name={currentUser.displayName}
+                color={currentUser.avatarColor}
+                src={currentUser.avatarUrl}
+                size="xl"
+                className="ring-4 ring-[#111420]"
+              />
+              <button
+                type="button"
+                onClick={() => avatarInputRef.current?.click()}
+                disabled={photoBusy !== null}
+                aria-label="Change profile photo"
+                className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-violet-600 hover:bg-violet-500 disabled:opacity-50 border-2 border-[#111420] flex items-center justify-center text-white transition-colors"
+              >
+                <Camera className="w-3.5 h-3.5" />
+              </button>
+            </div>
             <span className="mb-1 inline-flex items-center gap-1.5 rounded-full bg-violet-600/20 border border-violet-500/30 px-3 py-1 text-[11px] font-semibold text-violet-200">
               <BadgeCheck className="w-3.5 h-3.5" />
               <span>{roleLabel}</span>
@@ -264,6 +322,26 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           </div>
         </div>
       </div>
+
+      <input
+        ref={avatarInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handlePhotoPick('avatar')}
+      />
+      <input
+        ref={coverInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handlePhotoPick('cover')}
+      />
+      {(photoBusy || photoMsg) && (
+        <p className="rounded-xl bg-violet-500/10 border border-violet-500/30 px-4 py-2 text-xs text-violet-200 text-center">
+          {photoBusy ? 'Uploading photo…' : photoMsg}
+        </p>
+      )}
 
       {/* Wallet + roles shortcuts */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

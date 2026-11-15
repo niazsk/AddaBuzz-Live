@@ -39,6 +39,8 @@ export interface UserProfile {
   accountType: AccountType;
   avatarColor: string;
   coverGradient: string;
+  avatarUrl?: string;
+  coverUrl?: string;
   followersCount: number;
   followingCount: number;
   isOnline: boolean;

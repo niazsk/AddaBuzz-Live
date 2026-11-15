@@ -12,5 +12,8 @@
   "firestore": {
     "database": "ai-studio-addabuzzlive-ecc1d7d4-659c-4060-9ada-c9001252a23f",
     "rules": "firestore.rules"
+  },
+  "storage": {
+    "rules": "storage.rules"
   }
 }

@@ -80,6 +80,7 @@ service cloud.firestore {
         data.keys().hasOnly([
           'uid', 'platformId', 'username', 'displayName', 'bio', 'country',
           'gender', 'accountType', 'avatarColor', 'coverGradient',
+          'avatarUrl', 'coverUrl',
           'followersCount', 'followingCount', 'isOnline', 'showPresence',
           'lastActiveLabel', 'isNewCreator', 'isSuspended', 'createdAt', 'updatedAt'
         ]) &&
@@ -94,6 +95,8 @@ service cloud.firestore {
         data.accountType in ['USER', 'AGENT', 'SUPER_AGENT'] &&
         (!('avatarColor' in data) || (data.avatarColor is string && data.avatarColor.size() <= 24)) &&
         (!('coverGradient' in data) || (data.coverGradient is string && data.coverGradient.size() <= 160)) &&
+        (!('avatarUrl' in data) || (data.avatarUrl is string && data.avatarUrl.size() <= 2048)) &&
+        (!('coverUrl' in data) || (data.coverUrl is string && data.coverUrl.size() <= 2048)) &&
         data.followersCount is int && data.followersCount >= 0 &&
         data.followingCount is int && data.followingCount >= 0 &&
         data.isOnline is bool &&
@@ -333,7 +336,8 @@ service cloud.firestore {
             incoming().accountType == existing().accountType &&
             incoming().diff(existing()).affectedKeys().hasOnly([
               'displayName', 'username', 'bio', 'country', 'gender',
-              'avatarColor', 'coverGradient', 'isOnline', 'showPresence',
+              'avatarColor', 'coverGradient', 'avatarUrl', 'coverUrl',
+              'isOnline', 'showPresence',
               'lastActiveLabel', 'followingCount', 'updatedAt'
             ])
           ) ||
