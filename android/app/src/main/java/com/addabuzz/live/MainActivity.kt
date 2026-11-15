@@ -11,7 +11,9 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -282,7 +284,10 @@ private fun DiscoverScreen(
     onGoLive: (String) -> Unit
 ) {
     var newRoomTitle by remember { mutableStateOf("") }
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier.fillMaxSize()
+    ) {
         Text("AddaBuzz Live", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         Text(
             text = if (currentUser != null) "Signed in as @${currentUser.username} (${currentUser.accountType})"
@@ -310,7 +315,10 @@ private fun DiscoverScreen(
                 Text("Go Live")
             }
         }
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        LazyColumn(
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.weight(1f)
+        ) {
             items(rooms, key = { it.roomId }) { room ->
                 Card(
                     colors = CardDefaults.cardColors(containerColor = CardBg),
@@ -353,7 +361,10 @@ private fun LiveRoomScreen(
         }
     }
 
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxSize()) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
             TextButton(onClick = onBack) { Text("← Back") }
             Text(room.title, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
@@ -434,7 +445,10 @@ private fun LiveRoomScreen(
             }
         }
 
-        LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        LazyColumn(
+            modifier = Modifier.height(220.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
             items(messages, key = { it.id }) { msg ->
                 Text("@${msg.username}: ${msg.text}", style = MaterialTheme.typography.bodySmall)
             }
@@ -469,7 +483,10 @@ private fun LiveRoomScreen(
 
 @Composable
 private fun WalletScreen(wallet: WalletState) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
+    ) {
         Text("Virtual Wallet", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         Text(
             "Coins and Diamonds are independent virtual balances. Top-up and real-money payments are disabled by policy.",
@@ -492,14 +509,20 @@ private fun RolesScreen(
     onPromote: (UserProfile) -> Unit
 ) {
     val isSuperAgent = currentUser?.accountType == "SUPER_AGENT"
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier.fillMaxSize()
+    ) {
         Text("Account Roles & Promotions", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         Text(
             "Your Role: ${currentUser?.accountType ?: "Signed Out"} (Only SUPER_AGENT can promote USER → AGENT)",
             color = AccentSky,
             style = MaterialTheme.typography.bodySmall
         )
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        LazyColumn(
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.weight(1f)
+        ) {
             items(users.filter { it.accountType == "USER" }, key = { it.uid }) { user ->
                 Card(colors = CardDefaults.cardColors(containerColor = CardBg), modifier = Modifier.fillMaxWidth()) {
                     Row(
@@ -539,7 +562,10 @@ private fun SignInScreen(
     var username by remember { mutableStateOf("") }
     var displayName by remember { mutableStateOf("") }
 
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
+    ) {
         Text("Sign In / Admin Access", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         when {
             currentUser != null -> {
