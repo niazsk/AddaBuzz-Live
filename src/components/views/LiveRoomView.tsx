@@ -3,6 +3,7 @@ import {
   Check,
   Eye,
   Gift,
+  Heart,
   Lock,
   LogOut,
   Mic,
@@ -111,6 +112,9 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
     [seats, currentUser]
   );
   const canPublishLocalMedia = Boolean(isOwnerHost || mySeat);
+  const isSolo = room.mode !== 'MULTI_GUEST';
+
+  const [likes, setLikes] = useState(0);
 
   const [micMuted, setMicMuted] = useState(false);
   const [cameraOff, setCameraOff] = useState(room.mode === 'AUDIO');
@@ -350,7 +354,11 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
           <button
             type="button"
             onClick={() => onOpenProfile(host)}
-            className="flex items-center gap-2 rounded-full bg-black/45 backdrop-blur-md border border-white/10 pl-1 pr-2.5 py-1 min-w-0"
+            className={`flex items-center gap-2 rounded-full backdrop-blur-md pl-1 pr-3 py-1 min-w-0 ${
+              isSolo
+                ? 'bg-black/55 border-2 border-cyan-400/70'
+                : 'bg-black/45 border border-white/10'
+            }`}
           >
             <Avatar
               name={host.displayName}
@@ -358,8 +366,15 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
               size="xs"
               isLiveRing
             />
-            <span className="text-xs font-semibold text-white truncate max-w-[110px]">
-              {host.displayName}
+            <span className="min-w-0 text-left">
+              <span className="block text-xs font-bold text-white truncate max-w-[130px]">
+                {host.displayName}
+              </span>
+              {isSolo && (
+                <span className="block text-[10px] font-medium text-cyan-300">
+                  {room.viewerCount.toLocaleString()} Viewers
+                </span>
+              )}
             </span>
           </button>
           {!isOwnerHost && (
@@ -378,27 +393,39 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
-          <span className="inline-flex items-center gap-1 rounded-full bg-black/45 backdrop-blur-md border border-white/10 px-2.5 py-1.5 text-[11px] font-mono tabular-nums text-slate-200">
-            <Eye className="w-3.5 h-3.5 text-sky-300" aria-hidden="true" />
-            <span>{room.viewerCount.toLocaleString()}</span>
-          </span>
-          <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-black/45 backdrop-blur-md border border-white/10 px-2.5 py-1.5 text-[11px] font-mono tabular-nums text-slate-200">
-            <Radio className="w-3.5 h-3.5 text-fuchsia-400" aria-hidden="true" />
-            <span>{formatDuration(room.durationSeconds)}</span>
-          </span>
-          <span className="inline-flex items-center rounded-full bg-rose-600 px-2.5 py-1.5 text-[10px] font-bold tracking-wider text-white">
-            LIVE
-          </span>
+          {!isSolo && (
+            <>
+              <span className="inline-flex items-center gap-1 rounded-full bg-black/45 backdrop-blur-md border border-white/10 px-2.5 py-1.5 text-[11px] font-mono tabular-nums text-slate-200">
+                <Eye className="w-3.5 h-3.5 text-sky-300" aria-hidden="true" />
+                <span>{room.viewerCount.toLocaleString()}</span>
+              </span>
+              <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-black/45 backdrop-blur-md border border-white/10 px-2.5 py-1.5 text-[11px] font-mono tabular-nums text-slate-200">
+                <Radio className="w-3.5 h-3.5 text-fuchsia-400" aria-hidden="true" />
+                <span>{formatDuration(room.durationSeconds)}</span>
+              </span>
+              <span className="inline-flex items-center rounded-full bg-rose-600 px-2.5 py-1.5 text-[10px] font-bold tracking-wider text-white">
+                LIVE
+              </span>
+            </>
+          )}
           <button
             type="button"
             onClick={() => {
+              if (isSolo && canModerateSeats) {
+                setConfirmEndOpen(true);
+                return;
+              }
               stopLocalMedia();
               onLeaveRoom();
             }}
             aria-label="Leave live room"
-            className="w-8 h-8 rounded-full bg-black/45 backdrop-blur-md border border-white/10 hover:bg-black/65 flex items-center justify-center transition-colors"
+            className={`rounded-full flex items-center justify-center transition-colors ${
+              isSolo
+                ? 'w-11 h-11 bg-black/70 hover:bg-black/90'
+                : 'w-8 h-8 bg-black/45 backdrop-blur-md border border-white/10 hover:bg-black/65'
+            }`}
           >
-            <X className="w-4 h-4" />
+            <X className={isSolo ? 'w-5 h-5' : 'w-4 h-4'} />
           </button>
         </div>
       </div>
@@ -431,7 +458,8 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
         </div>
       )}
 
-      {/* Right floating action rail */}
+      {/* Right floating action rail (multi-guest only) */}
+      {!isSolo && (
       <div className="absolute right-3 bottom-44 z-20 flex flex-col items-center gap-2.5">
         <button
           type="button"
@@ -475,10 +503,12 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
           </button>
         )}
       </div>
+      )}
 
       {/* Bottom stack: seats, chat, controls, input */}
       <div className="absolute inset-x-0 bottom-0 z-10 flex flex-col gap-2.5 px-3 sm:px-4 pb-3">
-        {/* Compact guest seats strip */}
+        {/* Compact guest seats strip (multi-guest only) */}
+        {!isSolo && (
         <div
           aria-label="Multi-guest seats"
           className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
@@ -610,37 +640,58 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
             );
           })}
         </div>
+        )}
 
         {/* Floating chat overlay */}
         <div
           ref={chatScrollRef}
-          className="max-h-44 sm:max-h-52 overflow-y-auto max-w-md space-y-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className={`overflow-y-auto space-y-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
+            isSolo ? 'max-h-60 max-w-[85%] sm:max-w-md' : 'max-h-44 sm:max-h-52 max-w-md'
+          }`}
         >
           {comments.length === 0 ? (
             <p className="text-xs text-slate-300/80 bg-black/35 backdrop-blur-sm rounded-full px-3 py-1.5 inline-block">
               No messages yet. Say hello!
             </p>
           ) : (
-            comments.map((comment) => (
-              <div
-                key={comment.id}
-                className={`rounded-2xl px-3 py-1.5 text-xs leading-relaxed backdrop-blur-sm inline-block max-w-full ${
-                  comment.isGiftEvent
-                    ? 'bg-gradient-to-r from-fuchsia-600/70 to-violet-600/70 border border-fuchsia-300/30'
-                    : 'bg-black/40'
-                }`}
-              >
-                <span className="inline-flex items-center rounded-md bg-gradient-to-r from-fuchsia-500 to-violet-500 px-1.5 py-0.5 text-[9px] font-bold text-white mr-1.5 align-middle">
-                  {comment.displayName}
-                </span>
-                <span className="text-white align-middle">{comment.text}</span>
-              </div>
-            ))
+            comments.map((comment) =>
+              isSolo ? (
+                <div
+                  key={comment.id}
+                  className={`rounded-2xl px-4 py-2.5 backdrop-blur-sm block w-fit max-w-full ${
+                    comment.isGiftEvent
+                      ? 'bg-gradient-to-r from-fuchsia-600/70 to-violet-600/70 border border-fuchsia-300/30'
+                      : 'bg-black/55'
+                  }`}
+                >
+                  <span className="text-sm font-bold text-cyan-300 mr-2">
+                    {comment.displayName}
+                  </span>
+                  <span className="text-sm text-white leading-relaxed">
+                    {comment.text}
+                  </span>
+                </div>
+              ) : (
+                <div
+                  key={comment.id}
+                  className={`rounded-2xl px-3 py-1.5 text-xs leading-relaxed backdrop-blur-sm inline-block max-w-full ${
+                    comment.isGiftEvent
+                      ? 'bg-gradient-to-r from-fuchsia-600/70 to-violet-600/70 border border-fuchsia-300/30'
+                      : 'bg-black/40'
+                  }`}
+                >
+                  <span className="inline-flex items-center rounded-md bg-gradient-to-r from-fuchsia-500 to-violet-500 px-1.5 py-0.5 text-[9px] font-bold text-white mr-1.5 align-middle">
+                    {comment.displayName}
+                  </span>
+                  <span className="text-white align-middle">{comment.text}</span>
+                </div>
+              )
+            )
           )}
         </div>
 
-        {/* Publisher media controls */}
-        {canPublishLocalMedia && (
+        {/* Publisher media controls (multi-guest only; solo controls live in the bottom bar) */}
+        {canPublishLocalMedia && !isSolo && (
           <div className="flex items-center justify-end gap-2">
             {mediaActive && (
               <div className="inline-flex items-center gap-1.5 rounded-full bg-black/45 backdrop-blur-md border border-emerald-400/30 px-2.5 py-1.5 text-[10px] text-emerald-300 mr-auto">
@@ -741,33 +792,122 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
                 ? 'Sign in to chat...'
                 : isOfflineSimulated
                 ? 'Reconnect to chat...'
+                : isSolo
+                ? 'Comment'
                 : "What's up..."
             }
-            className="flex-1 h-11 px-4 rounded-full bg-black/50 backdrop-blur-md border border-white/15 focus:border-fuchsia-400/60 focus:outline-none text-sm text-white placeholder:text-slate-400"
+            className={`flex-1 min-w-0 h-11 px-4 rounded-full backdrop-blur-md border focus:outline-none text-sm text-white placeholder:text-slate-400 ${
+              isSolo
+                ? 'bg-[#15163A]/80 border-white/10 focus:border-cyan-400/60'
+                : 'bg-black/50 border-white/15 focus:border-fuchsia-400/60'
+            }`}
           />
-          <button
-            type="submit"
-            disabled={
-              (currentUser !== null && !chatInput.trim()) || isOfflineSimulated
-            }
-            aria-label="Send comment"
-            className="w-11 h-11 rounded-full bg-gradient-to-br from-fuchsia-500 to-violet-600 hover:from-fuchsia-400 hover:to-violet-500 disabled:opacity-40 flex items-center justify-center text-white shrink-0 transition-all"
-          >
-            <Send className="w-4.5 h-4.5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => setGuestPanelOpen(true)}
-            aria-label="Guests and requests"
-            className="relative w-11 h-11 rounded-full bg-black/50 backdrop-blur-md border border-white/15 hover:bg-black/70 flex items-center justify-center text-white shrink-0 transition-colors"
-          >
-            <Users className="w-4.5 h-4.5" />
-            {joinRequests.length > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-rose-500 text-[10px] font-bold flex items-center justify-center px-1">
-                {joinRequests.length}
-              </span>
-            )}
-          </button>
+          {isSolo ? (
+            <>
+              {canPublishLocalMedia && room.mode !== 'AUDIO' && (
+                <button
+                  type="button"
+                  onClick={handleSwitchCamera}
+                  aria-label="Switch camera"
+                  className="w-11 h-11 rounded-full bg-[#232456]/90 hover:bg-[#2E2F6E] flex items-center justify-center text-white shrink-0 transition-colors"
+                >
+                  <RefreshCw className="w-5 h-5" />
+                </button>
+              )}
+              {canPublishLocalMedia && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (mediaActive) {
+                      handleToggleMic();
+                    } else {
+                      void startOrRestartMedia(cameraFacing);
+                    }
+                  }}
+                  aria-label={
+                    !mediaActive
+                      ? 'Enable microphone'
+                      : micMuted
+                      ? 'Unmute microphone'
+                      : 'Mute microphone'
+                  }
+                  className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 transition-colors ${
+                    micMuted
+                      ? 'bg-rose-500/80 text-white'
+                      : 'bg-[#232456]/90 hover:bg-[#2E2F6E] text-white'
+                  }`}
+                >
+                  {micMuted ? (
+                    <MicOff className="w-5 h-5" />
+                  ) : (
+                    <Mic className="w-5 h-5" />
+                  )}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  if (!currentUser) {
+                    onOpenAuth();
+                    return;
+                  }
+                  setShowGiftTray((s) => !s);
+                }}
+                disabled={isOfflineSimulated}
+                aria-label="Send gift"
+                className="w-11 h-11 rounded-full bg-gradient-to-br from-pink-500 to-amber-400 hover:from-pink-400 hover:to-amber-300 disabled:opacity-45 flex items-center justify-center text-white shrink-0 transition-all"
+              >
+                <Gift className="w-5 h-5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setLikes((n) => n + 1)}
+                aria-label="Like this live"
+                className="relative w-11 h-11 rounded-full bg-gradient-to-br from-pink-500 to-rose-500 hover:from-pink-400 hover:to-rose-400 flex items-center justify-center text-white shrink-0 transition-all active:scale-90"
+              >
+                <Heart className="w-5 h-5 fill-current" />
+                {likes > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-white text-pink-600 text-[10px] font-bold flex items-center justify-center px-1">
+                    {likes > 99 ? '99+' : likes}
+                  </span>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setGuestPanelOpen(true)}
+                aria-label="More options"
+                className="w-11 h-11 rounded-full bg-[#232456]/90 hover:bg-[#2E2F6E] flex items-center justify-center text-white shrink-0 transition-colors"
+              >
+                <Users className="w-5 h-5" />
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="submit"
+                disabled={
+                  (currentUser !== null && !chatInput.trim()) || isOfflineSimulated
+                }
+                aria-label="Send comment"
+                className="w-11 h-11 rounded-full bg-gradient-to-br from-fuchsia-500 to-violet-600 hover:from-fuchsia-400 hover:to-violet-500 disabled:opacity-40 flex items-center justify-center text-white shrink-0 transition-all"
+              >
+                <Send className="w-4.5 h-4.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setGuestPanelOpen(true)}
+                aria-label="Guests and requests"
+                className="relative w-11 h-11 rounded-full bg-black/50 backdrop-blur-md border border-white/15 hover:bg-black/70 flex items-center justify-center text-white shrink-0 transition-colors"
+              >
+                <Users className="w-4.5 h-4.5" />
+                {joinRequests.length > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-rose-500 text-[10px] font-bold flex items-center justify-center px-1">
+                    {joinRequests.length}
+                  </span>
+                )}
+              </button>
+            </>
+          )}
         </form>
       </div>
 
@@ -834,6 +974,27 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
               <X className="w-4 h-4" />
             </button>
           </div>
+
+          {isSolo && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => onShareRoom(room)}
+                className="flex-1 h-10 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-xs font-medium text-white inline-flex items-center justify-center gap-2 transition-colors"
+              >
+                <Share2 className="w-4 h-4" />
+                <span>Share Room</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => onOpenReportRoom(room)}
+                className="flex-1 h-10 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-xs font-medium text-amber-300 inline-flex items-center justify-center gap-2 transition-colors"
+              >
+                <ShieldAlert className="w-4 h-4" />
+                <span>Report</span>
+              </button>
+            </div>
+          )}
 
           <div>
             <h4 className="text-xs font-semibold text-slate-300 mb-2 flex items-center gap-1.5">
