@@ -305,8 +305,10 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
     return stopBroadcast;
   }, [mySeatUid, mediaActive, isOfflineSimulated, room.roomId]);
 
-  // Viewer: receive the host's live stream
-  const isViewer = Boolean(currentUser) && !canPublishLocalMedia;
+  // Everyone except the host receives the host's live stream; every signed-in
+  // participant (host, guests, viewers) receives each other guest's stream.
+  const receivesHost = Boolean(currentUser) && !isOwnerHost;
+  const isParticipant = Boolean(currentUser);
   const viewerUid = currentUser?.uid;
   const [reconnectTick, setReconnectTick] = useState(0);
   const retryAttemptsRef = useRef(0);
@@ -314,7 +316,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
     retryAttemptsRef.current = 0;
   }, [room.roomId]);
   useEffect(() => {
-    if (!isViewer || !viewerUid || room.status !== 'LIVE' || isOfflineSimulated) {
+    if (!receivesHost || !viewerUid || room.status !== 'LIVE' || isOfflineSimulated) {
       setRemoteStream(null);
       return;
     }
@@ -339,9 +341,9 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
       if (retryTimer) window.clearTimeout(retryTimer);
       leave();
     };
-  }, [isViewer, viewerUid, room.roomId, room.status, isOfflineSimulated, reconnectTick]);
+  }, [receivesHost, viewerUid, room.roomId, room.status, isOfflineSimulated, reconnectTick]);
 
-  // Viewer: receive each seated guest's live stream for the seat tiles
+  // Receive each seated guest's live stream for the seat tiles
   const guestUidsKey = useMemo(
     () =>
       seats
@@ -353,7 +355,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
     [seats, viewerUid]
   );
   useEffect(() => {
-    if (!isViewer || !viewerUid || room.status !== 'LIVE' || isOfflineSimulated) {
+    if (!isParticipant || !viewerUid || room.status !== 'LIVE' || isOfflineSimulated) {
       setGuestStreams({});
       return;
     }
@@ -380,7 +382,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
       leaves.forEach((l) => l());
       setGuestStreams({});
     };
-  }, [isViewer, viewerUid, room.roomId, room.status, isOfflineSimulated, guestUidsKey]);
+  }, [isParticipant, viewerUid, room.roomId, room.status, isOfflineSimulated, guestUidsKey]);
 
   useEffect(() => {
     if (remoteVideoRef.current) {
@@ -431,9 +433,9 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
   };
 
   const hasRemoteVideo = Boolean(remoteStream) && room.mode !== 'AUDIO';
-  const showLocalVideo = mediaActive && room.mode !== 'AUDIO' && !cameraOff;
-  const showVideoFeed =
-    showLocalVideo || (!canPublishLocalMedia && hasRemoteVideo);
+  const showLocalVideo =
+    mediaActive && room.mode !== 'AUDIO' && !cameraOff && isOwnerHost;
+  const showVideoFeed = showLocalVideo || hasRemoteVideo;
   const showCoverImage = !showVideoFeed && room.mode !== 'AUDIO' && !cameraOff;
   const hostSpeaking = !micMuted && (mediaActive ? audioLevel > 10 : true);
 
@@ -604,8 +606,8 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
         </div>
       )}
 
-      {/* Viewer: sound toggle + connection status */}
-      {isViewer && remoteStream && (
+      {/* Sound toggle + connection status */}
+      {isParticipant && (remoteStream || Object.keys(guestStreams).length > 0) && (
         <div className="absolute top-16 inset-x-0 z-20 flex justify-center px-4">
           <button
             type="button"
@@ -630,7 +632,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
           </button>
         </div>
       )}
-      {isViewer && !remoteStream && room.status === 'LIVE' && !isOfflineSimulated && (
+      {receivesHost && !remoteStream && room.status === 'LIVE' && !isOfflineSimulated && (
         <div className="absolute top-16 inset-x-0 z-20 flex justify-center px-4">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-black/55 backdrop-blur-md border border-white/15 px-3.5 py-1.5 text-[11px] text-slate-200">
             <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
@@ -736,7 +738,15 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
               >
                 {isOccupied ? (
                   <>
-                    {seat.occupantUid && guestStreams[seat.occupantUid] ? (
+                    {isMySeat && mediaActive && mediaHandleRef.current ? (
+                      <GuestTileMedia
+                        stream={mediaHandleRef.current.stream}
+                        muted
+                        name={seat.occupantName ?? 'Guest'}
+                        color={seat.occupantAvatarColor}
+                        speaking={seat.isSpeaking && !seat.isMuted}
+                      />
+                    ) : seat.occupantUid && guestStreams[seat.occupantUid] ? (
                       <GuestTileMedia
                         stream={guestStreams[seat.occupantUid]}
                         muted={remoteMuted || Boolean(seat.isMuted)}
