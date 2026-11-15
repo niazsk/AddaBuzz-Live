@@ -412,6 +412,7 @@ service cloud.firestore {
         incoming().hostUid == existing().hostUid &&
         incoming().createdAt == existing().createdAt &&
         incoming().updatedAt == request.time &&
+        (incoming().status == existing().status || existing().hostUid == request.auth.uid) &&
         (existing().status != 'ENDED' || isAdmin()) && (
           isAdmin() ||
           (

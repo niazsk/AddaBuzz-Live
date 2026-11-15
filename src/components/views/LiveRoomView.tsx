@@ -263,20 +263,38 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
   // Viewer: receive the host's live stream
   const isViewer = Boolean(currentUser) && !canPublishLocalMedia;
   const viewerUid = currentUser?.uid;
+  const [reconnectTick, setReconnectTick] = useState(0);
+  const retryAttemptsRef = useRef(0);
+  useEffect(() => {
+    retryAttemptsRef.current = 0;
+  }, [room.roomId]);
   useEffect(() => {
     if (!isViewer || !viewerUid || room.status !== 'LIVE' || isOfflineSimulated) {
       setRemoteStream(null);
       return;
     }
     setRemoteMuted(true);
+    let retryTimer: number | undefined;
     const leave = joinViewerStream(
       room.roomId,
       viewerUid,
-      setRemoteStream,
-      setBroadcastState
+      (stream) => {
+        if (stream) retryAttemptsRef.current = 0;
+        setRemoteStream(stream);
+      },
+      (state) => {
+        setBroadcastState(state);
+        if (state === 'ended' && retryAttemptsRef.current < 4) {
+          retryAttemptsRef.current += 1;
+          retryTimer = window.setTimeout(() => setReconnectTick((t) => t + 1), 3000);
+        }
+      }
     );
-    return leave;
-  }, [isViewer, viewerUid, room.roomId, room.status, isOfflineSimulated]);
+    return () => {
+      if (retryTimer) window.clearTimeout(retryTimer);
+      leave();
+    };
+  }, [isViewer, viewerUid, room.roomId, room.status, isOfflineSimulated, reconnectTick]);
 
   useEffect(() => {
     if (remoteVideoRef.current) {
@@ -472,7 +490,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
           <button
             type="button"
             onClick={() => {
-              if (isSolo && canModerateSeats) {
+              if (isSolo && isOwnerHost) {
                 setConfirmEndOpen(true);
                 return;
               }
@@ -588,7 +606,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
         >
           <ShieldAlert className="w-4.5 h-4.5 text-amber-300" />
         </button>
-        {canModerateSeats && (
+        {isOwnerHost && (
           <button
             type="button"
             onClick={() => setConfirmEndOpen(true)}

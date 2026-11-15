@@ -68,6 +68,12 @@ export function startHostBroadcast(roomId: string, stream: MediaStream): () => v
         hostCandidates: arrayUnion(serializeCandidate(event.candidate)),
       }).catch(() => {});
     };
+    pc.onconnectionstatechange = () => {
+      if (stopped) return;
+      if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+        closePeer(viewerUid);
+      }
+    };
 
     let offered = false;
     let appliedViewerCandidates = 0;
