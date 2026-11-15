@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ArrowLeft,
   Check,
   Eye,
   Gift,
@@ -33,7 +32,6 @@ import {
 } from '../../types/app';
 import {
   LocalMediaHandle,
-  requestMediaSessionToken,
   startLocalMediaCapture,
 } from '../../lib/mediaProvider';
 import { Avatar } from '../ui/Avatar';
@@ -119,14 +117,14 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
   const [cameraFacing, setCameraFacing] = useState<'Front' | 'Rear'>('Front');
   const [mediaActive, setMediaActive] = useState(false);
   const [mediaError, setMediaError] = useState<string | null>(null);
-  const [mediaModeLabel, setMediaModeLabel] = useState('Firestore Sync');
   const [audioLevel, setAudioLevel] = useState(0);
 
   const mediaHandleRef = useRef<LocalMediaHandle | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const chatScrollRef = useRef<HTMLDivElement | null>(null);
 
   const [chatInput, setChatInput] = useState('');
-  const [rightTab, setRightTab] = useState<'chat' | 'guests'>('chat');
+  const [guestPanelOpen, setGuestPanelOpen] = useState(false);
   const [showGiftTray, setShowGiftTray] = useState(false);
   const [confirmEndOpen, setConfirmEndOpen] = useState(false);
 
@@ -153,6 +151,11 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
       return () => window.clearTimeout(timer);
     }
   }, [comments]);
+
+  useEffect(() => {
+    const el = chatScrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [comments.length]);
 
   // Clean up local WebRTC media when leaving or losing publisher role
   const stopLocalMedia = () => {
@@ -181,30 +184,6 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
       stopLocalMedia();
     }
   }, [canPublishLocalMedia, mediaActive]);
-
-  // Negotiate server token capability on room entry
-  useEffect(() => {
-    if (!currentUser) return;
-    let cancelled = false;
-    const role = isOwnerHost ? 'host' : mySeat ? 'guest' : 'viewer';
-    void requestMediaSessionToken({
-      roomId: room.roomId,
-      uid: currentUser.uid,
-      displayName: currentUser.displayName,
-      role,
-    }).then((res) => {
-      if (!cancelled) {
-        setMediaModeLabel(
-          res.mode === 'openvidu'
-            ? 'OpenVidu SFU Token Ready'
-            : 'Device Stage Preview + Firestore Sync'
-        );
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [room.roomId, currentUser?.uid, isOwnerHost, Boolean(mySeat)]);
 
   const startOrRestartMedia = async (facing: 'Front' | 'Rear') => {
     setMediaError(null);
@@ -298,11 +277,118 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
     setChatInput('');
   };
 
+  const showVideoFeed = mediaActive && room.mode !== 'AUDIO' && !cameraOff;
+  const showCoverImage = !showVideoFeed && room.mode !== 'AUDIO' && !cameraOff;
+  const hostSpeaking = !micMuted && (mediaActive ? audioLevel > 10 : true);
+
+  const railButtonClass =
+    'w-11 h-11 rounded-full bg-black/45 backdrop-blur-md border border-white/15 hover:bg-black/65 flex items-center justify-center text-white transition-colors';
+
   return (
-    <div className="min-h-screen bg-[#07080D] text-white flex flex-col">
-      {/* Room Top Header */}
-      <header className="sticky top-0 z-20 bg-[#0A0C13]/95 backdrop-blur-md border-b border-white/[0.08] px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3 min-w-0">
+    <div className="fixed inset-0 bg-[#07080D] text-white overflow-hidden">
+      {/* Full-screen stage background */}
+      <div className="absolute inset-0">
+        {showVideoFeed ? (
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            className={`absolute inset-0 w-full h-full object-cover ${
+              cameraFacing === 'Front' ? '-scale-x-100' : ''
+            }`}
+          />
+        ) : showCoverImage ? (
+          <MediaImage
+            src={room.thumbnailUrl}
+            alt={room.title}
+            fallbackGradient={room.fallbackGradient}
+            fallbackTitle={room.title}
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+        ) : (
+          <div
+            className="absolute inset-0 flex items-center justify-center"
+            style={{ background: room.fallbackGradient }}
+          >
+            <div className="flex flex-col items-center gap-4 text-center px-6 -mt-24">
+              <div className="relative">
+                {hostSpeaking && (
+                  <>
+                    <span className="absolute inset-0 rounded-full bg-fuchsia-500/30 animate-ping" />
+                    <span className="absolute -inset-3 rounded-full border border-fuchsia-400/40 animate-pulse" />
+                  </>
+                )}
+                <Avatar
+                  name={host.displayName}
+                  color={host.avatarColor}
+                  size="xl"
+                  isSpeaking={hostSpeaking}
+                  className="relative ring-4 ring-white/20"
+                />
+              </div>
+              <div>
+                <p className="font-display text-lg font-semibold text-white">
+                  {room.mode === 'AUDIO' ? host.displayName : 'Camera Paused'}
+                </p>
+                <p className="text-xs text-slate-300 mt-1">
+                  {room.mode === 'AUDIO'
+                    ? `Audio Live · ${occupiedCount} guests on stage`
+                    : `Hosted by ${host.displayName}`}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+        <div className="absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-black/70 to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 h-64 bg-gradient-to-t from-black/85 via-black/40 to-transparent" />
+      </div>
+
+      {/* Top overlay bar */}
+      <div className="absolute top-0 inset-x-0 z-20 px-3 sm:px-4 pt-3 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <button
+            type="button"
+            onClick={() => onOpenProfile(host)}
+            className="flex items-center gap-2 rounded-full bg-black/45 backdrop-blur-md border border-white/10 pl-1 pr-2.5 py-1 min-w-0"
+          >
+            <Avatar
+              name={host.displayName}
+              color={host.avatarColor}
+              size="xs"
+              isLiveRing
+            />
+            <span className="text-xs font-semibold text-white truncate max-w-[110px]">
+              {host.displayName}
+            </span>
+          </button>
+          {!isOwnerHost && (
+            <button
+              type="button"
+              onClick={() => onToggleFollow(host.uid)}
+              className={`px-3 py-1.5 rounded-full text-[11px] font-semibold transition-colors shrink-0 ${
+                isFollowingHost
+                  ? 'bg-white/15 text-slate-200'
+                  : 'bg-gradient-to-r from-fuchsia-500 to-violet-600 text-white'
+              }`}
+            >
+              {isFollowingHost ? 'Following' : '+ Follow'}
+            </button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1.5 shrink-0">
+          <span className="inline-flex items-center gap-1 rounded-full bg-black/45 backdrop-blur-md border border-white/10 px-2.5 py-1.5 text-[11px] font-mono tabular-nums text-slate-200">
+            <Eye className="w-3.5 h-3.5 text-sky-300" aria-hidden="true" />
+            <span>{room.viewerCount.toLocaleString()}</span>
+          </span>
+          <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-black/45 backdrop-blur-md border border-white/10 px-2.5 py-1.5 text-[11px] font-mono tabular-nums text-slate-200">
+            <Radio className="w-3.5 h-3.5 text-fuchsia-400" aria-hidden="true" />
+            <span>{formatDuration(room.durationSeconds)}</span>
+          </span>
+          <span className="inline-flex items-center rounded-full bg-rose-600 px-2.5 py-1.5 text-[10px] font-bold tracking-wider text-white">
+            LIVE
+          </span>
           <button
             type="button"
             onClick={() => {
@@ -310,779 +396,540 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
               onLeaveRoom();
             }}
             aria-label="Leave live room"
-            className="min-h-[40px] min-w-[40px] rounded-xl bg-white/[0.06] hover:bg-white/[0.12] flex items-center justify-center transition-colors shrink-0"
+            className="w-8 h-8 rounded-full bg-black/45 backdrop-blur-md border border-white/10 hover:bg-black/65 flex items-center justify-center transition-colors"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <X className="w-4 h-4" />
           </button>
+        </div>
+      </div>
 
+      {/* Media error */}
+      {mediaError && (
+        <div className="absolute top-16 inset-x-0 z-20 flex justify-center px-4">
+          <p className="text-xs text-rose-200 bg-rose-950/80 backdrop-blur-md border border-rose-500/40 rounded-full px-4 py-2">
+            {mediaError}
+          </p>
+        </div>
+      )}
+
+      {/* Gift celebration banner */}
+      {latestGiftBanner && (
+        <div className="absolute left-3 top-20 z-20 rounded-2xl bg-gradient-to-r from-fuchsia-600/90 to-violet-600/90 backdrop-blur-md border border-white/20 px-4 py-2.5 shadow-xl flex items-center gap-3 animate-pulse">
+          <Sparkles className="w-5 h-5 text-amber-300 shrink-0" />
+          <div>
+            <p className="text-xs font-bold text-white">
+              {latestGiftBanner.displayName} sent{' '}
+              {latestGiftBanner.giftName ?? 'a gift'}!
+            </p>
+            <p className="text-[11px] font-mono text-fuchsia-100">
+              {latestGiftBanner.giftAmount}{' '}
+              {latestGiftBanner.giftCurrency === 'DIAMOND'
+                ? 'Diamonds'
+                : 'Coins'}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Right floating action rail */}
+      <div className="absolute right-3 bottom-44 z-20 flex flex-col items-center gap-2.5">
+        <button
+          type="button"
+          onClick={() => {
+            if (!currentUser) {
+              onOpenAuth();
+              return;
+            }
+            setShowGiftTray((s) => !s);
+          }}
+          disabled={isOfflineSimulated}
+          aria-label="Send gift"
+          className="w-11 h-11 rounded-full bg-gradient-to-br from-fuchsia-500 to-violet-600 hover:from-fuchsia-400 hover:to-violet-500 disabled:opacity-45 flex items-center justify-center text-white shadow-lg shadow-fuchsia-600/30 transition-all"
+        >
+          <Gift className="w-5 h-5" />
+        </button>
+        <button
+          type="button"
+          onClick={() => onShareRoom(room)}
+          aria-label="Share room"
+          className={railButtonClass}
+        >
+          <Share2 className="w-4.5 h-4.5" />
+        </button>
+        <button
+          type="button"
+          onClick={() => onOpenReportRoom(room)}
+          aria-label="Report room"
+          className={railButtonClass}
+        >
+          <ShieldAlert className="w-4.5 h-4.5 text-amber-300" />
+        </button>
+        {canModerateSeats && (
           <button
             type="button"
-            onClick={() => onOpenProfile(host)}
-            className="flex items-center gap-2.5 min-w-0 text-left"
+            onClick={() => setConfirmEndOpen(true)}
+            aria-label="End live"
+            className="w-11 h-11 rounded-full bg-rose-600/85 hover:bg-rose-500 flex items-center justify-center text-white transition-colors"
           >
-            <Avatar
-              name={host.displayName}
-              color={host.avatarColor}
-              size="sm"
-              isLiveRing
-            />
-            <div className="min-w-0">
-              <span className="font-display text-sm font-semibold text-white truncate block">
-                {room.title}
-              </span>
-              <p className="text-xs text-slate-400 truncate">
-                {host.displayName} · @{host.username} · {room.category}
-              </p>
-            </div>
+            <LogOut className="w-4.5 h-4.5" />
           </button>
-        </div>
+        )}
+      </div>
 
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          <span className="hidden sm:inline-flex items-center gap-1.5 text-xs font-mono tabular-nums text-slate-300 bg-white/[0.05] px-2.5 py-1.5 rounded-lg">
-            <Radio className="w-3.5 h-3.5 text-violet-400" aria-hidden="true" />
-            <span>{formatDuration(room.durationSeconds)}</span>
-          </span>
+      {/* Bottom stack: seats, chat, controls, input */}
+      <div className="absolute inset-x-0 bottom-0 z-10 flex flex-col gap-2.5 px-3 sm:px-4 pb-3">
+        {/* Compact guest seats strip */}
+        <div
+          aria-label="Multi-guest seats"
+          className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          {seats.map((seat) => {
+            const isOccupied = seat.status === 'OCCUPIED';
+            const isLocked = seat.status === 'LOCKED';
+            const isRequested = seat.status === 'REQUESTED';
+            const isMySeat = Boolean(
+              currentUser && isOccupied && seat.occupantUid === currentUser.uid
+            );
 
-          <span className="inline-flex items-center gap-1.5 text-xs font-mono tabular-nums text-slate-200 bg-white/[0.05] px-2.5 py-1.5 rounded-lg">
-            <Eye className="w-3.5 h-3.5 text-sky-400" aria-hidden="true" />
-            <span>{room.viewerCount.toLocaleString()}</span>
-          </span>
-
-          {!isOwnerHost && (
-            <button
-              type="button"
-              onClick={() => onToggleFollow(host.uid)}
-              className={`px-3.5 py-2 rounded-xl text-xs font-medium transition-colors whitespace-nowrap shrink-0 ${
-                isFollowingHost
-                  ? 'bg-white/[0.08] text-slate-200 hover:bg-white/[0.14]'
-                  : 'bg-violet-600 hover:bg-violet-500 text-white'
-              }`}
-            >
-              {isFollowingHost ? 'Following' : 'Follow Host'}
-            </button>
-          )}
-        </div>
-      </header>
-
-      {/* Main Split Room Workspace */}
-      <div className="flex-1 max-w-[1440px] w-full mx-auto grid grid-cols-1 lg:grid-cols-12 gap-5 p-4 sm:p-6">
-        {/* Left: Stage + 8-Seat Multi-Guest Grid + Controls */}
-        <div className="lg:col-span-8 flex flex-col gap-5">
-          {/* Primary Media Stage */}
-          <div className="relative rounded-2xl overflow-hidden bg-[#10131F] border border-white/[0.08] min-h-[280px] sm:min-h-[360px] flex flex-col justify-between">
-            {mediaActive && room.mode !== 'AUDIO' && !cameraOff ? (
-              <>
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className={`absolute inset-0 w-full h-full object-cover ${
-                    cameraFacing === 'Front' ? '-scale-x-100' : ''
-                  }`}
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#08090E]/90 via-transparent to-black/45" />
-              </>
-            ) : room.mode !== 'AUDIO' && !cameraOff ? (
-              <>
-                <MediaImage
-                  src={room.thumbnailUrl}
-                  alt={room.title}
-                  fallbackGradient={room.fallbackGradient}
-                  fallbackTitle={room.title}
-                  className="absolute inset-0 w-full h-full object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#08090E]/90 via-black/25 to-black/45" />
-              </>
-            ) : (
+            return (
               <div
-                className="absolute inset-0 flex items-center justify-center"
-                style={{ background: room.fallbackGradient }}
+                key={seat.seatNumber}
+                className={`w-[76px] shrink-0 rounded-xl backdrop-blur-md border p-2 flex flex-col items-center gap-1 ${
+                  isOccupied
+                    ? 'bg-violet-600/25 border-violet-400/40'
+                    : isLocked
+                    ? 'bg-black/40 border-white/10 opacity-70'
+                    : isRequested
+                    ? 'bg-sky-500/20 border-sky-400/40'
+                    : 'bg-black/40 border-white/15'
+                }`}
               >
-                <div className="flex flex-col items-center gap-4 text-center px-6">
-                  <Avatar
-                    name={host.displayName}
-                    color={host.avatarColor}
-                    size="xl"
-                    isSpeaking={
-                      !micMuted && (mediaActive ? audioLevel > 10 : true)
-                    }
-                  />
-                  <div>
-                    <p className="font-display text-lg font-semibold text-white">
-                      {room.mode === 'AUDIO'
-                        ? 'Audio Live Stage'
-                        : 'Camera Paused'}
-                    </p>
-                    <p className="text-xs text-slate-300 mt-1">
-                      Hosted by {host.displayName} · {occupiedCount} guests on
-                      stage
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Top Stage Status & Audio Level Meter */}
-            <div className="relative z-10 p-4 flex flex-wrap items-center justify-between gap-2">
-              <div className="inline-flex items-center gap-2 rounded-lg bg-black/65 backdrop-blur-sm px-3 py-1.5 text-xs text-slate-200 border border-white/10">
-                <span className="font-semibold text-violet-300">
-                  {room.mode === 'MULTI_GUEST'
-                    ? 'Multi-Guest Room'
-                    : room.mode === 'AUDIO'
-                    ? 'Audio Live'
-                    : 'Video Live'}
-                </span>
-                <span aria-hidden="true">·</span>
-                <span className="text-slate-300">{mediaModeLabel}</span>
-              </div>
-
-              {mediaActive && (
-                <div className="inline-flex items-center gap-2 rounded-lg bg-black/65 backdrop-blur-sm px-3 py-1.5 text-xs text-emerald-300 border border-emerald-500/30">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  <span>Live Mic</span>
-                  <div className="w-14 h-1.5 rounded-full bg-white/15 overflow-hidden">
-                    <div
-                      className="h-full bg-emerald-400 transition-all duration-75"
-                      style={{ width: `${micMuted ? 0 : audioLevel}%` }}
+                {isOccupied ? (
+                  <>
+                    <Avatar
+                      name={seat.occupantName ?? 'Guest'}
+                      color={seat.occupantAvatarColor}
+                      size="sm"
+                      isSpeaking={seat.isSpeaking && !seat.isMuted}
                     />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Live Gift Celebration Banner */}
-            {latestGiftBanner && (
-              <div className="relative z-10 mx-4 my-auto self-start rounded-xl bg-gradient-to-r from-violet-600/90 to-blue-600/90 backdrop-blur-md border border-white/20 px-4 py-2.5 shadow-xl flex items-center gap-3 animate-pulse">
-                <Sparkles className="w-5 h-5 text-amber-300 shrink-0" />
-                <div>
-                  <p className="text-xs font-bold text-white">
-                    {latestGiftBanner.displayName} sent{' '}
-                    {latestGiftBanner.giftName ?? 'a gift'}!
-                  </p>
-                  <p className="text-[11px] font-mono text-sky-100">
-                    {latestGiftBanner.giftAmount}{' '}
-                    {latestGiftBanner.giftCurrency === 'DIAMOND'
-                      ? 'Diamonds'
-                      : 'Coins'}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            <div className="relative z-10 p-4 flex items-end justify-between gap-4">
-              <div className="space-y-1">
-                <p className="text-xs text-slate-300">
-                  Host · {host.displayName} ({cameraFacing} cam)
-                </p>
-                <p className="text-sm text-slate-100 max-w-xl">
-                  {room.description}
-                </p>
-                {mediaError && (
-                  <p className="text-xs text-rose-300 bg-rose-950/70 border border-rose-500/30 rounded-lg px-2.5 py-1 inline-block mt-1">
-                    {mediaError}
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* 8-Seat Multi-Guest Grid */}
-          <section
-            aria-label="Multi-guest seats"
-            className="rounded-2xl bg-[#10131F] border border-white/[0.08] p-4 sm:p-5 space-y-4"
-          >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <h2 className="font-display text-base font-semibold text-white">
-                  Guest Seats ({occupiedCount}/8 Occupied)
-                </h2>
-                <p className="text-xs text-slate-400">
-                  Maximum 8 guest seats enforced by Firestore Security Rules &
-                  transactions.
-                </p>
-              </div>
-
-              {joinRequests.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setRightTab('guests')}
-                  className="px-3 py-1.5 rounded-lg bg-sky-500/15 text-sky-300 border border-sky-500/30 text-xs font-medium whitespace-nowrap"
-                >
-                  {joinRequests.length} Pending Request
-                  {joinRequests.length > 1 ? 's' : ''}
-                </button>
-              )}
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {seats.map((seat) => {
-                const isOccupied = seat.status === 'OCCUPIED';
-                const isLocked = seat.status === 'LOCKED';
-                const isRequested = seat.status === 'REQUESTED';
-                const isMySeat = Boolean(
-                  currentUser &&
-                    isOccupied &&
-                    seat.occupantUid === currentUser.uid
-                );
-
-                return (
-                  <div
-                    key={seat.seatNumber}
-                    className={`rounded-xl p-3 border flex flex-col justify-between gap-2.5 min-h-[124px] transition-colors ${
-                      isOccupied
-                        ? 'bg-[#161A29] border-violet-500/30'
-                        : isLocked
-                        ? 'bg-[#0C0E16] border-white/[0.05] opacity-75'
-                        : isRequested
-                        ? 'bg-sky-950/30 border-sky-500/40'
-                        : 'bg-[#121624] border-white/[0.08] hover:border-white/20'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between text-[11px]">
-                      <span className="font-mono tabular-nums text-slate-400">
-                        Seat {seat.seatNumber}
-                      </span>
-                      {isOccupied && (
-                        <span className="text-slate-300">
-                          {seat.isMuted ? (
-                            <MicOff
-                              className="w-3.5 h-3.5 text-rose-400"
-                              aria-label="Muted"
-                            />
-                          ) : (
-                            <Mic
-                              className="w-3.5 h-3.5 text-sky-400"
-                              aria-label="Unmuted"
-                            />
-                          )}
-                        </span>
+                    <p className="text-[10px] font-medium text-white truncate max-w-full">
+                      {seat.occupantName}
+                    </p>
+                    <div className="flex items-center gap-1">
+                      {seat.isMuted ? (
+                        <MicOff className="w-3 h-3 text-rose-300" aria-label="Muted" />
+                      ) : (
+                        <Mic className="w-3 h-3 text-emerald-300" aria-label="Unmuted" />
                       )}
-                      {isLocked && (
-                        <Lock
-                          className="w-3.5 h-3.5 text-slate-500"
-                          aria-label="Locked"
-                        />
-                      )}
-                    </div>
-
-                    {isOccupied ? (
-                      <div className="flex flex-col items-center text-center gap-1.5">
-                        <Avatar
-                          name={seat.occupantName ?? 'Guest'}
-                          color={seat.occupantAvatarColor}
-                          size="sm"
-                          isSpeaking={seat.isSpeaking && !seat.isMuted}
-                        />
-                        <p className="text-xs font-medium text-white truncate max-w-full">
-                          {seat.occupantName}
-                        </p>
-                      </div>
-                    ) : isLocked ? (
-                      <div className="flex flex-col items-center text-center gap-1 my-auto">
-                        <span className="text-xs text-slate-500">
-                          Locked by Host
-                        </span>
-                      </div>
-                    ) : isRequested ? (
-                      <div className="flex flex-col items-center text-center gap-1 my-auto">
-                        <span className="text-xs font-medium text-sky-300">
-                          Requested
-                        </span>
-                        <span className="text-[11px] text-slate-400">
-                          Awaiting host
-                        </span>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        disabled={isOfflineSimulated || Boolean(mySeat)}
-                        onClick={() => onRequestSeat(room.roomId, seat.seatNumber)}
-                        className="my-auto flex flex-col items-center gap-1.5 text-slate-300 hover:text-sky-300 disabled:opacity-45 transition-colors"
-                      >
-                        <UserPlus className="w-5 h-5" />
-                        <span className="text-xs font-medium">
-                          {mySeat ? 'Seated' : 'Request Seat'}
-                        </span>
-                      </button>
-                    )}
-
-                    {canModerateSeats ? (
-                      <div className="flex items-center justify-center gap-1 pt-1 border-t border-white/[0.06]">
-                        {isOccupied ? (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => onToggleMuteGuest(room.roomId, seat)}
-                              className="px-2 py-1 rounded-md text-[11px] text-slate-300 hover:bg-white/[0.08]"
-                            >
-                              {seat.isMuted ? 'Unmute' : 'Mute'}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                onRemoveGuest(room.roomId, seat.seatNumber)
-                              }
-                              className="px-2 py-1 rounded-md text-[11px] text-rose-400 hover:bg-rose-500/10"
-                            >
-                              Remove
-                            </button>
-                          </>
-                        ) : (
+                      {canModerateSeats && (
+                        <>
                           <button
                             type="button"
-                            onClick={() => onToggleSeatLock(room.roomId, seat)}
-                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] text-slate-300 hover:bg-white/[0.08]"
+                            onClick={() => onToggleMuteGuest(room.roomId, seat)}
+                            aria-label={seat.isMuted ? 'Unmute guest' : 'Mute guest'}
+                            className="text-[9px] text-slate-300 hover:text-white"
                           >
-                            {isLocked ? (
-                              <>
-                                <Unlock className="w-3 h-3" />
-                                <span>Unlock</span>
-                              </>
-                            ) : (
-                              <>
-                                <Lock className="w-3 h-3" />
-                                <span>Lock</span>
-                              </>
-                            )}
+                            {seat.isMuted ? 'Unmute' : 'Mute'}
                           </button>
-                        )}
-                      </div>
-                    ) : isMySeat ? (
-                      <div className="flex items-center justify-center pt-1 border-t border-white/[0.06]">
+                          <button
+                            type="button"
+                            onClick={() => onRemoveGuest(room.roomId, seat.seatNumber)}
+                            aria-label="Remove guest"
+                            className="text-rose-300 hover:text-rose-200"
+                          >
+                            <UserMinus className="w-3 h-3" />
+                          </button>
+                        </>
+                      )}
+                      {isMySeat && (
                         <button
                           type="button"
                           onClick={() => {
                             stopLocalMedia();
                             onLeaveSeat(room.roomId, seat.seatNumber);
                           }}
-                          className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] text-rose-300 hover:bg-rose-500/15"
+                          aria-label="Step down from seat"
+                          className="text-rose-300 hover:text-rose-200"
                         >
                           <LogOut className="w-3 h-3" />
-                          <span>Step Down</span>
                         </button>
-                      </div>
-                    ) : null}
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-
-          {/* Bottom Action Dock */}
-          <div className="rounded-2xl bg-[#10131F] border border-white/[0.08] px-4 py-3 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-2">
-              {canPublishLocalMedia && (
-                <>
-                  {!mediaActive ? (
-                    <button
-                      type="button"
-                      disabled={isOfflineSimulated}
-                      onClick={() => {
-                        void startOrRestartMedia(cameraFacing);
-                      }}
-                      className="h-10 px-3.5 rounded-xl bg-emerald-600/20 border border-emerald-500/35 text-emerald-200 hover:bg-emerald-600/30 disabled:opacity-45 text-xs font-medium inline-flex items-center gap-2 transition-colors"
-                    >
-                      {room.mode === 'AUDIO' ? (
-                        <Mic className="w-4 h-4" />
-                      ) : (
-                        <Video className="w-4 h-4" />
                       )}
-                      <span>
-                        {room.mode === 'AUDIO'
-                          ? 'Enable Mic Preview'
-                          : 'Enable Cam & Mic'}
-                      </span>
-                    </button>
-                  ) : (
+                    </div>
+                  </>
+                ) : isLocked ? (
+                  <>
+                    <span className="w-9 h-9 rounded-full bg-white/5 flex items-center justify-center">
+                      <Lock className="w-4 h-4 text-slate-400" />
+                    </span>
+                    <span className="text-[9px] text-slate-400">Locked</span>
+                    {canModerateSeats && (
+                      <button
+                        type="button"
+                        onClick={() => onToggleSeatLock(room.roomId, seat)}
+                        className="text-[9px] text-slate-300 hover:text-white inline-flex items-center gap-0.5"
+                      >
+                        <Unlock className="w-2.5 h-2.5" />
+                        <span>Unlock</span>
+                      </button>
+                    )}
+                  </>
+                ) : isRequested ? (
+                  <>
+                    <span className="w-9 h-9 rounded-full bg-sky-500/20 flex items-center justify-center">
+                      <UserCheck className="w-4 h-4 text-sky-300" />
+                    </span>
+                    <span className="text-[9px] text-sky-200">Requested</span>
+                  </>
+                ) : (
+                  <>
                     <button
                       type="button"
-                      onClick={stopLocalMedia}
-                      className="h-10 px-3.5 rounded-xl bg-white/[0.07] hover:bg-white/[0.12] text-slate-200 text-xs font-medium inline-flex items-center gap-2 transition-colors"
+                      disabled={isOfflineSimulated || Boolean(mySeat)}
+                      onClick={() => onRequestSeat(room.roomId, seat.seatNumber)}
+                      aria-label={`Request seat ${seat.seatNumber}`}
+                      className="w-9 h-9 rounded-full bg-white/10 hover:bg-fuchsia-500/40 disabled:opacity-40 flex items-center justify-center text-slate-200 transition-colors"
                     >
-                      <VideoOff className="w-4 h-4 text-amber-300" />
-                      <span>Stop Preview</span>
+                      <UserPlus className="w-4 h-4" />
                     </button>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={handleToggleMic}
-                    className={`h-10 px-3.5 rounded-xl text-xs font-medium inline-flex items-center gap-2 transition-colors ${
-                      micMuted
-                        ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                        : 'bg-white/[0.07] text-white hover:bg-white/[0.12]'
-                    }`}
-                  >
-                    {micMuted ? (
-                      <MicOff className="w-4 h-4" />
-                    ) : (
-                      <Mic className="w-4 h-4" />
+                    <span className="text-[9px] text-slate-300">
+                      Seat {seat.seatNumber}
+                    </span>
+                    {canModerateSeats && (
+                      <button
+                        type="button"
+                        onClick={() => onToggleSeatLock(room.roomId, seat)}
+                        className="text-[9px] text-slate-400 hover:text-white inline-flex items-center gap-0.5"
+                      >
+                        <Lock className="w-2.5 h-2.5" />
+                        <span>Lock</span>
+                      </button>
                     )}
-                    <span>{micMuted ? 'Mic Muted' : 'Mic On'}</span>
-                  </button>
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
 
-                  {room.mode !== 'AUDIO' && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={handleToggleCamera}
-                        className={`h-10 px-3.5 rounded-xl text-xs font-medium inline-flex items-center gap-2 transition-colors ${
-                          cameraOff
-                            ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                            : 'bg-white/[0.07] text-white hover:bg-white/[0.12]'
-                        }`}
-                      >
-                        {cameraOff ? (
-                          <VideoOff className="w-4 h-4" />
-                        ) : (
-                          <Video className="w-4 h-4" />
-                        )}
-                        <span>{cameraOff ? 'Cam Off' : 'Cam On'}</span>
-                      </button>
+        {/* Floating chat overlay */}
+        <div
+          ref={chatScrollRef}
+          className="max-h-44 sm:max-h-52 overflow-y-auto max-w-md space-y-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          {comments.length === 0 ? (
+            <p className="text-xs text-slate-300/80 bg-black/35 backdrop-blur-sm rounded-full px-3 py-1.5 inline-block">
+              No messages yet. Say hello!
+            </p>
+          ) : (
+            comments.map((comment) => (
+              <div
+                key={comment.id}
+                className={`rounded-2xl px-3 py-1.5 text-xs leading-relaxed backdrop-blur-sm inline-block max-w-full ${
+                  comment.isGiftEvent
+                    ? 'bg-gradient-to-r from-fuchsia-600/70 to-violet-600/70 border border-fuchsia-300/30'
+                    : 'bg-black/40'
+                }`}
+              >
+                <span className="inline-flex items-center rounded-md bg-gradient-to-r from-fuchsia-500 to-violet-500 px-1.5 py-0.5 text-[9px] font-bold text-white mr-1.5 align-middle">
+                  {comment.displayName}
+                </span>
+                <span className="text-white align-middle">{comment.text}</span>
+              </div>
+            ))
+          )}
+        </div>
 
-                      <button
-                        type="button"
-                        onClick={handleSwitchCamera}
-                        className="h-10 px-3 rounded-xl bg-white/[0.07] hover:bg-white/[0.12] text-xs font-medium inline-flex items-center gap-1.5 text-slate-200"
-                      >
-                        <RefreshCw className="w-3.5 h-3.5" />
-                        <span>{cameraFacing}</span>
-                      </button>
-                    </>
-                  )}
-                </>
-              )}
-
+        {/* Publisher media controls */}
+        {canPublishLocalMedia && (
+          <div className="flex items-center justify-end gap-2">
+            {mediaActive && (
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-black/45 backdrop-blur-md border border-emerald-400/30 px-2.5 py-1.5 text-[10px] text-emerald-300 mr-auto">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <div className="w-12 h-1 rounded-full bg-white/15 overflow-hidden">
+                  <div
+                    className="h-full bg-emerald-400 transition-all duration-75"
+                    style={{ width: `${micMuted ? 0 : audioLevel}%` }}
+                  />
+                </div>
+              </div>
+            )}
+            {!mediaActive ? (
               <button
                 type="button"
-                onClick={() => {
-                  if (!currentUser) {
-                    onOpenAuth();
-                    return;
-                  }
-                  setShowGiftTray((s) => !s);
-                }}
                 disabled={isOfflineSimulated}
-                className="h-10 px-4 rounded-xl bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-500 hover:to-blue-500 disabled:opacity-45 text-white text-xs font-medium inline-flex items-center gap-2 transition-all"
-              >
-                <Gift className="w-4 h-4" />
-                <span>Send Gift</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => onShareRoom(room)}
-                className="h-10 px-3.5 rounded-xl bg-white/[0.07] hover:bg-white/[0.12] text-xs font-medium inline-flex items-center gap-2 text-slate-200"
-              >
-                <Share2 className="w-4 h-4" />
-                <span>Share</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => onOpenReportRoom(room)}
-                className="h-10 px-3.5 rounded-xl bg-white/[0.07] hover:bg-white/[0.12] text-xs font-medium inline-flex items-center gap-2 text-slate-300"
-              >
-                <ShieldAlert className="w-4 h-4 text-amber-400" />
-                <span>Report</span>
-              </button>
-            </div>
-
-            {canModerateSeats ? (
-              <button
-                type="button"
-                onClick={() => setConfirmEndOpen(true)}
-                className="h-10 px-4 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold transition-colors"
-              >
-                End Live
-              </button>
-            ) : mySeat ? (
-              <button
-                type="button"
                 onClick={() => {
-                  stopLocalMedia();
-                  onLeaveSeat(room.roomId, mySeat.seatNumber);
+                  void startOrRestartMedia(cameraFacing);
                 }}
-                className="h-10 px-4 rounded-xl bg-rose-600/20 border border-rose-500/35 hover:bg-rose-600/30 text-rose-200 text-xs font-medium transition-colors"
+                aria-label="Enable camera and microphone"
+                className="w-10 h-10 rounded-full bg-emerald-600/80 hover:bg-emerald-500 disabled:opacity-45 flex items-center justify-center text-white transition-colors"
               >
-                Step Down (Seat {mySeat.seatNumber})
+                {room.mode === 'AUDIO' ? (
+                  <Mic className="w-4.5 h-4.5" />
+                ) : (
+                  <Video className="w-4.5 h-4.5" />
+                )}
               </button>
             ) : (
               <button
                 type="button"
-                onClick={() => {
-                  stopLocalMedia();
-                  onLeaveRoom();
-                }}
-                className="h-10 px-4 rounded-xl bg-white/[0.08] hover:bg-white/[0.14] text-slate-200 text-xs font-medium transition-colors"
+                onClick={stopLocalMedia}
+                aria-label="Stop preview"
+                className="w-10 h-10 rounded-full bg-black/45 backdrop-blur-md border border-white/15 hover:bg-black/65 flex items-center justify-center text-amber-300 transition-colors"
               >
-                Leave Room
+                <VideoOff className="w-4.5 h-4.5" />
               </button>
+            )}
+            <button
+              type="button"
+              onClick={handleToggleMic}
+              aria-label={micMuted ? 'Unmute microphone' : 'Mute microphone'}
+              className={`w-10 h-10 rounded-full backdrop-blur-md border flex items-center justify-center transition-colors ${
+                micMuted
+                  ? 'bg-rose-500/70 border-rose-300/40 text-white'
+                  : 'bg-black/45 border-white/15 text-white hover:bg-black/65'
+              }`}
+            >
+              {micMuted ? (
+                <MicOff className="w-4.5 h-4.5" />
+              ) : (
+                <Mic className="w-4.5 h-4.5" />
+              )}
+            </button>
+            {room.mode !== 'AUDIO' && (
+              <>
+                <button
+                  type="button"
+                  onClick={handleToggleCamera}
+                  aria-label={cameraOff ? 'Turn camera on' : 'Turn camera off'}
+                  className={`w-10 h-10 rounded-full backdrop-blur-md border flex items-center justify-center transition-colors ${
+                    cameraOff
+                      ? 'bg-rose-500/70 border-rose-300/40 text-white'
+                      : 'bg-black/45 border-white/15 text-white hover:bg-black/65'
+                  }`}
+                >
+                  {cameraOff ? (
+                    <VideoOff className="w-4.5 h-4.5" />
+                  ) : (
+                    <Video className="w-4.5 h-4.5" />
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSwitchCamera}
+                  aria-label="Switch camera"
+                  className="w-10 h-10 rounded-full bg-black/45 backdrop-blur-md border border-white/15 hover:bg-black/65 flex items-center justify-center text-white transition-colors"
+                >
+                  <RefreshCw className="w-4.5 h-4.5" />
+                </button>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Bottom input bar */}
+        <form
+          onSubmit={handleSubmitChat}
+          className="flex items-center gap-2"
+        >
+          <input
+            type="text"
+            value={chatInput}
+            onChange={(e) => setChatInput(e.target.value)}
+            disabled={isOfflineSimulated}
+            placeholder={
+              !currentUser
+                ? 'Sign in to chat...'
+                : isOfflineSimulated
+                ? 'Reconnect to chat...'
+                : "What's up..."
+            }
+            className="flex-1 h-11 px-4 rounded-full bg-black/50 backdrop-blur-md border border-white/15 focus:border-fuchsia-400/60 focus:outline-none text-sm text-white placeholder:text-slate-400"
+          />
+          <button
+            type="submit"
+            disabled={
+              (currentUser !== null && !chatInput.trim()) || isOfflineSimulated
+            }
+            aria-label="Send comment"
+            className="w-11 h-11 rounded-full bg-gradient-to-br from-fuchsia-500 to-violet-600 hover:from-fuchsia-400 hover:to-violet-500 disabled:opacity-40 flex items-center justify-center text-white shrink-0 transition-all"
+          >
+            <Send className="w-4.5 h-4.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setGuestPanelOpen(true)}
+            aria-label="Guests and requests"
+            className="relative w-11 h-11 rounded-full bg-black/50 backdrop-blur-md border border-white/15 hover:bg-black/70 flex items-center justify-center text-white shrink-0 transition-colors"
+          >
+            <Users className="w-4.5 h-4.5" />
+            {joinRequests.length > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-rose-500 text-[10px] font-bold flex items-center justify-center px-1">
+                {joinRequests.length}
+              </span>
+            )}
+          </button>
+        </form>
+      </div>
+
+      {/* Gift tray bottom sheet */}
+      {showGiftTray && (
+        <div className="absolute inset-x-0 bottom-0 z-30 rounded-t-3xl bg-[#121521]/95 backdrop-blur-xl border-t border-fuchsia-500/30 p-4 space-y-3 max-h-[60vh] overflow-y-auto">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <h3 className="font-display text-sm font-semibold text-white">
+                Send Gift
+              </h3>
+              <p className="text-xs text-slate-400">
+                <span className="font-mono text-amber-300">{coinBalance} Coins</span>
+                {' · '}
+                <span className="font-mono text-sky-300">{diamondBalance} Diamonds</span>
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowGiftTray(false)}
+              aria-label="Close gift tray"
+              className="w-8 h-8 rounded-full bg-white/[0.07] hover:bg-white/[0.14] flex items-center justify-center text-slate-300"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5">
+            {gifts.map((gift) => (
+              <button
+                key={gift.giftId}
+                type="button"
+                disabled={isOfflineSimulated}
+                onClick={() => onSendGift(room.roomId, gift)}
+                className="rounded-xl bg-white/[0.04] border border-white/[0.08] hover:border-fuchsia-400/50 p-3 flex flex-col items-center text-center gap-2 transition-colors disabled:opacity-45"
+              >
+                <GiftArtwork artworkKey={gift.artworkKey} size={40} />
+                <div>
+                  <p className="text-xs font-medium text-white truncate max-w-[12ch]">
+                    {gift.name}
+                  </p>
+                  <p className="text-[11px] font-mono tabular-nums text-fuchsia-300 mt-0.5">
+                    {gift.price} {gift.currency === 'COIN' ? 'Coins' : 'Diamonds'}
+                  </p>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Guests & requests bottom sheet */}
+      {guestPanelOpen && (
+        <div className="absolute inset-x-0 bottom-0 z-30 rounded-t-3xl bg-[#121521]/95 backdrop-blur-xl border-t border-white/15 p-4 space-y-4 max-h-[60vh] overflow-y-auto">
+          <div className="flex items-center justify-between">
+            <h3 className="font-display text-sm font-semibold text-white">
+              Guests & Requests
+            </h3>
+            <button
+              type="button"
+              onClick={() => setGuestPanelOpen(false)}
+              aria-label="Close guest panel"
+              className="w-8 h-8 rounded-full bg-white/[0.07] hover:bg-white/[0.14] flex items-center justify-center text-slate-300"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div>
+            <h4 className="text-xs font-semibold text-slate-300 mb-2 flex items-center gap-1.5">
+              <UserCheck className="w-3.5 h-3.5 text-sky-400" />
+              <span>Pending Requests ({joinRequests.length})</span>
+            </h4>
+            {joinRequests.length === 0 ? (
+              <p className="text-xs text-slate-500">No pending seat requests.</p>
+            ) : (
+              <div className="space-y-2">
+                {joinRequests.map((req) => (
+                  <div
+                    key={req.requestId}
+                    className="rounded-xl bg-white/[0.04] border border-white/[0.07] p-3 flex items-center justify-between gap-2"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Avatar name={req.displayName} color={req.avatarColor} size="xs" />
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-white truncate">
+                          {req.displayName}
+                        </p>
+                        <p className="text-[11px] text-slate-400">
+                          @{req.username} · Seat {req.preferredSeatNumber ?? 'Any'}
+                        </p>
+                      </div>
+                    </div>
+                    {canModerateSeats && (
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => onApproveJoinRequest(room.roomId, req)}
+                          aria-label={`Approve ${req.displayName}`}
+                          className="p-1.5 rounded-lg bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/35"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onRejectJoinRequest(room.roomId, req)}
+                          aria-label={`Reject ${req.displayName}`}
+                          className="p-1.5 rounded-lg bg-rose-600/20 text-rose-300 hover:bg-rose-600/35"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             )}
           </div>
 
-          {/* Virtual Gift Tray (Coins & Diamonds — Strictly NO Top-up) */}
-          {showGiftTray && (
-            <div className="rounded-2xl bg-[#10131F] border border-violet-500/30 p-4 space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <h3 className="font-display text-sm font-semibold text-white">
-                    Send Virtual Gift
-                  </h3>
-                  <p className="text-xs text-slate-400">
-                    Balances:{' '}
-                    <span className="font-mono text-amber-300">
-                      {coinBalance} Coins
-                    </span>{' '}
-                    ·{' '}
-                    <span className="font-mono text-sky-300">
-                      {diamondBalance} Diamonds
-                    </span>
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowGiftTray(false)}
-                  className="text-xs text-slate-400 hover:text-white"
-                >
-                  Close
-                </button>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5">
-                {gifts.map((gift) => (
-                  <button
-                    key={gift.giftId}
-                    type="button"
-                    disabled={isOfflineSimulated}
-                    onClick={() => onSendGift(room.roomId, gift)}
-                    className="rounded-xl bg-[#161A29] border border-white/[0.08] hover:border-sky-400/50 p-3 flex flex-col items-center text-center gap-2 transition-colors disabled:opacity-45"
+          <div>
+            <h4 className="text-xs font-semibold text-slate-300 mb-2 flex items-center gap-1.5">
+              <Users className="w-3.5 h-3.5 text-violet-400" />
+              <span>On Stage ({occupiedCount})</span>
+            </h4>
+            <div className="space-y-2">
+              {seats
+                .filter((s) => s.status === 'OCCUPIED')
+                .map((seat) => (
+                  <div
+                    key={seat.seatNumber}
+                    className="rounded-xl bg-white/[0.03] px-3 py-2.5 flex items-center justify-between gap-2"
                   >
-                    <GiftArtwork artworkKey={gift.artworkKey} size={40} />
-                    <div>
-                      <p className="text-xs font-medium text-white truncate max-w-[12ch]">
-                        {gift.name}
-                      </p>
-                      <p className="text-[11px] font-mono tabular-nums text-sky-300 mt-0.5">
-                        {gift.price}{' '}
-                        {gift.currency === 'COIN' ? 'Coins' : 'Diamonds'}
-                      </p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Right: Real-Time Firestore Room Chat & Guest Queue */}
-        <aside className="lg:col-span-4 rounded-2xl bg-[#10131F] border border-white/[0.08] flex flex-col h-[520px] lg:h-[calc(100vh-110px)] lg:sticky lg:top-[76px]">
-          <div className="p-3 border-b border-white/[0.08] grid grid-cols-2 gap-1">
-            <button
-              type="button"
-              onClick={() => setRightTab('chat')}
-              className={`py-2 rounded-lg text-xs font-medium transition-colors ${
-                rightTab === 'chat'
-                  ? 'bg-white/[0.09] text-white'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              Room Chat ({comments.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setRightTab('guests')}
-              className={`py-2 rounded-lg text-xs font-medium transition-colors ${
-                rightTab === 'guests'
-                  ? 'bg-white/[0.09] text-white'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              Guests & Requests ({joinRequests.length})
-            </button>
-          </div>
-
-          {rightTab === 'chat' ? (
-            <>
-              <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                {comments.length === 0 ? (
-                  <p className="text-xs text-slate-500 text-center py-8">
-                    No messages in this room yet. Say hello!
-                  </p>
-                ) : (
-                  comments.map((comment) => (
-                    <div
-                      key={comment.id}
-                      className={`rounded-xl p-3 text-xs leading-relaxed ${
-                        comment.isGiftEvent
-                          ? 'bg-violet-600/15 border border-violet-500/30'
-                          : 'bg-white/[0.03]'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-2 mb-1">
-                        <span className="font-semibold text-slate-100">
-                          {comment.displayName}{' '}
-                          <span className="font-normal text-slate-400">
-                            @{comment.username}
-                          </span>
-                        </span>
-                        <span className="text-[11px] text-slate-500 font-mono">
-                          {comment.timestampLabel}
-                        </span>
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Avatar
+                        name={seat.occupantName ?? 'Guest'}
+                        color={seat.occupantAvatarColor}
+                        size="xs"
+                      />
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-white truncate">
+                          {seat.occupantName}
+                        </p>
+                        <p className="text-[11px] text-slate-400 font-mono">
+                          Seat {seat.seatNumber} · {seat.isMuted ? 'Muted' : 'Speaking'}
+                        </p>
                       </div>
-                      <p className="text-slate-200">{comment.text}</p>
                     </div>
-                  ))
-                )}
-              </div>
-
-              <form
-                onSubmit={handleSubmitChat}
-                className="p-3 border-t border-white/[0.08] flex items-center gap-2"
-              >
-                <input
-                  type="text"
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  disabled={isOfflineSimulated}
-                  placeholder={
-                    !currentUser
-                      ? 'Sign in to chat in this room...'
-                      : isOfflineSimulated
-                      ? 'Reconnect to send comments...'
-                      : 'Say something in the room...'
-                  }
-                  className="flex-1 h-10 px-3.5 rounded-xl bg-[#090B12] border border-white/[0.08] focus:border-sky-500/60 focus:outline-none text-xs text-white placeholder:text-slate-500"
-                />
-                <button
-                  type="submit"
-                  disabled={
-                    (currentUser !== null && !chatInput.trim()) ||
-                    isOfflineSimulated
-                  }
-                  aria-label="Send comment"
-                  className="h-10 w-10 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:opacity-40 flex items-center justify-center text-white shrink-0 transition-colors"
-                >
-                  <Send className="w-4 h-4" />
-                </button>
-              </form>
-            </>
-          ) : (
-            <div className="flex-1 overflow-y-auto p-4 space-y-5">
-              <div>
-                <h3 className="text-xs font-semibold text-slate-300 mb-2.5 flex items-center gap-1.5">
-                  <UserCheck className="w-3.5 h-3.5 text-sky-400" />
-                  <span>Pending Guest Requests</span>
-                </h3>
-                {joinRequests.length === 0 ? (
-                  <p className="text-xs text-slate-500">
-                    No pending seat requests right now.
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {joinRequests.map((req) => (
-                      <div
-                        key={req.requestId}
-                        className="rounded-xl bg-white/[0.04] border border-white/[0.07] p-3 flex items-center justify-between gap-2"
+                    {canModerateSeats && (
+                      <button
+                        type="button"
+                        onClick={() => onRemoveGuest(room.roomId, seat.seatNumber)}
+                        aria-label={`Remove ${seat.occupantName}`}
+                        className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/15"
                       >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <Avatar
-                            name={req.displayName}
-                            color={req.avatarColor}
-                            size="xs"
-                          />
-                          <div className="min-w-0">
-                            <p className="text-xs font-medium text-white truncate">
-                              {req.displayName}
-                            </p>
-                            <p className="text-[11px] text-slate-400">
-                              @{req.username} · Seat{' '}
-                              {req.preferredSeatNumber ?? 'Any'}
-                            </p>
-                          </div>
-                        </div>
-
-                        {canModerateSeats && (
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                onApproveJoinRequest(room.roomId, req)
-                              }
-                              aria-label={`Approve ${req.displayName}`}
-                              className="p-1.5 rounded-lg bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/35"
-                            >
-                              <Check className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                onRejectJoinRequest(room.roomId, req)
-                              }
-                              aria-label={`Reject ${req.displayName}`}
-                              className="p-1.5 rounded-lg bg-rose-600/20 text-rose-300 hover:bg-rose-600/35"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                        <UserMinus className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
-                )}
-              </div>
-
-              <div>
-                <h3 className="text-xs font-semibold text-slate-300 mb-2.5 flex items-center gap-1.5">
-                  <Users className="w-3.5 h-3.5 text-violet-400" />
-                  <span>Active Stage Speakers ({occupiedCount})</span>
-                </h3>
-                <div className="space-y-2">
-                  {seats
-                    .filter((s) => s.status === 'OCCUPIED')
-                    .map((seat) => (
-                      <div
-                        key={seat.seatNumber}
-                        className="rounded-xl bg-white/[0.03] px-3 py-2.5 flex items-center justify-between gap-2"
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <Avatar
-                            name={seat.occupantName ?? 'Guest'}
-                            color={seat.occupantAvatarColor}
-                            size="xs"
-                          />
-                          <div className="min-w-0">
-                            <p className="text-xs font-medium text-white truncate">
-                              {seat.occupantName}
-                            </p>
-                            <p className="text-[11px] text-slate-400 font-mono">
-                              Seat {seat.seatNumber} ·{' '}
-                              {seat.isMuted ? 'Muted' : 'Speaking'}
-                            </p>
-                          </div>
-                        </div>
-
-                        {canModerateSeats && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              onRemoveGuest(room.roomId, seat.seatNumber)
-                            }
-                            aria-label={`Remove ${seat.occupantName}`}
-                            className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/15"
-                          >
-                            <UserMinus className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                </div>
-              </div>
+                ))}
             </div>
-          )}
-        </aside>
-      </div>
+          </div>
+        </div>
+      )}
 
       {/* End Live Confirmation Dialog */}
       {confirmEndOpen && (
@@ -1100,8 +947,8 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
               End live broadcast?
             </h3>
             <p className="text-sm text-slate-300 leading-relaxed">
-              This will mark the room as ended in Firestore and close the stage
-              for all participants.
+              This will mark the room as ended and close the stage for all
+              participants.
             </p>
             <div className="flex items-center justify-end gap-3 pt-2">
               <button
