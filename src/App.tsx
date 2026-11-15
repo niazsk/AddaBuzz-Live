@@ -42,6 +42,7 @@ import {
   sendDirectMessageDoc,
   sendPasswordReset,
   sendVirtualGiftTransaction,
+  transferCoins,
   signInWithEmailPassword,
   signInWithGooglePopup,
   signOutFirebase,
@@ -536,6 +537,17 @@ export default function App() {
         'warning'
       );
     }
+  };
+
+  const handleTransferCoins = async (recipient: UserProfile, amount: number) => {
+    const me = requireSignedIn();
+    if (!me) return;
+    await transferCoins(me, recipient, amount);
+    pushToast(
+      'Coins transferred',
+      `Sent ${amount.toLocaleString()} coins to @${recipient.username}.`,
+      'success'
+    );
   };
 
   const handleRequestSeat = async (roomId: string, seatNumber: number) => {
@@ -1061,6 +1073,10 @@ export default function App() {
               diamondBalance={diamondBalance}
               transactions={transactions}
               gifts={GIFT_CATALOG}
+              currentUser={currentUser}
+              isAdminUser={isAdminUser}
+              users={users}
+              onTransferCoins={handleTransferCoins}
             />
           )}
 

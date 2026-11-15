@@ -948,6 +948,85 @@ export async function sendVirtualGiftTransaction(
   }
 }
 
+export async function transferCoins(
+  sender: UserProfile,
+  recipient: UserProfile,
+  amount: number
+): Promise<void> {
+  const value = Math.floor(amount);
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new Error('Enter a valid coin amount.');
+  }
+  if (sender.uid === recipient.uid) {
+    throw new Error('Cannot transfer to yourself.');
+  }
+  const senderRef = doc(db, 'wallets', sender.uid);
+  const recipientRef = doc(db, 'wallets', recipient.uid);
+  const stamp = Date.now();
+  const rand = Math.random().toString(36).slice(2, 6);
+  const debitId = `tx_${stamp}_${rand}`;
+  const creditId = `tx_${stamp}_${rand}c`;
+  const idempotencyKey = `transfer_${sender.uid}_${recipient.uid}_${stamp.toString(36)}`;
+
+  try {
+    await runTransaction(db, async (tx) => {
+      const [senderSnap, recipientSnap] = await Promise.all([
+        tx.get(senderRef),
+        tx.get(recipientRef),
+      ]);
+      if (!senderSnap.exists() || !recipientSnap.exists()) {
+        throw new Error('Wallet not initialized.');
+      }
+      const senderCoins = Number(senderSnap.data().coinBalance ?? 0);
+      const recipientCoins = Number(recipientSnap.data().coinBalance ?? 0);
+      if (senderCoins < value) {
+        throw new Error(`Insufficient Coins (need ${value}).`);
+      }
+      tx.update(senderRef, {
+        coinBalance: senderCoins - value,
+        updatedAt: serverTimestamp(),
+      });
+      tx.update(recipientRef, {
+        coinBalance: recipientCoins + value,
+        updatedAt: serverTimestamp(),
+      });
+      tx.set(doc(db, 'wallets', sender.uid, 'transactions', debitId), {
+        transactionId: debitId,
+        uid: sender.uid,
+        currency: 'COIN',
+        direction: 'DEBIT',
+        amount: value,
+        reason: clampStr(`Transfer to @${recipient.username}`, 160),
+        counterparty: clampStr(`@${recipient.username}`, 64),
+        idempotencyKey,
+        createdAt: serverTimestamp(),
+      });
+      tx.set(doc(db, 'wallets', recipient.uid, 'transactions', creditId), {
+        transactionId: creditId,
+        uid: recipient.uid,
+        currency: 'COIN',
+        direction: 'CREDIT',
+        amount: value,
+        reason: clampStr(`Transfer from @${sender.username}`, 160),
+        counterparty: clampStr(`@${sender.username}`, 64),
+        idempotencyKey,
+        createdAt: serverTimestamp(),
+      });
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith('Insufficient')) {
+      throw error;
+    }
+    if (error instanceof Error && error.message.startsWith('Cannot transfer')) {
+      throw error;
+    }
+    if (error instanceof Error && error.message.startsWith('Enter a valid')) {
+      throw error;
+    }
+    handleFirestoreError(error, OperationType.WRITE, `wallets/${sender.uid}`);
+  }
+}
+
 export function subscribeFollowsAndBlocks(
   uid: string,
   onFollows: (uids: string[]) => void,
