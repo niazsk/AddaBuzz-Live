@@ -27,6 +27,7 @@ import {
 import { AppSection, GenderOption, UserProfile } from '../../types/app';
 import { Avatar } from '../ui/Avatar';
 import { ProfileImageKind, uploadProfileImage } from '../../lib/profileImages';
+import { COUNTRIES } from '../../data/countries';
 
 interface ProfileViewProps {
   currentUser: UserProfile | null;
@@ -477,12 +478,19 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             <div className="grid grid-cols-2 gap-3">
               <label className="block space-y-1.5">
                 <span className="text-xs font-medium text-slate-300">Country</span>
-                <input
-                  type="text"
+                <select
                   value={country}
                   onChange={(e) => setCountry(e.target.value)}
                   className="w-full h-10 px-3.5 rounded-xl bg-[#090B12] border border-white/[0.09] text-sm text-white focus:border-violet-500/60 focus:outline-none"
-                />
+                >
+                  {(COUNTRIES.includes(country) ? COUNTRIES : [country, ...COUNTRIES]).map(
+                    (c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    )
+                  )}
+                </select>
               </label>
               <label className="block space-y-1.5">
                 <span className="text-xs font-medium text-slate-300">Gender</span>
