@@ -15,6 +15,7 @@ import { PWAInstallButton } from '../ui/PWAInstallButton';
 interface MobileNavProps {
   activeSection: AppSection;
   onSelectSection: (section: AppSection) => void;
+  onToggleWallet: () => void;
   onOpenGoLive: () => void;
   onOpenNotifications: () => void;
   unreadNotificationsCount: number;
@@ -24,7 +25,9 @@ interface MobileNavProps {
 }
 
 export const MobileTopBar: React.FC<MobileNavProps> = ({
+  activeSection,
   onSelectSection,
+  onToggleWallet,
   onOpenNotifications,
   unreadNotificationsCount,
   isSignedIn = false,
@@ -45,9 +48,11 @@ export const MobileTopBar: React.FC<MobileNavProps> = ({
         )}
         <button
           type="button"
-          onClick={() => onSelectSection('wallet')}
-          aria-label="Open Wallet"
-          className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-slate-300 hover:text-white hover:bg-white/[0.05]"
+          onClick={onToggleWallet}
+          aria-label={activeSection === 'wallet' ? 'Close Wallet' : 'Open Wallet'}
+          className={`min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl hover:bg-white/[0.05] ${
+            activeSection === 'wallet' ? 'text-sky-400' : 'text-slate-300 hover:text-white'
+          }`}
         >
           <Wallet className="w-5 h-5" />
         </button>
@@ -69,7 +74,7 @@ export const MobileTopBar: React.FC<MobileNavProps> = ({
   );
 };
 
-export const MobileBottomBar: React.FC<MobileNavProps> = ({
+export const MobileBottomBar: React.FC<Omit<MobileNavProps, 'onToggleWallet'>> = ({
   activeSection,
   onSelectSection,
   onOpenGoLive,

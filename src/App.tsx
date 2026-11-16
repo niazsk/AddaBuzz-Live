@@ -111,6 +111,7 @@ export default function App() {
   const [followerUids, setFollowerUids] = useState<string[]>([]);
   const [blockedUids, setBlockedUids] = useState<string[]>([]);
   const visitedProfilesRef = useRef<Set<string>>(new Set());
+  const walletReturnRef = useRef<AppSection>('profile');
   const [coinBalance, setCoinBalance] = useState<number>(0);
   const [diamondBalance, setDiamondBalance] = useState<number>(0);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
@@ -322,6 +323,20 @@ export default function App() {
     visitedProfilesRef.current.add(target.uid);
     incrementProfileVisitors(target.uid).catch(() => undefined);
   }, [inspectedUser?.uid, firebaseUser?.uid]);
+
+  const handleToggleWallet = () => {
+    if (activeSection === 'wallet') {
+      setActiveSection(walletReturnRef.current);
+    } else {
+      walletReturnRef.current = activeSection;
+      setActiveSection('wallet');
+    }
+  };
+
+  const handleSelectSection = (section: AppSection) => {
+    if (section === 'wallet') handleToggleWallet();
+    else setActiveSection(section);
+  };
 
   // 4. Active Live Room details subscription (seats, join requests, messages) + viewer count
   useEffect(() => {
@@ -1003,6 +1018,7 @@ export default function App() {
       <MobileTopBar
         activeSection={activeSection}
         onSelectSection={setActiveSection}
+        onToggleWallet={handleToggleWallet}
         onOpenGoLive={() => {
           if (requireSignedIn()) setGoLiveOpen(true);
         }}
@@ -1016,7 +1032,7 @@ export default function App() {
       <div className="flex-1 flex max-w-[1600px] w-full mx-auto">
         <SidebarNav
           activeSection={activeSection}
-          onSelectSection={setActiveSection}
+          onSelectSection={handleSelectSection}
           onOpenGoLive={() => {
             if (requireSignedIn()) setGoLiveOpen(true);
           }}
@@ -1184,7 +1200,7 @@ export default function App() {
           diamondBalance={diamondBalance}
           onOpenUserProfile={(u) => setInspectedUser(u)}
           onStartDirectMessage={handleStartDirectMessage}
-          onOpenWallet={() => setActiveSection('wallet')}
+          onOpenWallet={handleToggleWallet}
         />
       </div>
 
