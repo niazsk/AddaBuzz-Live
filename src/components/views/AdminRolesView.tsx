@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   ArrowUpRight,
   ShieldAlert,
@@ -11,7 +11,6 @@ import {
   ReportRecord,
   UserProfile,
 } from '../../types/app';
-import { Avatar } from '../ui/Avatar';
 
 interface AdminRolesViewProps {
   currentUser: UserProfile | null;
@@ -39,7 +38,31 @@ export const AdminRolesView: React.FC<AdminRolesViewProps> = ({
   isOffline,
 }) => {
   const isSuperAgent = currentUser?.accountType === 'SUPER_AGENT';
-  const eligibleUsers = users.filter((u) => u.accountType === 'USER');
+  const [promoteId, setPromoteId] = useState('');
+  const [promoteMsg, setPromoteMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const handlePromoteById = () => {
+    const id = promoteId.trim();
+    if (!id) {
+      setPromoteMsg({ ok: false, text: 'Enter a user ID first.' });
+      return;
+    }
+    const target = users.find((u) => u.platformId === id);
+    if (!target) {
+      setPromoteMsg({ ok: false, text: `No account found with ID ${id}.` });
+      return;
+    }
+    if (target.accountType !== 'USER') {
+      setPromoteMsg({
+        ok: false,
+        text: `ID ${id} is already ${target.accountType}. Only USER accounts can be promoted.`,
+      });
+      return;
+    }
+    onPromoteUserToAgent(target);
+    setPromoteMsg({ ok: true, text: `ID ${id} (${target.displayName}) is now an Agent.` });
+    setPromoteId('');
+  };
 
   return (
     <div className="space-y-8 pb-8">
@@ -95,45 +118,38 @@ export const AdminRolesView: React.FC<AdminRolesViewProps> = ({
               </div>
             )}
 
-            {eligibleUsers.length === 0 ? (
-              <p className="text-xs text-slate-400">
-                No eligible USER accounts found in Firestore yet.
-              </p>
-            ) : (
-              <div className="divide-y divide-white/[0.06]">
-                {eligibleUsers.map((user) => (
-                  <div
-                    key={user.uid}
-                    className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <Avatar name={user.displayName} color={user.avatarColor} size="sm" />
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-white truncate">
-                          {user.displayName}{' '}
-                          <span className="text-xs text-slate-400 font-normal">
-                            @{user.username}
-                          </span>
-                        </p>
-                        <p className="text-xs text-slate-400 font-mono">
-                          {user.platformId} · Current: {user.accountType}
-                        </p>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      disabled={!isSuperAgent || isOffline}
-                      onClick={() => onPromoteUserToAgent(user)}
-                      className="px-3.5 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:bg-white/[0.06] disabled:text-slate-500 disabled:cursor-not-allowed text-xs font-medium text-white inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-colors"
-                    >
-                      <ArrowUpRight className="w-3.5 h-3.5" />
-                      <span>Promote to Agent</span>
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
+            <div className="space-y-3">
+              <input
+                type="text"
+                inputMode="numeric"
+                value={promoteId}
+                onChange={(e) => {
+                  setPromoteId(e.target.value);
+                  setPromoteMsg(null);
+                }}
+                placeholder="Enter User ID (e.g. 112201)"
+                aria-label="User ID to promote"
+                className="w-full h-11 px-4 rounded-xl bg-[#0B0D14] border border-white/[0.08] focus:border-violet-500/60 focus:outline-none text-sm text-white placeholder:text-slate-500 font-mono transition-colors"
+              />
+              <button
+                type="button"
+                disabled={!isSuperAgent || isOffline}
+                onClick={handlePromoteById}
+                className="w-full px-4 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:bg-white/[0.06] disabled:text-slate-500 disabled:cursor-not-allowed text-sm font-medium text-white inline-flex items-center justify-center gap-1.5 transition-colors"
+              >
+                <ArrowUpRight className="w-4 h-4" />
+                <span>Promote to Agent</span>
+              </button>
+              {promoteMsg && (
+                <p
+                  className={`text-xs ${
+                    promoteMsg.ok ? 'text-emerald-300' : 'text-rose-300'
+                  }`}
+                >
+                  {promoteMsg.text}
+                </p>
+              )}
+            </div>
           </section>
 
           {/* Immutable Promotion Audit Trail */}
