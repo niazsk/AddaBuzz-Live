@@ -43,50 +43,15 @@ export const AdminRolesView: React.FC<AdminRolesViewProps> = ({
 
   return (
     <div className="space-y-8 pb-8">
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-        <div>
-          <h1 className="font-display text-2xl font-bold text-white">
-            Account IDs, Promotions & Safety
-          </h1>
-          <p className="text-sm text-slate-400 mt-1">
-            Firestore-enforced RBAC: User ID, Agent ID, and Super Agent-only User-to-Agent promotion.
-          </p>
-        </div>
+      <div className="flex justify-end">
         <button
           type="button"
           onClick={onClose}
           aria-label="Close Roles & Safety"
-          className="self-start sm:self-auto w-9 h-9 rounded-full bg-white/[0.08] hover:bg-white/[0.15] border border-white/10 flex items-center justify-center text-white transition-colors shrink-0"
+          className="w-9 h-9 rounded-full bg-white/[0.08] hover:bg-white/[0.15] border border-white/10 flex items-center justify-center text-white transition-colors shrink-0"
         >
           <X className="w-4 h-4" />
         </button>
-      </div>
-
-      {/* Role Hierarchy Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="rounded-2xl bg-[#111420] border border-white/[0.08] p-5 space-y-1.5">
-          <p className="text-xs font-mono text-slate-400">ACCOUNT TYPE: USER</p>
-          <h2 className="font-display text-base font-semibold text-white">User ID</h2>
-          <p className="text-xs text-slate-400 leading-relaxed">
-            Default registered account. Can watch, host rooms, chat, follow, and send gifts. Cannot promote users.
-          </p>
-        </div>
-
-        <div className="rounded-2xl bg-[#111420] border border-white/[0.08] p-5 space-y-1.5">
-          <p className="text-xs font-mono text-sky-400">ACCOUNT TYPE: AGENT</p>
-          <h2 className="font-display text-base font-semibold text-white">Agent ID</h2>
-          <p className="text-xs text-slate-400 leading-relaxed">
-            Granted only when an authorized Super Agent promotes an eligible User. Cannot promote other users.
-          </p>
-        </div>
-
-        <div className="rounded-2xl bg-[#111420] border border-violet-500/30 p-5 space-y-1.5">
-          <p className="text-xs font-mono text-violet-400">ACCOUNT TYPE: SUPER_AGENT</p>
-          <h2 className="font-display text-base font-semibold text-white">Super Agent ID</h2>
-          <p className="text-xs text-slate-400 leading-relaxed">
-            Assigned only by platform admin. Authorized by Firestore Security Rules to promote eligible User accounts to Agent with immutable audit logs.
-          </p>
-        </div>
       </div>
 
       {!currentUser ? (
