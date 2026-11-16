@@ -368,45 +368,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         </p>
       )}
 
-      {/* Wallet + roles shortcuts */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <button
-          type="button"
-          onClick={() => onOpenSection('wallet')}
-          className="rounded-2xl bg-gradient-to-r from-amber-500/15 to-[#111420] border border-amber-500/25 hover:border-amber-400/50 p-4 flex items-center justify-between gap-3 transition-colors"
-        >
-          <div className="flex items-center gap-3 min-w-0">
-            <span className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center shrink-0">
-              <Wallet className="w-5 h-5 text-amber-300" />
-            </span>
-            <div className="text-left min-w-0">
-              <p className="text-sm font-semibold text-white">My Wallet</p>
-              <p className="text-xs text-slate-400 font-mono tabular-nums truncate">
-                {coinBalance.toLocaleString()} Coins · {diamondBalance.toLocaleString()} Diamonds
-              </p>
-            </div>
-          </div>
-          <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
-        </button>
-
-        <button
-          type="button"
-          onClick={() => onOpenSection('admin')}
-          className="rounded-2xl bg-gradient-to-r from-violet-500/15 to-[#111420] border border-violet-500/25 hover:border-violet-400/50 p-4 flex items-center justify-between gap-3 transition-colors"
-        >
-          <div className="flex items-center gap-3 min-w-0">
-            <span className="w-10 h-10 rounded-xl bg-violet-500/20 flex items-center justify-center shrink-0">
-              <ShieldCheck className="w-5 h-5 text-violet-300" />
-            </span>
-            <div className="text-left min-w-0">
-              <p className="text-sm font-semibold text-white">Roles & Safety</p>
-              <p className="text-xs text-slate-400 truncate">Promotions & moderation</p>
-            </div>
-          </div>
-          <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
-        </button>
-      </div>
-
       {/* Feature grid */}
       <section className="rounded-3xl bg-[#111420] border border-white/[0.08] p-4 sm:p-5 space-y-3">
         <div className="grid grid-cols-4 gap-2.5">{FEATURE_TILES.map(renderTile)}</div>
@@ -426,6 +387,24 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           <div className="grid grid-cols-4 gap-2.5">{AGENT_TILES.map(renderTile)}</div>
         </section>
       )}
+
+      {/* Roles & safety shortcut */}
+      <button
+        type="button"
+        onClick={() => onOpenSection('admin')}
+        className="w-full rounded-2xl bg-gradient-to-r from-violet-500/15 to-[#111420] border border-violet-500/25 hover:border-violet-400/50 p-4 flex items-center justify-between gap-3 transition-colors"
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="w-10 h-10 rounded-xl bg-violet-500/20 flex items-center justify-center shrink-0">
+            <ShieldCheck className="w-5 h-5 text-violet-300" />
+          </span>
+          <div className="text-left min-w-0">
+            <p className="text-sm font-semibold text-white">Roles & Safety</p>
+            <p className="text-xs text-slate-400 truncate">Promotions & moderation</p>
+          </div>
+        </div>
+        <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
+      </button>
 
       {/* Blocked accounts */}
       {blockedUsers.length > 0 && (
