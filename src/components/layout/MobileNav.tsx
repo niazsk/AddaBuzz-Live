@@ -105,7 +105,7 @@ export const MobileBottomBar: React.FC<Omit<MobileNavProps, 'onToggleWallet'>> =
         }`}
       >
         <Heart className="w-5 h-5" />
-        <span>Following</span>
+        <span>Friends</span>
       </button>
 
       <button

@@ -95,10 +95,6 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
     );
   });
 
-  const popularCreators = [...filteredCreators]
-    .sort((a, b) => b.followersCount - a.followersCount)
-    .slice(0, 4);
-
   const newStreamers = filteredCreators
     .filter((u) => u.isNewCreator || u.followersCount < 7000)
     .slice(0, 4);
@@ -355,30 +351,6 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
             )}
           </section>
         </>
-      )}
-
-      {/* Popular Streamers */}
-      {popularCreators.length > 0 && (
-        <section aria-label="Popular streamers" className="space-y-4">
-          <div className="flex items-baseline justify-between">
-            <h2 className="font-display text-lg font-semibold text-white">
-              Popular Streamers
-            </h2>
-            <span className="text-xs text-slate-400">Most followed hosts</span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {popularCreators.map((creator) => (
-              <StreamerCard
-                key={creator.uid}
-                user={creator}
-                isFollowing={followingUids.includes(creator.uid)}
-                onToggleFollow={onToggleFollow}
-                onOpenProfile={onOpenUserProfile}
-              />
-            ))}
-          </div>
-        </section>
       )}
 
       {/* New & Recommended Streamers */}

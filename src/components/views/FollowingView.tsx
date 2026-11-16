@@ -38,20 +38,20 @@ export const FollowingView: React.FC<FollowingViewProps> = ({
     <div className="space-y-8 pb-8">
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
         <div>
-          <h1 className="font-display text-2xl font-bold text-white">Following Feed</h1>
+          <h1 className="font-display text-2xl font-bold text-white">Friends Feed</h1>
           <p className="text-sm text-slate-400 mt-1">
             Live rooms and creators you follow across AddaBuzz Live.
           </p>
         </div>
         <span className="text-xs font-mono tabular-nums text-slate-400">
-          {followedUsers.length} following · {followedLiveRooms.length} live now
+          {followedUsers.length} friends · {followedLiveRooms.length} live now
         </span>
       </div>
 
       {followedUsers.length === 0 ? (
         <div className="rounded-2xl bg-[#111420] border border-white/[0.08] p-10 text-center space-y-4">
           <p className="font-display text-lg font-semibold text-white">
-            Your Following feed is empty
+            Your Friends feed is empty
           </p>
           <p className="text-sm text-slate-400 max-w-md mx-auto">
             Follow hosts in Home to see their live broadcasts, multi-guest rooms, and creator updates here.

@@ -28,7 +28,7 @@ interface SidebarNavProps {
 
 const NAV_ITEMS: { id: AppSection; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'discover', label: 'Home', icon: Compass },
-  { id: 'following', label: 'Following', icon: Heart },
+  { id: 'following', label: 'Friends', icon: Heart },
   { id: 'messages', label: 'Messages', icon: MessageSquare },
   { id: 'wallet', label: 'Wallet', icon: Wallet },
   { id: 'profile', label: 'Profile', icon: User },
