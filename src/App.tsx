@@ -71,6 +71,7 @@ import { DiscoverView } from './components/views/DiscoverView';
 import { FollowingView } from './components/views/FollowingView';
 import { LiveRoomView } from './components/views/LiveRoomView';
 import { WalletView } from './components/views/WalletView';
+import { CoinsTradingView } from './components/views/CoinsTradingView';
 import { MessagesView } from './components/views/MessagesView';
 import { ProfileView } from './components/views/ProfileView';
 import { AdminRolesView } from './components/views/AdminRolesView';
@@ -1137,10 +1138,18 @@ export default function App() {
               coinBalance={coinBalance}
               diamondBalance={diamondBalance}
               transactions={transactions}
+            />
+          )}
+
+          {activeSection === 'coins-trading' && (
+            <CoinsTradingView
+              coinBalance={coinBalance}
+              transactions={transactions}
               currentUser={currentUser}
               isAdminUser={isAdminUser}
               users={users}
               onTransferCoins={handleTransferCoins}
+              onBack={() => setActiveSection('profile')}
             />
           )}
 

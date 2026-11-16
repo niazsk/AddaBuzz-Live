@@ -1,60 +1,19 @@
 import React, { useState } from 'react';
-import { Coins, Gem, Send, ShieldCheck } from 'lucide-react';
-import { CurrencyType, UserProfile, WalletTransaction } from '../../types/app';
+import { Coins, Gem, ShieldCheck } from 'lucide-react';
+import { CurrencyType, WalletTransaction } from '../../types/app';
 
 interface WalletViewProps {
   coinBalance: number;
   diamondBalance: number;
   transactions: WalletTransaction[];
-  currentUser: UserProfile | null;
-  isAdminUser: boolean;
-  users: UserProfile[];
-  onTransferCoins: (recipient: UserProfile, amount: number) => Promise<void>;
 }
 
 export const WalletView: React.FC<WalletViewProps> = ({
   coinBalance,
   diamondBalance,
   transactions,
-  currentUser,
-  isAdminUser,
-  users,
-  onTransferCoins,
 }) => {
   const [filter, setFilter] = useState<'ALL' | CurrencyType>('ALL');
-  const [recipientUid, setRecipientUid] = useState('');
-  const [amount, setAmount] = useState('');
-  const [transferBusy, setTransferBusy] = useState(false);
-  const [transferMsg, setTransferMsg] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null);
-
-  const isSuperAgent = currentUser?.accountType === 'SUPER_AGENT';
-  const canTransfer = isAdminUser || isSuperAgent;
-  const recipients = !canTransfer
-    ? []
-    : isAdminUser
-    ? users.filter((u) => u.accountType === 'SUPER_AGENT')
-    : users.filter((u) => u.uid !== currentUser?.uid);
-
-  const handleTransfer = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const recipient = recipients.find((u) => u.uid === recipientUid);
-    const value = Number(amount);
-    if (!recipient || !Number.isFinite(value) || value <= 0) {
-      setTransferMsg({ tone: 'err', text: 'Pick a recipient and a valid amount.' });
-      return;
-    }
-    setTransferBusy(true);
-    setTransferMsg(null);
-    try {
-      await onTransferCoins(recipient, Math.floor(value));
-      setTransferMsg({ tone: 'ok', text: `Sent ${Math.floor(value).toLocaleString()} coins to ID ${recipient.platformId}.` });
-      setAmount('');
-    } catch (err) {
-      setTransferMsg({ tone: 'err', text: err instanceof Error ? err.message : 'Transfer failed.' });
-    } finally {
-      setTransferBusy(false);
-    }
-  };
 
   const filteredTx = transactions.filter(
     (t) => filter === 'ALL' || t.currency === filter
@@ -111,65 +70,6 @@ export const WalletView: React.FC<WalletViewProps> = ({
           </p>
         </div>
       </div>
-
-      {/* Role-gated coin transfer */}
-      {canTransfer && (
-        <section className="rounded-2xl bg-[#111420] border border-violet-500/30 p-5 space-y-4">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="font-display text-base font-semibold text-white inline-flex items-center gap-2">
-              <Send className="w-4 h-4 text-violet-400" />
-              <span>Transfer Coins</span>
-            </h2>
-            <span className="text-xs text-slate-400">
-              {isAdminUser ? 'Admin → BD Agent' : 'BD Agent → anyone'}
-            </span>
-          </div>
-          <form onSubmit={handleTransfer} className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-3 items-end">
-            <label className="block space-y-1.5">
-              <span className="text-xs font-medium text-slate-300">Recipient</span>
-              <select
-                value={recipientUid}
-                onChange={(e) => setRecipientUid(e.target.value)}
-                className="w-full h-10 px-3.5 rounded-xl bg-[#090B12] border border-white/[0.09] text-sm text-white focus:border-violet-500/60 focus:outline-none"
-              >
-                <option value="">Select account…</option>
-                {recipients.map((u) => (
-                  <option key={u.uid} value={u.uid}>
-                    {u.platformId}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block space-y-1.5">
-              <span className="text-xs font-medium text-slate-300">Coins</span>
-              <input
-                type="number"
-                min={1}
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="0"
-                className="w-full sm:w-36 h-10 px-3.5 rounded-xl bg-[#090B12] border border-white/[0.09] text-sm text-white font-mono focus:border-violet-500/60 focus:outline-none"
-              />
-            </label>
-            <button
-              type="submit"
-              disabled={transferBusy || recipients.length === 0}
-              className="h-10 px-5 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:bg-white/[0.06] disabled:text-slate-500 text-sm font-semibold text-white inline-flex items-center gap-2 transition-colors"
-            >
-              <Send className="w-4 h-4" />
-              <span>{transferBusy ? 'Sending…' : 'Transfer'}</span>
-            </button>
-          </form>
-          {recipients.length === 0 && (
-            <p className="text-xs text-slate-400">No eligible recipients yet.</p>
-          )}
-          {transferMsg && (
-            <p className={`text-xs ${transferMsg.tone === 'ok' ? 'text-emerald-300' : 'text-rose-300'}`}>
-              {transferMsg.text}
-            </p>
-          )}
-        </section>
-      )}
 
       {/* Immutable Ledger Table */}
       <section className="space-y-4">

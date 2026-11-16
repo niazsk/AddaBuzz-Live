@@ -204,7 +204,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       <button
         key={tile.id}
         type="button"
-        onClick={() => setComingSoon(tile.label)}
+        onClick={() =>
+          tile.id === 'coins-trading'
+            ? onOpenSection('coins-trading')
+            : setComingSoon(tile.label)
+        }
         className={`group rounded-2xl bg-white/[0.04] border border-white/[0.06] hover:bg-white/[0.08] hover:border-violet-500/40 p-3.5 flex flex-col items-center gap-2 transition-colors ${
           tile.wide ? 'col-span-2' : ''
         }`}

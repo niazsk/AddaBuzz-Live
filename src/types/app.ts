@@ -24,6 +24,7 @@ export type AppSection =
   | 'following'
   | 'messages'
   | 'wallet'
+  | 'coins-trading'
   | 'profile'
   | 'admin'
   | 'signin';
