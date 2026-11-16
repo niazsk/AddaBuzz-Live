@@ -1072,7 +1072,6 @@ export default function App() {
               coinBalance={coinBalance}
               diamondBalance={diamondBalance}
               transactions={transactions}
-              gifts={GIFT_CATALOG}
               currentUser={currentUser}
               isAdminUser={isAdminUser}
               users={users}

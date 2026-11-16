@@ -1,13 +1,11 @@
 import React, { useState } from 'react';
 import { Coins, Gem, Send, ShieldCheck } from 'lucide-react';
-import { CurrencyType, GiftCatalogItem, UserProfile, WalletTransaction } from '../../types/app';
-import { GiftArtwork } from '../ui/GiftArtwork';
+import { CurrencyType, UserProfile, WalletTransaction } from '../../types/app';
 
 interface WalletViewProps {
   coinBalance: number;
   diamondBalance: number;
   transactions: WalletTransaction[];
-  gifts: GiftCatalogItem[];
   currentUser: UserProfile | null;
   isAdminUser: boolean;
   users: UserProfile[];
@@ -18,7 +16,6 @@ export const WalletView: React.FC<WalletViewProps> = ({
   coinBalance,
   diamondBalance,
   transactions,
-  gifts,
   currentUser,
   isAdminUser,
   users,
@@ -173,38 +170,6 @@ export const WalletView: React.FC<WalletViewProps> = ({
           )}
         </section>
       )}
-
-      {/* Gift Catalog Reference */}
-      <section className="space-y-4">
-        <div className="flex items-baseline justify-between">
-          <h2 className="font-display text-lg font-semibold text-white">
-            Configured Gift Catalog
-          </h2>
-          <span className="text-xs text-slate-400">Send inside any live room</span>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {gifts.map((gift) => (
-            <div
-              key={gift.giftId}
-              className="rounded-2xl bg-[#111420] border border-white/[0.08] p-4 flex items-center gap-4"
-            >
-              <GiftArtwork artworkKey={gift.artworkKey} size={46} />
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between gap-2">
-                  <h3 className="font-display text-sm font-semibold text-white truncate">
-                    {gift.name}
-                  </h3>
-                  <span className="font-mono text-xs font-semibold tabular-nums text-sky-300 shrink-0">
-                    {gift.price} {gift.currency === 'COIN' ? 'Coins' : 'Diamonds'}
-                  </span>
-                </div>
-                <p className="text-xs text-slate-400 mt-1 line-clamp-2">{gift.description}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
 
       {/* Immutable Ledger Table */}
       <section className="space-y-4">
