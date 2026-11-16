@@ -110,12 +110,9 @@ export const FollowingView: React.FC<FollowingViewProps> = ({
 
       {recommendedCreators.length > 0 && (
         <section aria-label="New streamers" className="space-y-4">
-          <div className="flex items-baseline justify-between">
-            <h2 className="font-display text-lg font-semibold text-white">
-              Recommended & New Creators
-            </h2>
-            <span className="text-xs text-slate-400">Rising voices</span>
-          </div>
+          <h2 className="font-display text-lg font-semibold text-white">
+            Recommended & New Creators
+          </h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {recommendedCreators.map((creator) => (
