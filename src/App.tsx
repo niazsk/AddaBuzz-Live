@@ -1093,9 +1093,7 @@ export default function App() {
               onSelectCategory={setSelectedCategory}
               selectedMode={selectedMode}
               onSelectMode={setSelectedMode}
-              followingUids={followingUids}
               blockedUids={blockedUids}
-              onToggleFollow={handleToggleFollow}
               onJoinRoom={(r) => setActiveRoomId(r.roomId)}
               onOpenUserProfile={(u) => setInspectedUser(u)}
               onOpenNotifications={() => setNotificationsOpen(true)}
@@ -1115,7 +1113,6 @@ export default function App() {
               onToggleFollow={handleToggleFollow}
               onJoinRoom={(r) => setActiveRoomId(r.roomId)}
               onOpenUserProfile={(u) => setInspectedUser(u)}
-              onGoToDiscover={() => setActiveSection('discover')}
             />
           )}
 

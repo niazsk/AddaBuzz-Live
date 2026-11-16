@@ -1,5 +1,4 @@
 import React from 'react';
-import { Compass } from 'lucide-react';
 import { LiveRoom, UserProfile } from '../../types/app';
 import { RoomCard } from '../cards/RoomCard';
 import { StreamerCard } from '../cards/StreamerCard';
@@ -12,7 +11,6 @@ interface FollowingViewProps {
   onToggleFollow: (uid: string) => void;
   onJoinRoom: (room: LiveRoom) => void;
   onOpenUserProfile: (user: UserProfile) => void;
-  onGoToDiscover: () => void;
 }
 
 export const FollowingView: React.FC<FollowingViewProps> = ({
@@ -23,7 +21,6 @@ export const FollowingView: React.FC<FollowingViewProps> = ({
   onToggleFollow,
   onJoinRoom,
   onOpenUserProfile,
-  onGoToDiscover,
 }) => {
   const followedUsers = users.filter(
     (u) => followingUids.includes(u.uid) && !blockedUids.includes(u.uid)
@@ -31,6 +28,14 @@ export const FollowingView: React.FC<FollowingViewProps> = ({
   const followedLiveRooms = rooms.filter(
     (r) => followingUids.includes(r.hostUid) && !blockedUids.includes(r.hostUid)
   );
+  const recommendedCreators = users
+    .filter(
+      (u) =>
+        !blockedUids.includes(u.uid) &&
+        !followingUids.includes(u.uid) &&
+        (u.isNewCreator || u.followersCount < 7000)
+    )
+    .slice(0, 4);
 
   const getHost = (uid: string) => users.find((u) => u.uid === uid) ?? users[0];
 
@@ -48,24 +53,18 @@ export const FollowingView: React.FC<FollowingViewProps> = ({
         </span>
       </div>
 
-      {followedUsers.length === 0 ? (
-        <div className="rounded-2xl bg-[#111420] border border-white/[0.08] p-10 text-center space-y-4">
+      {followedUsers.length === 0 && (
+        <div className="rounded-2xl bg-[#111420] border border-white/[0.08] p-8 text-center space-y-3">
           <p className="font-display text-lg font-semibold text-white">
             Your Friends feed is empty
           </p>
           <p className="text-sm text-slate-400 max-w-md mx-auto">
-            Follow hosts in Home to see their live broadcasts, multi-guest rooms, and creator updates here.
+            Follow creators from the recommendations below to see their live broadcasts, multi-guest rooms, and updates here.
           </p>
-          <button
-            type="button"
-            onClick={onGoToDiscover}
-            className="px-5 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium inline-flex items-center gap-2 transition-colors"
-          >
-            <Compass className="w-4 h-4" />
-            <span>Explore Creators</span>
-          </button>
         </div>
-      ) : (
+      )}
+
+      {followedUsers.length > 0 && (
         <>
           <section className="space-y-4">
             <h2 className="font-display text-base font-semibold text-white">
@@ -107,6 +106,29 @@ export const FollowingView: React.FC<FollowingViewProps> = ({
             </div>
           </section>
         </>
+      )}
+
+      {recommendedCreators.length > 0 && (
+        <section aria-label="New streamers" className="space-y-4">
+          <div className="flex items-baseline justify-between">
+            <h2 className="font-display text-lg font-semibold text-white">
+              Recommended & New Creators
+            </h2>
+            <span className="text-xs text-slate-400">Rising voices</span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {recommendedCreators.map((creator) => (
+              <StreamerCard
+                key={creator.uid}
+                user={creator}
+                isFollowing={false}
+                onToggleFollow={onToggleFollow}
+                onOpenProfile={onOpenUserProfile}
+              />
+            ))}
+          </div>
+        </section>
       )}
     </div>
   );

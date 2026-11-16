@@ -3,7 +3,6 @@ import { Bell, Eye, Radio, Search, Users, Play, X } from 'lucide-react';
 import { LiveRoom, RoomCategory, RoomMode, UserProfile } from '../../types/app';
 import { ROOM_CATEGORIES } from '../../data/previewData';
 import { RoomCard } from '../cards/RoomCard';
-import { StreamerCard } from '../cards/StreamerCard';
 import { MediaImage } from '../ui/MediaImage';
 import { Avatar } from '../ui/Avatar';
 
@@ -16,9 +15,7 @@ interface DiscoverViewProps {
   onSelectCategory: (cat: RoomCategory) => void;
   selectedMode: 'ALL' | RoomMode;
   onSelectMode: (mode: 'ALL' | RoomMode) => void;
-  followingUids: string[];
   blockedUids: string[];
-  onToggleFollow: (uid: string) => void;
   onJoinRoom: (room: LiveRoom) => void;
   onOpenUserProfile: (user: UserProfile) => void;
   onOpenNotifications: () => void;
@@ -35,9 +32,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
   onSelectCategory,
   selectedMode,
   onSelectMode,
-  followingUids,
   blockedUids,
-  onToggleFollow,
   onJoinRoom,
   onOpenUserProfile,
   onOpenNotifications,
@@ -84,20 +79,6 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
   const featuredRoom =
     rooms.find((r) => r.isFeatured && !blockedUids.includes(r.hostUid)) ?? visibleRooms[0];
   const featuredHost = featuredRoom ? getHost(featuredRoom.hostUid) : undefined;
-
-  const filteredCreators = users.filter((u) => {
-    if (blockedUids.includes(u.uid)) return false;
-    if (!normalizedQuery) return true;
-    return (
-      u.displayName.toLowerCase().includes(normalizedQuery) ||
-      u.username.toLowerCase().includes(normalizedQuery) ||
-      u.country.toLowerCase().includes(normalizedQuery)
-    );
-  });
-
-  const newStreamers = filteredCreators
-    .filter((u) => u.isNewCreator || u.followersCount < 7000)
-    .slice(0, 4);
 
   return (
     <div className="space-y-8 pb-8">
@@ -353,29 +334,6 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
         </>
       )}
 
-      {/* New & Recommended Streamers */}
-      {newStreamers.length > 0 && (
-        <section aria-label="New streamers" className="space-y-4">
-          <div className="flex items-baseline justify-between">
-            <h2 className="font-display text-lg font-semibold text-white">
-              Recommended & New Creators
-            </h2>
-            <span className="text-xs text-slate-400">Rising voices</span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {newStreamers.map((creator) => (
-              <StreamerCard
-                key={creator.uid}
-                user={creator}
-                isFollowing={followingUids.includes(creator.uid)}
-                onToggleFollow={onToggleFollow}
-                onOpenProfile={onOpenUserProfile}
-              />
-            ))}
-          </div>
-        </section>
-      )}
     </div>
   );
 };
