@@ -365,6 +365,10 @@ export async function incrementProfileVisitors(uid: string): Promise<void> {
   });
 }
 
+export async function heartbeatLiveRoom(roomId: string): Promise<void> {
+  await updateDoc(doc(db, 'liveRooms', roomId), { updatedAt: serverTimestamp() });
+}
+
 export function subscribePublicUsers(
   onData: (users: UserProfile[]) => void,
   onError?: (err: Error) => void
@@ -456,6 +460,8 @@ export function subscribeLiveRooms(
               ? 'Just started'
               : `${Math.floor(durationSeconds / 60)}m live`,
           durationSeconds,
+          lastHeartbeatMs:
+            d.updatedAt instanceof Timestamp ? d.updatedAt.toMillis() : createdAtMs,
           isFeatured: Boolean(d.isFeatured ?? false),
           isPrivateFollowersOnly: Boolean(d.isPrivateFollowersOnly ?? false),
           seats: Array.from({ length: 8 }, (_, idx) => ({

@@ -52,6 +52,7 @@ import {
   subscribeFollowsAndBlocks,
   subscribeFollowerUids,
   incrementProfileVisitors,
+  heartbeatLiveRoom,
   subscribeLiveRooms,
   subscribePromotions,
   subscribePublicUsers,
@@ -399,10 +400,36 @@ export default function App() {
     return () => window.clearInterval(timer);
   }, [activeRoomId, isOffline]);
 
-  const activeRoom = useMemo(
-    () => rooms.find((r) => r.roomId === activeRoomId) ?? null,
-    [rooms, activeRoomId]
+  const [freshTick, setFreshTick] = useState(0);
+  useEffect(() => {
+    const timer = window.setInterval(() => setFreshTick((t) => t + 1), 30000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  // Only rooms with a recent host heartbeat are truly live; stale/abandoned
+  // rooms drop off Home instead of accumulating as dead entries.
+  const liveRooms = useMemo(
+    () => rooms.filter((r) => Date.now() - r.lastHeartbeatMs < 120000),
+    [rooms, freshTick]
   );
+
+  const activeRoom = useMemo(
+    () => liveRooms.find((r) => r.roomId === activeRoomId) ?? null,
+    [liveRooms, activeRoomId]
+  );
+
+  const hostingRoomId =
+    activeRoom && currentUser && activeRoom.hostUid === currentUser.uid
+      ? activeRoom.roomId
+      : null;
+
+  useEffect(() => {
+    if (!hostingRoomId || isOffline) return;
+    const timer = window.setInterval(() => {
+      heartbeatLiveRoom(hostingRoomId).catch(() => {});
+    }, 30000);
+    return () => window.clearInterval(timer);
+  }, [hostingRoomId, isOffline]);
 
   const unreadMessagesCount = useMemo(
     () => conversations.reduce((sum, c) => sum + c.unreadCount, 0),
@@ -554,7 +581,7 @@ export default function App() {
   const handleSendGift = async (roomId: string, gift: GiftCatalogItem) => {
     const me = requireSignedIn();
     if (!me) return;
-    const room = rooms.find((r) => r.roomId === roomId);
+    const room = liveRooms.find((r) => r.roomId === roomId);
     const host = users.find((u) => u.uid === room?.hostUid);
     try {
       await sendVirtualGiftTransaction(
@@ -1058,7 +1085,7 @@ export default function App() {
         <main className="flex-1 min-w-0 px-4 sm:px-6 lg:px-8 pt-6 pb-24 lg:pb-10">
           {activeSection === 'discover' && (
             <DiscoverView
-              rooms={rooms}
+              rooms={liveRooms}
               users={users}
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
@@ -1081,7 +1108,7 @@ export default function App() {
 
           {activeSection === 'following' && (
             <FollowingView
-              rooms={rooms}
+              rooms={liveRooms}
               users={users}
               followingUids={followingUids}
               blockedUids={blockedUids}

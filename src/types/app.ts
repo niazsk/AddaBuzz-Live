@@ -99,6 +99,7 @@ export interface LiveRoom {
   viewerCount: number;
   startedAtLabel: string;
   durationSeconds: number;
+  lastHeartbeatMs: number;
   isFeatured?: boolean;
   isPrivateFollowersOnly?: boolean;
   seats: GuestSeat[]; // Always length 8 for multi-guest / room readiness
