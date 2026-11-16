@@ -30,9 +30,10 @@ import {
   ensureConversationDoc,
   fetchUserProfile,
   isAdminBootstrapEmail,
+  isBdAgentProfile,
   leaveRoomSeatDoc,
   postRoomMessageDoc,
-  promoteUserToAgentDoc,
+  promoteUserDoc,
   registerWithEmailPassword,
   rejectJoinRequestDoc,
   reloadCurrentAuthUser,
@@ -165,7 +166,7 @@ export default function App() {
   const isAdminUser = Boolean(
     isEmailVerified && isAdminBootstrapEmail(firebaseUser?.email)
   );
-  const isBdAgent = currentUser?.accountType === 'SUPER_AGENT';
+  const isBdAgent = isBdAgentProfile(currentUser);
   const needsEmailVerification = Boolean(firebaseUser && !isEmailVerified);
 
   // Connectivity listeners
@@ -738,13 +739,24 @@ export default function App() {
     }
   };
 
-  const handlePromoteUserToAgent = async (target: UserProfile) => {
+  const handlePromoteUser = async (
+    target: UserProfile,
+    afterType: 'AGENT' | 'SUPER_AGENT'
+  ) => {
     const me = requireSignedIn();
     if (!me) return;
-    try {
-      await promoteUserToAgentDoc(me, target);
+    if (afterType === 'SUPER_AGENT' && !isBdAgentProfile(me)) {
       pushToast(
-        `Promoted @${target.username} to Agent`,
+        'Promotion rejected',
+        'Only the BD Agent can promote a USER to Super Agent.',
+        'error'
+      );
+      return;
+    }
+    try {
+      await promoteUserDoc(me, target, afterType);
+      pushToast(
+        `Promoted @${target.username} to ${afterType === 'SUPER_AGENT' ? 'Super Agent' : 'Agent'}`,
         'Immutable Firestore promotion audit record saved.',
         'success'
       );
@@ -1208,7 +1220,7 @@ export default function App() {
               users={users}
               promotions={promotions}
               reports={reports}
-              onPromoteUserToAgent={handlePromoteUserToAgent}
+              onPromoteUser={handlePromoteUser}
               onResolveReport={async (reportId) => {
                 await resolveReportDoc(reportId);
                 pushToast('Report marked resolved', undefined, 'success');

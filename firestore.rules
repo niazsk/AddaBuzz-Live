@@ -48,6 +48,12 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.accountType == 'SUPER_AGENT';
     }
 
+    // BD Agent: the provisioned SUPER_AGENT account (ID 111112) — may also promote to SUPER_AGENT.
+    function isBdAgent() {
+      return isSuperAgent() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.platformId == '111112';
+    }
+
     function isRoomHost(roomId) {
       return isVerifiedUser() &&
         exists(/databases/$(database)/documents/liveRooms/$(roomId)) &&
@@ -274,7 +280,8 @@ service cloud.firestore {
         isValidId(data.targetUid) &&
         data.targetUsername is string && data.targetUsername.size() >= 1 && data.targetUsername.size() <= 32 &&
         data.beforeType == 'USER' &&
-        data.afterType == 'AGENT' &&
+        data.afterType in ['AGENT', 'SUPER_AGENT'] &&
+        (data.afterType == 'AGENT' || isBdAgent()) &&
         data.createdAt == request.time;
     }
 
@@ -346,6 +353,12 @@ service cloud.firestore {
             isSuperAgent() &&
             existing().accountType == 'USER' &&
             incoming().accountType == 'AGENT' &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['accountType', 'updatedAt'])
+          ) ||
+          (
+            isBdAgent() &&
+            existing().accountType == 'USER' &&
+            incoming().accountType == 'SUPER_AGENT' &&
             incoming().diff(existing()).affectedKeys().hasOnly(['accountType', 'updatedAt'])
           ) ||
           (

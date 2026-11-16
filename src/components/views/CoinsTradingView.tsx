@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowLeft, Coins, Send, ShieldCheck } from 'lucide-react';
 import { UserProfile, WalletTransaction } from '../../types/app';
+import { isBdAgentProfile } from '../../lib/firestoreService';
 
 interface CoinsTradingViewProps {
   coinBalance: number;
@@ -26,8 +27,8 @@ export const CoinsTradingView: React.FC<CoinsTradingViewProps> = ({
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null);
 
-  const isBdAgent = currentUser?.accountType === 'SUPER_AGENT';
-  const canTrade = isAdminUser || isBdAgent;
+  const isBdAgent = isBdAgentProfile(currentUser);
+  const canTrade = isAdminUser || currentUser?.accountType === 'SUPER_AGENT';
   const recipients = !canTrade
     ? []
     : isAdminUser
@@ -87,7 +88,12 @@ export const CoinsTradingView: React.FC<CoinsTradingViewProps> = ({
               Coins Trading
             </h1>
             <p className="text-xs text-slate-400 mt-0.5">
-              {isAdminUser ? 'Admin → BD Agent' : 'BD Agent → anyone'} · full wallet balance tradable
+              {isAdminUser
+                ? 'Admin → Super Agent'
+                : isBdAgent
+                ? 'BD Agent → anyone'
+                : 'Super Agent → anyone'}{' '}
+              · full wallet balance tradable
             </p>
           </div>
         </div>
@@ -195,7 +201,7 @@ export const CoinsTradingView: React.FC<CoinsTradingViewProps> = ({
         </section>
       ) : (
         <div className="rounded-2xl bg-[#111420] border border-white/[0.08] p-6 text-sm text-slate-400">
-          Coins Trading is available to BD Agent and Admin accounts only.
+          Coins Trading is available to BD Agent, Super Agent and Admin accounts only.
         </div>
       )}
 

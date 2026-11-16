@@ -11,6 +11,7 @@ import {
   ReportRecord,
   UserProfile,
 } from '../../types/app';
+import { isBdAgentProfile } from '../../lib/firestoreService';
 
 interface AdminRolesViewProps {
   currentUser: UserProfile | null;
@@ -18,7 +19,7 @@ interface AdminRolesViewProps {
   users: UserProfile[];
   promotions: AccountPromotionRecord[];
   reports: ReportRecord[];
-  onPromoteUserToAgent: (target: UserProfile) => void;
+  onPromoteUser: (target: UserProfile, afterType: 'AGENT' | 'SUPER_AGENT') => void;
   onResolveReport: (reportId: string) => void;
   onOpenAuth: () => void;
   onClose: () => void;
@@ -31,17 +32,18 @@ export const AdminRolesView: React.FC<AdminRolesViewProps> = ({
   users,
   promotions,
   reports,
-  onPromoteUserToAgent,
+  onPromoteUser,
   onResolveReport,
   onOpenAuth,
   onClose,
   isOffline,
 }) => {
   const isSuperAgent = currentUser?.accountType === 'SUPER_AGENT';
+  const isBdAgent = isBdAgentProfile(currentUser);
   const [promoteId, setPromoteId] = useState('');
   const [promoteMsg, setPromoteMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
-  const handlePromoteById = () => {
+  const handlePromoteById = (afterType: 'AGENT' | 'SUPER_AGENT') => {
     const id = promoteId.trim();
     if (!id) {
       setPromoteMsg({ ok: false, text: 'Enter a user ID first.' });
@@ -59,8 +61,16 @@ export const AdminRolesView: React.FC<AdminRolesViewProps> = ({
       });
       return;
     }
-    onPromoteUserToAgent(target);
-    setPromoteMsg({ ok: true, text: `ID ${id} (${target.displayName}) is now an Agent.` });
+    if (afterType === 'SUPER_AGENT' && !isBdAgent) {
+      setPromoteMsg({
+        ok: false,
+        text: 'Only the BD Agent can promote a USER to SUPER_AGENT.',
+      });
+      return;
+    }
+    onPromoteUser(target, afterType);
+    const roleLabel = afterType === 'SUPER_AGENT' ? 'Super Agent' : 'Agent';
+    setPromoteMsg({ ok: true, text: `ID ${id} (${target.displayName}) is now a ${roleLabel}.` });
     setPromoteId('');
   };
 
@@ -92,29 +102,34 @@ export const AdminRolesView: React.FC<AdminRolesViewProps> = ({
         </div>
       ) : (
         <>
-          {/* Super Agent Promotion Workflow */}
+          {/* Two-Tier Promotion Workflow */}
           <section className="rounded-2xl bg-[#111420] border border-white/[0.08] p-5 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <ShieldCheck className="w-5 h-5 text-violet-400" />
                 <h2 className="font-display text-base font-semibold text-white">
-                  Promote Eligible User to Agent
+                  Promote Eligible User
                 </h2>
               </div>
               <span className="text-xs text-slate-400">
                 Your Account Type:{' '}
                 <strong className="font-mono text-white">
-                  {currentUser.accountType}
+                  {isBdAgent ? 'BD_AGENT' : currentUser.accountType}
                 </strong>
               </span>
             </div>
 
             {!isSuperAgent && (
               <div className="rounded-xl bg-amber-500/10 border border-amber-500/25 px-4 py-3 text-xs text-amber-200">
-                Firestore Security Rules enforce that only a verified{' '}
-                <strong className="font-mono">BD_AGENT</strong> can promote a{' '}
-                <strong className="font-mono">USER</strong> to <strong className="font-mono">AGENT</strong>.
-                Admin accounts handle safety moderation only.
+                Firestore Security Rules enforce a two-tier promotion ladder: the{' '}
+                <strong className="font-mono">BD_AGENT</strong> promotes a{' '}
+                <strong className="font-mono">USER</strong> to{' '}
+                <strong className="font-mono">SUPER_AGENT</strong> or{' '}
+                <strong className="font-mono">AGENT</strong>, and a{' '}
+                <strong className="font-mono">SUPER_AGENT</strong> promotes a{' '}
+                <strong className="font-mono">USER</strong> to{' '}
+                <strong className="font-mono">AGENT</strong> only. Admin accounts handle safety
+                moderation only.
               </div>
             )}
 
@@ -131,15 +146,35 @@ export const AdminRolesView: React.FC<AdminRolesViewProps> = ({
                 aria-label="User ID to promote"
                 className="w-full h-11 px-4 rounded-xl bg-[#0B0D14] border border-white/[0.08] focus:border-violet-500/60 focus:outline-none text-sm text-white placeholder:text-slate-500 font-mono transition-colors"
               />
-              <button
-                type="button"
-                disabled={!isSuperAgent || isOffline}
-                onClick={handlePromoteById}
-                className="w-full px-4 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:bg-white/[0.06] disabled:text-slate-500 disabled:cursor-not-allowed text-sm font-medium text-white inline-flex items-center justify-center gap-1.5 transition-colors"
-              >
-                <ArrowUpRight className="w-4 h-4" />
-                <span>Promote to Agent</span>
-              </button>
+              <div className={`grid gap-2.5 ${isBdAgent ? 'sm:grid-cols-2' : 'grid-cols-1'}`}>
+                <button
+                  type="button"
+                  disabled={!isSuperAgent || isOffline}
+                  onClick={() => handlePromoteById('AGENT')}
+                  className="w-full px-4 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:bg-white/[0.06] disabled:text-slate-500 disabled:cursor-not-allowed text-sm font-medium text-white inline-flex items-center justify-center gap-1.5 transition-colors"
+                >
+                  <ArrowUpRight className="w-4 h-4" />
+                  <span>Promote to Agent</span>
+                </button>
+                {isBdAgent && (
+                  <button
+                    type="button"
+                    disabled={isOffline}
+                    onClick={() => handlePromoteById('SUPER_AGENT')}
+                    className="w-full px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 disabled:opacity-45 disabled:cursor-not-allowed text-sm font-semibold text-[#1A1206] inline-flex items-center justify-center gap-1.5 transition-all active:scale-[0.99]"
+                  >
+                    <ArrowUpRight className="w-4 h-4" />
+                    <span>Promote to Super Agent</span>
+                  </button>
+                )}
+              </div>
+              {isSuperAgent && (
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  {isBdAgent
+                    ? 'BD Agent can promote a USER to Super Agent or Agent. Super Agent promotions are recorded in the immutable audit trail below.'
+                    : 'Super Agent can promote a USER to Agent only. Only the BD Agent can create new Super Agents.'}
+                </p>
+              )}
               {promoteMsg && (
                 <p
                   className={`text-xs ${
@@ -168,7 +203,7 @@ export const AdminRolesView: React.FC<AdminRolesViewProps> = ({
                     <thead>
                       <tr className="border-b border-white/[0.08] text-[11px] font-medium text-slate-400">
                         <th className="py-3 px-4">Timestamp</th>
-                        <th className="py-3 px-4">BD Agent Actor</th>
+                        <th className="py-3 px-4">Promoted By</th>
                         <th className="py-3 px-4">Target Account</th>
                         <th className="py-3 px-4">Transition</th>
                       </tr>

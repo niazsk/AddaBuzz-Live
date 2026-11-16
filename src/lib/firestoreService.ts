@@ -73,6 +73,14 @@ export const ADMIN_PLATFORM_ID = '111111';
 export const SUPER_AGENT_PLATFORM_ID = '111112';
 export const USER_PLATFORM_ID_START = 112201;
 
+// The BD Agent is the single provisioned SUPER_AGENT account; promoted super agents keep the standard role.
+export function isBdAgentProfile(user: UserProfile | null | undefined): boolean {
+  return (
+    user?.accountType === 'SUPER_AGENT' &&
+    user.platformId === SUPER_AGENT_PLATFORM_ID
+  );
+}
+
 async function nextUserPlatformId(): Promise<string> {
   const ref = doc(db, 'counters', 'platformIds');
   return runTransaction(db, async (tx) => {
@@ -1329,15 +1337,16 @@ export function subscribePromotions(
   );
 }
 
-export async function promoteUserToAgentDoc(
+export async function promoteUserDoc(
   actor: UserProfile,
-  target: UserProfile
+  target: UserProfile,
+  afterType: 'AGENT' | 'SUPER_AGENT'
 ): Promise<void> {
   const promoId = `promo_${Date.now()}_${target.uid.slice(0, 8)}`;
   const batch = writeBatch(db);
 
   batch.update(doc(db, 'users', target.uid), {
-    accountType: 'AGENT',
+    accountType: afterType,
     updatedAt: serverTimestamp(),
   });
 
@@ -1348,7 +1357,7 @@ export async function promoteUserToAgentDoc(
     targetUid: target.uid,
     targetUsername: clampStr(target.username, 32),
     beforeType: 'USER',
-    afterType: 'AGENT',
+    afterType,
     createdAt: serverTimestamp(),
   });
 

@@ -27,6 +27,7 @@ import {
 import { AppSection, GenderOption, UserProfile } from '../../types/app';
 import { Avatar } from '../ui/Avatar';
 import { ProfileImageKind, uploadProfileImage } from '../../lib/profileImages';
+import { isBdAgentProfile } from '../../lib/firestoreService';
 import { COUNTRIES } from '../../data/countries';
 
 interface ProfileViewProps {
@@ -148,9 +149,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const isAgentUser =
     currentUser.accountType === 'AGENT' ||
     currentUser.accountType === 'SUPER_AGENT';
-  const isBdAgent = currentUser.accountType === 'SUPER_AGENT';
+  const isBdAgent = isBdAgentProfile(currentUser);
   const roleLabel = isBdAgent
     ? 'BD Agent'
+    : currentUser.accountType === 'SUPER_AGENT'
+    ? 'Super Agent'
     : currentUser.accountType === 'AGENT'
     ? 'Agent'
     : 'User';

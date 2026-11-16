@@ -1,6 +1,7 @@
 import React from 'react';
 import { UserProfile } from '../../types/app';
 import { Avatar } from '../ui/Avatar';
+import { isBdAgentProfile } from '../../lib/firestoreService';
 
 interface StreamerCardProps {
   user: UserProfile;
@@ -60,7 +61,9 @@ export const StreamerCard: React.FC<StreamerCardProps> = ({
         </span>
         <span>
           {user.accountType === 'SUPER_AGENT'
-            ? 'BD Agent'
+            ? isBdAgentProfile(user)
+              ? 'BD Agent'
+              : 'Super Agent'
             : user.accountType === 'AGENT'
             ? 'Agent Host'
             : 'Creator'}
