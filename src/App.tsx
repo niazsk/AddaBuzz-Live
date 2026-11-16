@@ -1085,6 +1085,7 @@ export default function App() {
               allUsers={users}
               followingUids={followingUids}
               blockedUids={blockedUids}
+              isAdminUser={isAdminUser}
               coinBalance={coinBalance}
               diamondBalance={diamondBalance}
               onUpdateProfile={async (updates) => {

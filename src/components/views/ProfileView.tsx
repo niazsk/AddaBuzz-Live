@@ -33,6 +33,7 @@ interface ProfileViewProps {
   allUsers: UserProfile[];
   followingUids: string[];
   blockedUids: string[];
+  isAdminUser: boolean;
   coinBalance: number;
   diamondBalance: number;
   onUpdateProfile: (updates: {
@@ -82,6 +83,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   allUsers,
   followingUids,
   blockedUids,
+  isAdminUser,
   coinBalance,
   diamondBalance,
   onUpdateProfile,
@@ -393,7 +395,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       </section>
 
       {/* Agent management */}
-      {isAgentUser && (
+      {(isAgentUser || isAdminUser) && (
         <section className="rounded-3xl bg-[#111420] border border-white/[0.08] p-4 sm:p-5 space-y-3">
           <h2 className="font-display text-sm font-semibold text-white px-1">
             Agent Management
