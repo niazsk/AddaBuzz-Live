@@ -4,6 +4,7 @@ import {
   ShieldAlert,
   ShieldCheck,
   CheckCircle2,
+  X,
 } from 'lucide-react';
 import {
   AccountPromotionRecord,
@@ -21,6 +22,7 @@ interface AdminRolesViewProps {
   onPromoteUserToAgent: (target: UserProfile) => void;
   onResolveReport: (reportId: string) => void;
   onOpenAuth: () => void;
+  onClose: () => void;
   isOffline: boolean;
 }
 
@@ -33,6 +35,7 @@ export const AdminRolesView: React.FC<AdminRolesViewProps> = ({
   onPromoteUserToAgent,
   onResolveReport,
   onOpenAuth,
+  onClose,
   isOffline,
 }) => {
   const isSuperAgent = currentUser?.accountType === 'SUPER_AGENT';
@@ -49,6 +52,14 @@ export const AdminRolesView: React.FC<AdminRolesViewProps> = ({
             Firestore-enforced RBAC: User ID, Agent ID, and Super Agent-only User-to-Agent promotion.
           </p>
         </div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close Roles & Safety"
+          className="self-start sm:self-auto w-9 h-9 rounded-full bg-white/[0.08] hover:bg-white/[0.15] border border-white/10 flex items-center justify-center text-white transition-colors shrink-0"
+        >
+          <X className="w-4 h-4" />
+        </button>
       </div>
 
       {/* Role Hierarchy Summary */}

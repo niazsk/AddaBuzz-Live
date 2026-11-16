@@ -112,6 +112,7 @@ export default function App() {
   const [blockedUids, setBlockedUids] = useState<string[]>([]);
   const visitedProfilesRef = useRef<Set<string>>(new Set());
   const walletReturnRef = useRef<AppSection>('profile');
+  const adminReturnRef = useRef<AppSection>('profile');
   const [coinBalance, setCoinBalance] = useState<number>(0);
   const [diamondBalance, setDiamondBalance] = useState<number>(0);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
@@ -334,9 +335,17 @@ export default function App() {
   };
 
   const handleSelectSection = (section: AppSection) => {
-    if (section === 'wallet') handleToggleWallet();
-    else setActiveSection(section);
+    if (section === 'wallet') {
+      handleToggleWallet();
+    } else if (section === 'admin') {
+      if (activeSection !== 'admin') adminReturnRef.current = activeSection;
+      setActiveSection('admin');
+    } else {
+      setActiveSection(section);
+    }
   };
+
+  const handleCloseAdmin = () => setActiveSection(adminReturnRef.current);
 
   // 4. Active Live Room details subscription (seats, join requests, messages) + viewer count
   useEffect(() => {
@@ -1127,7 +1136,7 @@ export default function App() {
                 pushToast('Profile saved to Firestore', undefined, 'success');
               }}
               onUnblockUser={handleToggleBlock}
-              onOpenSection={setActiveSection}
+              onOpenSection={handleSelectSection}
               onOpenAuth={() => setActiveSection('signin')}
               onSignOut={async () => {
                 await signOutFirebase();
@@ -1149,6 +1158,7 @@ export default function App() {
                 pushToast('Report marked resolved', undefined, 'success');
               }}
               onOpenAuth={() => setActiveSection('signin')}
+              onClose={handleCloseAdmin}
               isOffline={isOffline}
             />
           )}
