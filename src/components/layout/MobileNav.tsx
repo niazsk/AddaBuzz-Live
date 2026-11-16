@@ -22,6 +22,7 @@ interface MobileNavProps {
   unreadMessagesCount: number;
   isOfflineSimulated: boolean;
   isSignedIn?: boolean;
+  hideWallet?: boolean;
 }
 
 export const MobileTopBar: React.FC<MobileNavProps> = ({
@@ -31,6 +32,7 @@ export const MobileTopBar: React.FC<MobileNavProps> = ({
   onOpenNotifications,
   unreadNotificationsCount,
   isSignedIn = false,
+  hideWallet = false,
 }) => {
   return (
     <header className="lg:hidden sticky top-0 z-30 h-13 px-4 flex items-center justify-between bg-[#08090E]/90 backdrop-blur-md border-b border-white/[0.07]">
@@ -46,16 +48,18 @@ export const MobileTopBar: React.FC<MobileNavProps> = ({
             Sign In
           </button>
         )}
-        <button
-          type="button"
-          onClick={onToggleWallet}
-          aria-label={activeSection === 'wallet' ? 'Close Wallet' : 'Open Wallet'}
-          className={`min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl hover:bg-white/[0.05] ${
-            activeSection === 'wallet' ? 'text-sky-400' : 'text-slate-300 hover:text-white'
-          }`}
-        >
-          <Wallet className="w-5 h-5" />
-        </button>
+        {!hideWallet && (
+          <button
+            type="button"
+            onClick={onToggleWallet}
+            aria-label={activeSection === 'wallet' ? 'Close Wallet' : 'Open Wallet'}
+            className={`min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl hover:bg-white/[0.05] ${
+              activeSection === 'wallet' ? 'text-sky-400' : 'text-slate-300 hover:text-white'
+            }`}
+          >
+            <Wallet className="w-5 h-5" />
+          </button>
+        )}
         <button
           type="button"
           onClick={onOpenNotifications}
@@ -140,7 +144,8 @@ export const MobileBottomBar: React.FC<Omit<MobileNavProps, 'onToggleWallet'>> =
         type="button"
         onClick={() => onSelectSection('profile')}
         className={`min-h-[44px] flex flex-col items-center justify-center gap-0.5 text-[11px] font-medium transition-colors ${
-          activeSection === 'profile' || activeSection === 'admin' || activeSection === 'wallet'
+          activeSection === 'profile' || activeSection === 'admin' || activeSection === 'wallet' ||
+          activeSection === 'coins-trading' || activeSection === 'super-agent-list' || activeSection === 'agent-list'
             ? 'text-sky-400'
             : 'text-slate-400'
         }`}

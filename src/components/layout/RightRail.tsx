@@ -10,6 +10,7 @@ interface RightRailProps {
   onOpenUserProfile: (user: UserProfile) => void;
   onStartDirectMessage: (user: UserProfile) => void;
   onOpenWallet: () => void;
+  hideWallet?: boolean;
 }
 
 export const RightRail: React.FC<RightRailProps> = ({
@@ -19,6 +20,7 @@ export const RightRail: React.FC<RightRailProps> = ({
   onOpenUserProfile,
   onStartDirectMessage,
   onOpenWallet,
+  hideWallet = false,
 }) => {
   const onlineFriends = users.filter((u) => u.isOnline && u.showPresence).slice(0, 4);
   const recentlyActive = users.filter((u) => !u.isOnline || u.isNewCreator).slice(0, 4);
@@ -26,6 +28,7 @@ export const RightRail: React.FC<RightRailProps> = ({
   return (
     <aside className="hidden xl:flex xl:flex-col xl:w-[300px] xl:shrink-0 xl:sticky xl:top-0 xl:h-screen border-l border-white/[0.07] bg-[#0A0C13] px-5 py-6 space-y-7 overflow-y-auto">
       {/* Wallet Snapshot — Strictly Coins & Diamonds, NO top-up or purchase UI */}
+      {!hideWallet && (
       <section aria-label="Wallet balances">
         <div className="flex items-center justify-between mb-3">
           <h2 className="font-display text-sm font-semibold text-white">Virtual Balances</h2>
@@ -72,6 +75,7 @@ export const RightRail: React.FC<RightRailProps> = ({
           Earned through community rewards & gifts. No top-up or purchase flow.
         </p>
       </section>
+      )}
 
       {/* Online Friends */}
       <section aria-label="Online friends">

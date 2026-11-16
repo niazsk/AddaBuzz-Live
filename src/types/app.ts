@@ -25,6 +25,8 @@ export type AppSection =
   | 'messages'
   | 'wallet'
   | 'coins-trading'
+  | 'super-agent-list'
+  | 'agent-list'
   | 'profile'
   | 'admin'
   | 'signin';

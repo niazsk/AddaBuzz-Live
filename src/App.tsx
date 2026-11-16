@@ -72,6 +72,7 @@ import { FollowingView } from './components/views/FollowingView';
 import { LiveRoomView } from './components/views/LiveRoomView';
 import { WalletView } from './components/views/WalletView';
 import { CoinsTradingView } from './components/views/CoinsTradingView';
+import { AgentDirectoryView } from './components/views/AgentDirectoryView';
 import { MessagesView } from './components/views/MessagesView';
 import { ProfileView } from './components/views/ProfileView';
 import { AdminRolesView } from './components/views/AdminRolesView';
@@ -164,6 +165,7 @@ export default function App() {
   const isAdminUser = Boolean(
     isEmailVerified && isAdminBootstrapEmail(firebaseUser?.email)
   );
+  const isBdAgent = currentUser?.accountType === 'SUPER_AGENT';
   const needsEmailVerification = Boolean(firebaseUser && !isEmailVerified);
 
   // Connectivity listeners
@@ -328,6 +330,7 @@ export default function App() {
   }, [inspectedUser?.uid, firebaseUser?.uid]);
 
   const handleToggleWallet = () => {
+    if (isBdAgent) return;
     if (activeSection === 'wallet') {
       setActiveSection(walletReturnRef.current);
     } else {
@@ -1064,6 +1067,7 @@ export default function App() {
         unreadMessagesCount={unreadMessagesCount}
         isOfflineSimulated={isOffline}
         isSignedIn={Boolean(currentUser)}
+        hideWallet={isBdAgent}
       />
 
       <div className="flex-1 flex max-w-[1600px] w-full mx-auto">
@@ -1081,6 +1085,7 @@ export default function App() {
           currentUser={currentUser}
           unreadMessagesCount={unreadMessagesCount}
           isOffline={isOffline}
+          hideWallet={isBdAgent}
         />
 
         <main className="flex-1 min-w-0 px-4 sm:px-6 lg:px-8 pt-6 pb-24 lg:pb-10">
@@ -1149,6 +1154,24 @@ export default function App() {
               isAdminUser={isAdminUser}
               users={users}
               onTransferCoins={handleTransferCoins}
+              onBack={() => setActiveSection('profile')}
+            />
+          )}
+
+          {activeSection === 'super-agent-list' && (
+            <AgentDirectoryView
+              kind="SUPER_AGENT"
+              users={users}
+              onOpenUserProfile={(u) => setInspectedUser(u)}
+              onBack={() => setActiveSection('profile')}
+            />
+          )}
+
+          {activeSection === 'agent-list' && (
+            <AgentDirectoryView
+              kind="AGENT"
+              users={users}
+              onOpenUserProfile={(u) => setInspectedUser(u)}
               onBack={() => setActiveSection('profile')}
             />
           )}
@@ -1244,6 +1267,7 @@ export default function App() {
           onOpenUserProfile={(u) => setInspectedUser(u)}
           onStartDirectMessage={handleStartDirectMessage}
           onOpenWallet={handleToggleWallet}
+          hideWallet={isBdAgent}
         />
       </div>
 

@@ -80,6 +80,14 @@ const AGENT_TILES: Tile[] = [
   { id: 'agent-ranking', label: 'Agent Ranking', icon: TrendingUp, wide: true },
 ];
 
+const BD_AGENT_TILES: Tile[] = [
+  { id: 'super-agent-list', label: 'Super Agent List', icon: BadgeCheck },
+  { id: 'agent-list', label: 'Agent List', icon: Users },
+  { id: 'invite-agent', label: 'Invite Agent', icon: UserPlus },
+  { id: 'coins-trading', label: 'Coins Trading', icon: Coins },
+  { id: 'agent-rewards', label: 'Agent Rewards', icon: Wallet, wide: true },
+];
+
 export const ProfileView: React.FC<ProfileViewProps> = ({
   currentUser,
   allUsers,
@@ -204,11 +212,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       <button
         key={tile.id}
         type="button"
-        onClick={() =>
-          tile.id === 'coins-trading'
-            ? onOpenSection('coins-trading')
-            : setComingSoon(tile.label)
-        }
+        onClick={() => {
+          if (tile.id === 'coins-trading') onOpenSection('coins-trading');
+          else if (tile.id === 'super-agent-list') onOpenSection('super-agent-list');
+          else if (tile.id === 'agent-list') onOpenSection('agent-list');
+          else setComingSoon(tile.label);
+        }}
         className={`group rounded-2xl bg-white/[0.04] border border-white/[0.06] hover:bg-white/[0.08] hover:border-violet-500/40 p-3.5 flex flex-col items-center gap-2 transition-colors ${
           tile.wide ? 'col-span-2' : ''
         }`}
@@ -395,7 +404,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           <h2 className="font-display text-sm font-semibold text-white px-1">
             Agent Management
           </h2>
-          <div className="grid grid-cols-4 gap-2.5">{AGENT_TILES.map(renderTile)}</div>
+          <div className="grid grid-cols-4 gap-2.5">
+            {(isBdAgent ? BD_AGENT_TILES : AGENT_TILES).map(renderTile)}
+          </div>
         </section>
       )}
 
