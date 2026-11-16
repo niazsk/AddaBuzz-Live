@@ -34,6 +34,7 @@ interface ProfileViewProps {
   followingUids: string[];
   blockedUids: string[];
   isAdminUser: boolean;
+  friendsCount: number;
   coinBalance: number;
   diamondBalance: number;
   onUpdateProfile: (updates: {
@@ -84,6 +85,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   followingUids,
   blockedUids,
   isAdminUser,
+  friendsCount,
   coinBalance,
   diamondBalance,
   onUpdateProfile,
@@ -302,7 +304,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             <p className="text-sm text-slate-300 mt-3 leading-relaxed">{currentUser.bio}</p>
           )}
 
-          <div className="mt-5 grid grid-cols-3 divide-x divide-white/[0.07] rounded-2xl bg-white/[0.04] border border-white/[0.06] py-3 text-center">
+          <div className="mt-5 grid grid-cols-4 divide-x divide-white/[0.07] rounded-2xl bg-white/[0.04] border border-white/[0.06] py-3 text-center">
             <div>
               <p className="font-mono text-lg font-bold text-white tabular-nums">
                 {currentUser.followersCount.toLocaleString()}
@@ -317,9 +319,30 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             </div>
             <div>
               <p className="font-mono text-lg font-bold text-white tabular-nums">
+                {friendsCount.toLocaleString()}
+              </p>
+              <p className="text-[11px] text-slate-400">Friends</p>
+            </div>
+            <div>
+              <p className="font-mono text-lg font-bold text-white tabular-nums">
+                {currentUser.visitorsCount.toLocaleString()}
+              </p>
+              <p className="text-[11px] text-slate-400">Visitor</p>
+            </div>
+          </div>
+
+          <div className="mt-2.5 grid grid-cols-2 divide-x divide-white/[0.07] rounded-2xl bg-white/[0.04] border border-white/[0.06] py-3 text-center">
+            <div>
+              <p className="font-mono text-lg font-bold text-amber-300 tabular-nums">
                 {coinBalance.toLocaleString()}
               </p>
               <p className="text-[11px] text-slate-400">Coins</p>
+            </div>
+            <div>
+              <p className="font-mono text-lg font-bold text-sky-300 tabular-nums">
+                {diamondBalance.toLocaleString()}
+              </p>
+              <p className="text-[11px] text-slate-400">Diamonds</p>
             </div>
           </div>
         </div>

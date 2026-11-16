@@ -81,7 +81,7 @@ service cloud.firestore {
           'uid', 'platformId', 'username', 'displayName', 'bio', 'country',
           'gender', 'accountType', 'avatarColor', 'coverGradient',
           'avatarUrl', 'coverUrl',
-          'followersCount', 'followingCount', 'isOnline', 'showPresence',
+          'followersCount', 'followingCount', 'visitorsCount', 'isOnline', 'showPresence',
           'lastActiveLabel', 'isNewCreator', 'isSuspended', 'createdAt', 'updatedAt'
         ]) &&
         data.uid == uid &&
@@ -99,6 +99,7 @@ service cloud.firestore {
         (!('coverUrl' in data) || (data.coverUrl is string && data.coverUrl.size() <= 2048)) &&
         data.followersCount is int && data.followersCount >= 0 &&
         data.followingCount is int && data.followingCount >= 0 &&
+        (!('visitorsCount' in data) || (data.visitorsCount is int && data.visitorsCount >= 0)) &&
         data.isOnline is bool &&
         data.showPresence is bool &&
         (!('lastActiveLabel' in data) || (data.lastActiveLabel is string && data.lastActiveLabel.size() <= 48)) &&
@@ -350,6 +351,11 @@ service cloud.firestore {
           (
             incoming().diff(existing()).affectedKeys().hasOnly(['followersCount', 'updatedAt']) &&
             (incoming().followersCount == existing().followersCount + 1 || incoming().followersCount == existing().followersCount - 1)
+          ) ||
+          (
+            isSignedIn() &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['visitorsCount', 'updatedAt']) &&
+            incoming().visitorsCount == existing().get('visitorsCount', 0) + 1
           )
         );
     }

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { WifiOff, RefreshCw, Loader2 } from 'lucide-react';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import {
@@ -50,6 +50,8 @@ import {
   subscribeConversationMessages,
   subscribeConversationsList,
   subscribeFollowsAndBlocks,
+  subscribeFollowerUids,
+  incrementProfileVisitors,
   subscribeLiveRooms,
   subscribePromotions,
   subscribePublicUsers,
@@ -106,7 +108,9 @@ export default function App() {
 
   // User-scoped Firestore State
   const [followingUids, setFollowingUids] = useState<string[]>([]);
+  const [followerUids, setFollowerUids] = useState<string[]>([]);
   const [blockedUids, setBlockedUids] = useState<string[]>([]);
+  const visitedProfilesRef = useRef<Set<string>>(new Set());
   const [coinBalance, setCoinBalance] = useState<number>(0);
   const [diamondBalance, setDiamondBalance] = useState<number>(0);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
@@ -279,6 +283,8 @@ export default function App() {
       (b) => setBlockedUids(b)
     );
 
+    const unsubFollowers = subscribeFollowerUids(currentUser.uid, setFollowerUids);
+
     const unsubConvs = subscribeConversationsList(currentUser.uid, (convs) => {
       setConversations(convs);
       if (convs.length > 0 && !activeConversationId) {
@@ -301,11 +307,21 @@ export default function App() {
     return () => {
       unsubWallet();
       unsubSocial();
+      unsubFollowers();
       unsubConvs();
       unsubPromos();
       unsubReports();
     };
   }, [authReady, firebaseUser?.uid, currentUser?.uid, currentUser?.accountType, isAdminUser]);
+
+  useEffect(() => {
+    const target = inspectedUser;
+    const me = firebaseUser;
+    if (!target || !me || target.uid === me.uid) return;
+    if (visitedProfilesRef.current.has(target.uid)) return;
+    visitedProfilesRef.current.add(target.uid);
+    incrementProfileVisitors(target.uid).catch(() => undefined);
+  }, [inspectedUser?.uid, firebaseUser?.uid]);
 
   // 4. Active Live Room details subscription (seats, join requests, messages) + viewer count
   useEffect(() => {
@@ -1086,6 +1102,7 @@ export default function App() {
               followingUids={followingUids}
               blockedUids={blockedUids}
               isAdminUser={isAdminUser}
+              friendsCount={followingUids.filter((uid) => followerUids.includes(uid)).length}
               coinBalance={coinBalance}
               diamondBalance={diamondBalance}
               onUpdateProfile={async (updates) => {

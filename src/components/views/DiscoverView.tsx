@@ -58,6 +58,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
       coverGradient: 'linear-gradient(135deg, #2E1065 0%, #1E3A8A 100%)',
       followersCount: 0,
       followingCount: 0,
+      visitorsCount: 0,
       isOnline: true,
       showPresence: true,
       lastActiveLabel: 'Live now',

@@ -43,6 +43,7 @@ export interface UserProfile {
   coverUrl?: string;
   followersCount: number;
   followingCount: number;
+  visitorsCount: number;
   isOnline: boolean;
   showPresence: boolean;
   lastActiveLabel: string;

@@ -177,6 +177,7 @@ export async function fetchUserProfile(uid: string): Promise<UserProfile | null>
       coverUrl: d.coverUrl ? String(d.coverUrl) : undefined,
       followersCount: Number(d.followersCount ?? 0),
       followingCount: Number(d.followingCount ?? 0),
+      visitorsCount: Number(d.visitorsCount ?? 0),
       isOnline: Boolean(d.isOnline ?? true),
       showPresence: Boolean(d.showPresence ?? true),
       lastActiveLabel: String(d.lastActiveLabel ?? 'Online'),
@@ -262,6 +263,7 @@ export async function completeUserOnboarding(
     coverGradient: 'linear-gradient(135deg, #3B0764 0%, #1E3A8A 60%, #09090E 100%)',
     followersCount: 0,
     followingCount: 0,
+    visitorsCount: 0,
     isOnline: true,
     showPresence: true,
     lastActiveLabel: 'Online',
@@ -345,6 +347,24 @@ export async function updateOwnProfile(
   }
 }
 
+export function subscribeFollowerUids(
+  uid: string,
+  onUids: (uids: string[]) => void
+): Unsubscribe {
+  return onSnapshot(
+    query(collection(db, 'follows'), where('targetUid', '==', uid), limit(100)),
+    (snap) => onUids(snap.docs.map((d) => String(d.data().followerUid))),
+    (error) => handleFirestoreError(error, OperationType.LIST, 'follows')
+  );
+}
+
+export async function incrementProfileVisitors(uid: string): Promise<void> {
+  await updateDoc(doc(db, 'users', uid), {
+    visitorsCount: increment(1),
+    updatedAt: serverTimestamp(),
+  });
+}
+
 export function subscribePublicUsers(
   onData: (users: UserProfile[]) => void,
   onError?: (err: Error) => void
@@ -376,6 +396,7 @@ export function subscribePublicUsers(
           coverUrl: d.coverUrl ? String(d.coverUrl) : undefined,
           followersCount: Number(d.followersCount ?? 0),
           followingCount: Number(d.followingCount ?? 0),
+          visitorsCount: Number(d.visitorsCount ?? 0),
           isOnline: Boolean(d.isOnline ?? false),
           showPresence: Boolean(d.showPresence ?? true),
           lastActiveLabel: String(d.lastActiveLabel ?? 'Active'),
