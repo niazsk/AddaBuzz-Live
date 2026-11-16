@@ -328,7 +328,7 @@ export const SignInView: React.FC<SignInViewProps> = ({
                       {isAdminBootstrapEmail(userEmail)
                         ? 'Admin'
                         : isSuperAgentBootstrapEmail(userEmail)
-                        ? 'SUPER_AGENT'
+                        ? 'BD_AGENT'
                         : 'USER'}
                     </span>{' '}
                     profile.
@@ -410,7 +410,7 @@ export const SignInView: React.FC<SignInViewProps> = ({
                     {isSuperAgentBootstrapEmail(userEmail) && (
                       <span className="text-violet-300 font-medium">
                         {' '}
-                        This account will be provisioned as Super Agent.
+                        This account will be provisioned as BD Agent.
                       </span>
                     )}
                   </p>

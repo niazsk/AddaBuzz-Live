@@ -140,12 +140,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const isAgentUser =
     currentUser.accountType === 'AGENT' ||
     currentUser.accountType === 'SUPER_AGENT';
-  const roleLabel =
-    currentUser.accountType === 'SUPER_AGENT'
-      ? 'Super Agent'
-      : currentUser.accountType === 'AGENT'
-      ? 'Agent'
-      : 'User';
+  const isBdAgent = currentUser.accountType === 'SUPER_AGENT';
+  const roleLabel = isBdAgent
+    ? 'BD Agent'
+    : currentUser.accountType === 'AGENT'
+    ? 'Agent'
+    : 'User';
 
   const startEditing = () => {
     setDisplayName(currentUser.displayName);
@@ -305,6 +305,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             <p className="text-sm text-slate-300 mt-3 leading-relaxed">{currentUser.bio}</p>
           )}
 
+          {!isBdAgent && (
+            <>
           <div className="mt-5 grid grid-cols-4 divide-x divide-white/[0.07] rounded-2xl bg-white/[0.04] border border-white/[0.06] py-3 text-center">
             <div>
               <p className="font-mono text-lg font-bold text-white tabular-nums">
@@ -346,6 +348,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               <p className="text-[11px] text-slate-400">Diamonds</p>
             </div>
           </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -370,14 +374,16 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       )}
 
       {/* Feature grid */}
-      <section className="rounded-3xl bg-[#111420] border border-white/[0.08] p-4 sm:p-5 space-y-3">
-        <div className="grid grid-cols-4 gap-2.5">{FEATURE_TILES.map(renderTile)}</div>
-        {comingSoon && (
-          <p className="rounded-xl bg-violet-500/10 border border-violet-500/30 px-4 py-2 text-xs text-violet-200 text-center">
-            {comingSoon} — coming soon
-          </p>
-        )}
-      </section>
+      {!isBdAgent && (
+        <section className="rounded-3xl bg-[#111420] border border-white/[0.08] p-4 sm:p-5 space-y-3">
+          <div className="grid grid-cols-4 gap-2.5">{FEATURE_TILES.map(renderTile)}</div>
+          {comingSoon && (
+            <p className="rounded-xl bg-violet-500/10 border border-violet-500/30 px-4 py-2 text-xs text-violet-200 text-center">
+              {comingSoon} — coming soon
+            </p>
+          )}
+        </section>
+      )}
 
       {/* Agent management */}
       {(isAgentUser || isAdminUser) && (

@@ -143,7 +143,7 @@ export const RightRail: React.FC<RightRailProps> = ({
               </div>
               <span className="text-[11px] font-mono text-slate-400 shrink-0">
                 {user.accountType === 'SUPER_AGENT'
-                  ? 'SUPER'
+                  ? 'BD AGENT'
                   : user.accountType === 'AGENT'
                   ? 'AGENT'
                   : 'USER'}

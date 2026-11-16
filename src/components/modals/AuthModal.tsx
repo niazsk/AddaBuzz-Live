@@ -321,7 +321,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   {isSuperAgentBootstrapEmail(userEmail) && (
                     <span className="text-violet-300 font-medium">
                       {' '}
-                      Super Agent role will be assigned automatically.
+                      BD Agent role will be assigned automatically.
                     </span>
                   )}
                 </p>

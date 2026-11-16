@@ -70,7 +70,7 @@ export function isSuperAgentBootstrapEmail(email?: string | null): boolean {
 }
 
 export const ADMIN_PLATFORM_ID = '111111';
-export const SUPER_AGENT_PLATFORM_ID = '112200';
+export const SUPER_AGENT_PLATFORM_ID = '111112';
 export const USER_PLATFORM_ID_START = 112201;
 
 async function nextUserPlatformId(): Promise<string> {

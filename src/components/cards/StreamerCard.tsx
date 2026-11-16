@@ -60,7 +60,7 @@ export const StreamerCard: React.FC<StreamerCardProps> = ({
         </span>
         <span>
           {user.accountType === 'SUPER_AGENT'
-            ? 'Super Agent'
+            ? 'BD Agent'
             : user.accountType === 'AGENT'
             ? 'Agent Host'
             : 'Creator'}

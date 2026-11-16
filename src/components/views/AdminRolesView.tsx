@@ -112,7 +112,7 @@ export const AdminRolesView: React.FC<AdminRolesViewProps> = ({
             {!isSuperAgent && (
               <div className="rounded-xl bg-amber-500/10 border border-amber-500/25 px-4 py-3 text-xs text-amber-200">
                 Firestore Security Rules enforce that only a verified{' '}
-                <strong className="font-mono">SUPER_AGENT</strong> can promote a{' '}
+                <strong className="font-mono">BD_AGENT</strong> can promote a{' '}
                 <strong className="font-mono">USER</strong> to <strong className="font-mono">AGENT</strong>.
                 Admin accounts handle safety moderation only.
               </div>
@@ -168,7 +168,7 @@ export const AdminRolesView: React.FC<AdminRolesViewProps> = ({
                     <thead>
                       <tr className="border-b border-white/[0.08] text-[11px] font-medium text-slate-400">
                         <th className="py-3 px-4">Timestamp</th>
-                        <th className="py-3 px-4">Super Agent Actor</th>
+                        <th className="py-3 px-4">BD Agent Actor</th>
                         <th className="py-3 px-4">Target Account</th>
                         <th className="py-3 px-4">Transition</th>
                       </tr>

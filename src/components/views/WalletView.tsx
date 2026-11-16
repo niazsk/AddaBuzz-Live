@@ -121,7 +121,7 @@ export const WalletView: React.FC<WalletViewProps> = ({
               <span>Transfer Coins</span>
             </h2>
             <span className="text-xs text-slate-400">
-              {isAdminUser ? 'Admin → Super Agent' : 'Super Agent → anyone'}
+              {isAdminUser ? 'Admin → BD Agent' : 'BD Agent → anyone'}
             </span>
           </div>
           <form onSubmit={handleTransfer} className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-3 items-end">
