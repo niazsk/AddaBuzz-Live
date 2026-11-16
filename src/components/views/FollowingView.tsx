@@ -54,7 +54,7 @@ export const FollowingView: React.FC<FollowingViewProps> = ({
             Your Following feed is empty
           </p>
           <p className="text-sm text-slate-400 max-w-md mx-auto">
-            Follow hosts in Discover to see their live broadcasts, multi-guest rooms, and creator updates here.
+            Follow hosts in Home to see their live broadcasts, multi-guest rooms, and creator updates here.
           </p>
           <button
             type="button"

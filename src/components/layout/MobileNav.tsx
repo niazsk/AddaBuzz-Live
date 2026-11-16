@@ -94,7 +94,7 @@ export const MobileBottomBar: React.FC<Omit<MobileNavProps, 'onToggleWallet'>> =
         }`}
       >
         <Compass className="w-5 h-5" />
-        <span>Discover</span>
+        <span>Home</span>
       </button>
 
       <button

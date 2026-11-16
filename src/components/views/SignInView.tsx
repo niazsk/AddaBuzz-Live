@@ -229,7 +229,7 @@ export const SignInView: React.FC<SignInViewProps> = ({
             className="inline-flex items-center gap-2 text-xs font-medium text-slate-300 hover:text-white bg-white/[0.05] hover:bg-white/[0.1] px-3.5 py-2 rounded-xl transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Back to Discover</span>
+            <span>Back to Home</span>
           </button>
         </div>
       )}

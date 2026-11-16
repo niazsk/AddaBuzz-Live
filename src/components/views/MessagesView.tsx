@@ -107,7 +107,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
         <div className="md:col-span-4 border-b md:border-b-0 md:border-r border-white/[0.08] divide-y divide-white/[0.06]">
           {conversations.length === 0 ? (
             <div className="p-6 text-xs text-slate-400 leading-relaxed">
-              No conversations yet. Open any creator profile from Discover or Online Friends to start messaging.
+              No conversations yet. Open any creator profile from Home or Online Friends to start messaging.
             </div>
           ) : (
             conversations.map((conv) => {

@@ -107,7 +107,7 @@ fun AddaBuzzAndroidApp(repo: AddaBuzzRepository) {
                         selected = selectedTab == 0,
                         onClick = { selectedTab = 0 },
                         icon = { Text("Live") },
-                        label = { Text("Discover") }
+                        label = { Text("Home") }
                     )
                     NavigationBarItem(
                         selected = selectedTab == 1,
