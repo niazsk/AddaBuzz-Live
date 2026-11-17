@@ -1098,6 +1098,7 @@ export default function App() {
           unreadMessagesCount={unreadMessagesCount}
           isOffline={isOffline}
           hideWallet={isBdAgent}
+          isAdminUser={isAdminUser && !isBdAgent}
         />
 
         <main className="flex-1 min-w-0 px-4 sm:px-6 lg:px-8 pt-6 pb-24 lg:pb-10">

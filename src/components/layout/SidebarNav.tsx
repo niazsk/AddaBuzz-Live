@@ -25,6 +25,7 @@ interface SidebarNavProps {
   unreadMessagesCount: number;
   isOffline: boolean;
   hideWallet?: boolean;
+  isAdminUser?: boolean;
 }
 
 const NAV_ITEMS: { id: AppSection; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
@@ -46,6 +47,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
   unreadMessagesCount,
   isOffline,
   hideWallet = false,
+  isAdminUser = false,
 }) => {
   return (
     <aside className="hidden lg:flex lg:flex-col lg:w-[248px] lg:shrink-0 lg:sticky lg:top-0 lg:h-screen border-r border-white/[0.07] bg-[#0A0C13] px-4 py-5 justify-between">
@@ -65,7 +67,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
         </button>
 
         <nav className="space-y-1" aria-label="Primary navigation">
-          {NAV_ITEMS.filter((item) => !(hideWallet && item.id === 'wallet')).map((item) => {
+          {NAV_ITEMS.filter((item) => !(hideWallet && item.id === 'wallet') && !(item.id === 'admin' && !isAdminUser)).map((item) => {
             const Icon = item.icon;
             const isActive = activeSection === item.id;
             return (

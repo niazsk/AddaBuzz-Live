@@ -53,7 +53,6 @@ import {
 
 export const ADMIN_BOOTSTRAP_EMAIL = 'niazskapp@gmail.com';
 export const ADMIN_BOOTSTRAP_EMAILS = [
-  'niazskapp@gmail.com',
   'fayselsk@gmail.com',
 ];
 
