@@ -1248,7 +1248,6 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
               </span>
               <div>
                 <h3 className="font-display text-sm font-bold text-white tracking-wide">Gifts</h3>
-                <p className="text-[10px] text-slate-500">Send a gift, light up the room</p>
               </div>
             </div>
             <div className="flex items-center gap-2">

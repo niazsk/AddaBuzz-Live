@@ -704,7 +704,7 @@ export const GiftEffectsOverlay: React.FC<GiftEffectsOverlayProps> = ({ fx, onEx
             </div>
             {luxury ? (
               <div
-                className={`absolute inset-x-0 top-[20%] flex flex-col items-center ${lifeClass}`}
+                className={`absolute inset-x-0 top-[max(140px,26%)] flex flex-col items-center ${lifeClass}`}
                 style={{ perspective: '900px' }}
               >
                 <div className="relative grid place-items-center">
