@@ -84,6 +84,7 @@ export interface RoomComment {
   text: string;
   timestampLabel: string;
   isGiftEvent?: boolean;
+  giftId?: string;
   giftName?: string;
   giftCurrency?: CurrencyType;
   giftAmount?: number;
@@ -110,14 +111,22 @@ export interface LiveRoom {
   comments: RoomComment[];
 }
 
+export type GiftEffectKind =
+  | 'burst'
+  | 'hearts'
+  | 'fireworks'
+  | 'confetti'
+  | 'notes'
+  | 'glow';
+
 export interface GiftCatalogItem {
   giftId: string;
   name: string;
   currency: CurrencyType;
   price: number;
-  description: string;
   accentHex: string;
-  artworkKey: 'rose' | 'crown' | 'wave' | 'starburst' | 'lantern' | 'guitar';
+  imageUrl: string;
+  effect: GiftEffectKind;
 }
 
 export interface WalletTransaction {

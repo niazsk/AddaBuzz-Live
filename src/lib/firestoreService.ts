@@ -587,6 +587,7 @@ export function subscribeRoomDetails(
               text: String(d.text),
               timestampLabel: formatTimestamp(d.createdAt),
               isGiftEvent: Boolean(d.isGiftEvent ?? false),
+              giftId: d.giftId,
               giftName: d.giftName,
               giftCurrency: d.giftCurrency,
               giftAmount: d.giftAmount,
@@ -1001,6 +1002,7 @@ export async function sendVirtualGiftTransaction(
           gift.currency === 'COIN' ? 'Coins' : 'Diamonds'
         })!`,
         isGiftEvent: true,
+        giftId: gift.giftId,
         giftName: gift.name,
         giftCurrency: gift.currency,
         giftAmount: gift.price,

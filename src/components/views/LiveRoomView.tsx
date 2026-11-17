@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Check,
+  Coins,
   Eye,
   Gift,
   Heart,
@@ -13,7 +14,6 @@ import {
   Send,
   Share2,
   ShieldAlert,
-  Sparkles,
   Unlock,
   UserCheck,
   UserMinus,
@@ -47,6 +47,8 @@ import {
 import { Avatar } from '../ui/Avatar';
 import { MediaImage } from '../ui/MediaImage';
 import { GiftArtwork } from '../ui/GiftArtwork';
+import { GiftEffectsOverlay, GiftFx } from '../ui/GiftEffectsOverlay';
+import { GIFT_BY_ID } from '../../data/gifts';
 
 const GuestTileMedia: React.FC<{
   stream: MediaStream;
@@ -92,7 +94,6 @@ interface LiveRoomViewProps {
   isAdminUser: boolean;
   gifts: GiftCatalogItem[];
   coinBalance: number;
-  diamondBalance: number;
   isFollowingHost: boolean;
   isOfflineSimulated: boolean;
   onLeaveRoom: () => void;
@@ -123,7 +124,6 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
   isAdminUser,
   gifts,
   coinBalance,
-  diamondBalance,
   isFollowingHost,
   isOfflineSimulated,
   onLeaveRoom,
@@ -179,31 +179,46 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
   const [chatInput, setChatInput] = useState('');
   const [guestPanelOpen, setGuestPanelOpen] = useState(false);
   const [showGiftTray, setShowGiftTray] = useState(false);
+  const [selectedGiftId, setSelectedGiftId] = useState<string>(gifts[0]?.giftId ?? '');
+  const selectedGift = gifts.find((g) => g.giftId === selectedGiftId) ?? null;
   const [confirmEndOpen, setConfirmEndOpen] = useState(false);
 
-  // Gift celebration overlay tracking
-  const [latestGiftBanner, setLatestGiftBanner] = useState<RoomComment | null>(
-    null
-  );
+  // Gift effect queue — every new gift event in room chat drives an overlay effect
+  const [giftFx, setGiftFx] = useState<GiftFx[]>([]);
   const seenGiftIdRef = useRef<string | null>(null);
+  const comboRef = useRef<{ giftId: string; uid: string; ts: number; count: number } | null>(null);
 
   useEffect(() => {
     const giftEvents = comments.filter((c) => c.isGiftEvent);
     const newest = giftEvents[giftEvents.length - 1];
-    if (!newest) return;
     if (seenGiftIdRef.current === null) {
-      seenGiftIdRef.current = newest.id;
+      seenGiftIdRef.current = newest?.id ?? '';
       return;
     }
+    if (!newest) return;
     if (newest.id !== seenGiftIdRef.current) {
       seenGiftIdRef.current = newest.id;
-      setLatestGiftBanner(newest);
-      const timer = window.setTimeout(() => {
-        setLatestGiftBanner(null);
-      }, 4200);
-      return () => window.clearTimeout(timer);
+      const gift =
+        (newest.giftId ? GIFT_BY_ID.get(newest.giftId) : undefined) ??
+        gifts.find((g) => g.name === newest.giftName);
+      if (!gift) return;
+      const now = Date.now();
+      const prev = comboRef.current;
+      const combo =
+        prev && prev.giftId === gift.giftId && prev.uid === newest.uid && now - prev.ts < 5000
+          ? prev.count + 1
+          : 1;
+      comboRef.current = { giftId: gift.giftId, uid: newest.uid, ts: now, count: combo };
+      setGiftFx((prevFx) => [
+        ...prevFx.slice(-3),
+        { key: newest.id, gift, senderName: newest.displayName, combo },
+      ]);
     }
-  }, [comments]);
+  }, [comments, gifts]);
+
+  const handleGiftFxExpire = (key: string) => {
+    setGiftFx((prev) => prev.filter((f) => f.key !== key));
+  };
 
   useEffect(() => {
     const el = chatScrollRef.current;
@@ -879,24 +894,8 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
         </div>
       )}
 
-      {/* Gift celebration banner */}
-      {latestGiftBanner && (
-        <div className="absolute left-3 top-20 z-20 rounded-2xl bg-gradient-to-r from-fuchsia-600/90 to-violet-600/90 backdrop-blur-md border border-white/20 px-4 py-2.5 shadow-xl flex items-center gap-3 animate-pulse">
-          <Sparkles className="w-5 h-5 text-amber-300 shrink-0" />
-          <div>
-            <p className="text-xs font-bold text-white">
-              {latestGiftBanner.displayName} sent{' '}
-              {latestGiftBanner.giftName ?? 'a gift'}!
-            </p>
-            <p className="text-[11px] font-mono text-fuchsia-100">
-              {latestGiftBanner.giftAmount}{' '}
-              {latestGiftBanner.giftCurrency === 'DIAMOND'
-                ? 'Diamonds'
-                : 'Coins'}
-            </p>
-          </div>
-        </div>
-      )}
+      {/* Gift effects overlay (particles + banners + cinematic gifts) */}
+      <GiftEffectsOverlay fx={giftFx} onExpire={handleGiftFxExpire} />
 
       {/* Right floating action rail (multi-guest only) */}
       {!isSolo && (
@@ -912,7 +911,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
           }}
           disabled={isOfflineSimulated}
           aria-label="Send gift"
-          className="w-11 h-11 rounded-full bg-gradient-to-br from-fuchsia-500 to-violet-600 hover:from-fuchsia-400 hover:to-violet-500 disabled:opacity-45 flex items-center justify-center text-white shadow-lg shadow-fuchsia-600/30 transition-all"
+          className="w-11 h-11 rounded-full bg-gradient-to-br from-pink-500 to-amber-400 hover:from-pink-400 hover:to-amber-300 disabled:opacity-45 flex items-center justify-center text-white shadow-lg shadow-pink-600/30 transition-all"
         >
           <Gift className="w-5 h-5" />
         </button>
@@ -965,13 +964,20 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
                   key={comment.id}
                   className={`rounded-2xl px-4 py-2.5 backdrop-blur-sm block w-fit max-w-full ${
                     comment.isGiftEvent
-                      ? 'bg-gradient-to-r from-fuchsia-600/70 to-violet-600/70 border border-fuchsia-300/30'
+                      ? 'bg-gradient-to-r from-amber-500/70 to-orange-600/60 border border-amber-300/30'
                       : 'bg-black/55'
                   }`}
                 >
                   <span className="text-sm font-bold text-cyan-300 mr-2">
                     {comment.displayName}
                   </span>
+                  {comment.isGiftEvent && comment.giftId && GIFT_BY_ID.get(comment.giftId) && (
+                    <GiftArtwork
+                      src={GIFT_BY_ID.get(comment.giftId)!.imageUrl}
+                      size={22}
+                      className="inline-block align-middle mr-1.5"
+                    />
+                  )}
                   <span className="text-sm text-white leading-relaxed">
                     {comment.text}
                   </span>
@@ -981,13 +987,20 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
                   key={comment.id}
                   className={`rounded-2xl px-3 py-1.5 text-xs leading-relaxed backdrop-blur-sm inline-block max-w-full ${
                     comment.isGiftEvent
-                      ? 'bg-gradient-to-r from-fuchsia-600/70 to-violet-600/70 border border-fuchsia-300/30'
+                      ? 'bg-gradient-to-r from-amber-500/70 to-orange-600/60 border border-amber-300/30'
                       : 'bg-black/40'
                   }`}
                 >
-                  <span className="inline-flex items-center rounded-md bg-gradient-to-r from-fuchsia-500 to-violet-500 px-1.5 py-0.5 text-[9px] font-bold text-white mr-1.5 align-middle">
+                  <span className="inline-flex items-center rounded-md bg-gradient-to-r from-amber-500 to-orange-500 px-1.5 py-0.5 text-[9px] font-bold text-white mr-1.5 align-middle">
                     {comment.displayName}
                   </span>
+                  {comment.isGiftEvent && comment.giftId && GIFT_BY_ID.get(comment.giftId) && (
+                    <GiftArtwork
+                      src={GIFT_BY_ID.get(comment.giftId)!.imageUrl}
+                      size={16}
+                      className="inline-block align-middle mr-1"
+                    />
+                  )}
                   <span className="text-white align-middle">{comment.text}</span>
                 </div>
               )
@@ -1218,16 +1231,16 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
 
       {/* Gift tray bottom sheet */}
       {showGiftTray && (
-        <div className="absolute inset-x-0 bottom-0 z-30 rounded-t-3xl bg-[#121521]/95 backdrop-blur-xl border-t border-fuchsia-500/30 p-4 space-y-3 max-h-[60vh] overflow-y-auto">
-          <div className="flex items-center justify-between gap-2">
+        <div className="absolute inset-x-0 bottom-0 z-30 rounded-t-3xl bg-[#121521]/95 backdrop-blur-xl border-t border-amber-500/30 flex flex-col max-h-[68vh]">
+          <div className="flex items-center justify-between gap-2 p-4 pb-3">
             <div>
-              <h3 className="font-display text-sm font-semibold text-white">
-                Send Gift
-              </h3>
-              <p className="text-xs text-slate-400">
-                <span className="font-mono text-amber-300">{coinBalance} Coins</span>
-                {' · '}
-                <span className="font-mono text-sky-300">{diamondBalance} Diamonds</span>
+              <h3 className="font-display text-sm font-semibold text-white">Gifts</h3>
+              <p className="text-xs text-slate-400 flex items-center gap-1.5 mt-0.5">
+                <Coins className="w-3.5 h-3.5 text-amber-400" aria-hidden="true" />
+                <span className="font-mono text-amber-300 tabular-nums">
+                  {coinBalance.toLocaleString()}
+                </span>
+                <span className="text-slate-500">coins available</span>
               </p>
             </div>
             <button
@@ -1239,26 +1252,86 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
               <X className="w-4 h-4" />
             </button>
           </div>
-          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5">
-            {gifts.map((gift) => (
-              <button
-                key={gift.giftId}
-                type="button"
-                disabled={isOfflineSimulated}
-                onClick={() => onSendGift(room.roomId, gift)}
-                className="rounded-xl bg-white/[0.04] border border-white/[0.08] hover:border-fuchsia-400/50 p-3 flex flex-col items-center text-center gap-2 transition-colors disabled:opacity-45"
-              >
-                <GiftArtwork artworkKey={gift.artworkKey} size={40} />
-                <div>
-                  <p className="text-xs font-medium text-white truncate max-w-[12ch]">
-                    {gift.name}
-                  </p>
-                  <p className="text-[11px] font-mono tabular-nums text-fuchsia-300 mt-0.5">
-                    {gift.price} {gift.currency === 'COIN' ? 'Coins' : 'Diamonds'}
+
+          <div className="flex-1 overflow-y-auto px-4 pb-3">
+            <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-2">
+              {gifts.map((gift) => {
+                const selected = gift.giftId === selectedGiftId;
+                const affordable = gift.price <= coinBalance;
+                return (
+                  <button
+                    key={gift.giftId}
+                    type="button"
+                    disabled={isOfflineSimulated}
+                    onClick={() => setSelectedGiftId(gift.giftId)}
+                    aria-label={`Select ${gift.name}, ${gift.price} coins`}
+                    className={`relative rounded-xl border p-2 flex flex-col items-center gap-1 transition-all disabled:opacity-45 ${
+                      selected
+                        ? 'bg-white/[0.08]'
+                        : 'bg-white/[0.03] border-white/[0.07] hover:bg-white/[0.06]'
+                    }`}
+                    style={
+                      selected
+                        ? {
+                            borderColor: gift.accentHex,
+                            boxShadow: `0 0 0 1px ${gift.accentHex}, 0 4px 18px ${gift.accentHex}40`,
+                          }
+                        : undefined
+                    }
+                  >
+                    <GiftArtwork
+                      src={gift.imageUrl}
+                      alt={gift.name}
+                      size={52}
+                      className={affordable ? '' : 'opacity-45'}
+                    />
+                    <p className="text-[10px] font-medium text-slate-200 truncate w-full text-center">
+                      {gift.name}
+                    </p>
+                    <p className="flex items-center gap-1 text-[10px] font-mono tabular-nums text-amber-300">
+                      <span className="w-2 h-2 rounded-full bg-gradient-to-br from-amber-300 to-yellow-600" />
+                      {gift.price.toLocaleString()}
+                    </p>
+                    {gift.price >= 1000 && (
+                      <span className="absolute top-1 right-1 rounded-full bg-amber-400/20 border border-amber-300/40 px-1 text-[8px] font-bold text-amber-200">
+                        LUX
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {selectedGift && coinBalance < selectedGift.price && (
+            <p className="px-4 pb-2 text-[11px] text-rose-300">
+              Need {(selectedGift.price - coinBalance).toLocaleString()} more coins for this gift.
+            </p>
+          )}
+
+          <div className="border-t border-white/[0.08] p-3 flex items-center gap-3 bg-[#0D1019]/80">
+            {selectedGift ? (
+              <>
+                <GiftArtwork src={selectedGift.imageUrl} alt={selectedGift.name} size={40} />
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-semibold text-white truncate">{selectedGift.name}</p>
+                  <p className="text-[11px] font-mono text-amber-300 tabular-nums">
+                    {selectedGift.price.toLocaleString()} coins
                   </p>
                 </div>
-              </button>
-            ))}
+                <button
+                  type="button"
+                  disabled={!currentUser || isOfflineSimulated || coinBalance < selectedGift.price}
+                  onClick={() => onSendGift(room.roomId, selectedGift)}
+                  className="h-11 px-5 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-300 hover:to-orange-400 disabled:opacity-40 disabled:cursor-not-allowed text-sm font-bold text-[#1A1206] inline-flex items-center gap-2 transition-all active:scale-[0.97]"
+                >
+                  <Send className="w-4 h-4" aria-hidden="true" />
+                  <span>Send</span>
+                </button>
+              </>
+            ) : (
+              <p className="text-xs text-slate-400 py-2">Pick a gift to send.</p>
+            )}
           </div>
         </div>
       )}

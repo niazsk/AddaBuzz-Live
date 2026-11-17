@@ -1,4 +1,4 @@
-import { GiftCatalogItem, RoomCategory } from '../types/app';
+import { RoomCategory } from '../types/app';
 
 export const ROOM_CATEGORIES: RoomCategory[] = [
   'All',
@@ -10,61 +10,4 @@ export const ROOM_CATEGORIES: RoomCategory[] = [
   'Gaming',
   'Talent',
   'New Live',
-];
-
-export const GIFT_CATALOG: GiftCatalogItem[] = [
-  {
-    giftId: 'gift_neon_rose',
-    name: 'Neon Rose',
-    currency: 'COIN',
-    price: 15,
-    description: 'A warm gesture for a standout moment.',
-    accentHex: '#A855F7',
-    artworkKey: 'rose',
-  },
-  {
-    giftId: 'gift_sonic_wave',
-    name: 'Sonic Wave',
-    currency: 'COIN',
-    price: 40,
-    description: 'Celebrate crisp vocals and live acoustic energy.',
-    accentHex: '#38BDF8',
-    artworkKey: 'wave',
-  },
-  {
-    giftId: 'gift_golden_lantern',
-    name: 'Golden Lantern',
-    currency: 'COIN',
-    price: 120,
-    description: 'Light up the late-night lounge stage.',
-    accentHex: '#F59E0B',
-    artworkKey: 'lantern',
-  },
-  {
-    giftId: 'gift_starburst',
-    name: 'Starburst',
-    currency: 'DIAMOND',
-    price: 10,
-    description: 'Radiant diamond highlight in room chat.',
-    accentHex: '#60A5FA',
-    artworkKey: 'starburst',
-  },
-  {
-    giftId: 'gift_violet_crown',
-    name: 'Violet Crown',
-    currency: 'DIAMOND',
-    price: 25,
-    description: 'Signature spotlight gift for featured hosts.',
-    accentHex: '#8B5CF6',
-    artworkKey: 'crown',
-  },
-  {
-    giftId: 'gift_electric_guitar',
-    name: 'Electric Encore',
-    currency: 'DIAMOND',
-    price: 60,
-    description: 'Full-stage celebration for live music performers.',
-    accentHex: '#3B82F6',
-    artworkKey: 'guitar',
-  },
 ];

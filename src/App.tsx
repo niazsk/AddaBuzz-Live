@@ -19,7 +19,7 @@ import {
   UserProfile,
   WalletTransaction,
 } from './types/app';
-import { GIFT_CATALOG } from './data/previewData';
+import { GIFT_CATALOG } from './data/gifts';
 import { auth } from './lib/firebase';
 import {
   adjustRoomViewerCountDoc,
@@ -944,7 +944,6 @@ export default function App() {
           isAdminUser={isAdminUser}
           gifts={GIFT_CATALOG}
           coinBalance={coinBalance}
-          diamondBalance={diamondBalance}
           isFollowingHost={followingUids.includes(host.uid)}
           isOfflineSimulated={isOffline}
           onLeaveRoom={() => setActiveRoomId(null)}

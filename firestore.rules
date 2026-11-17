@@ -198,7 +198,7 @@ service cloud.firestore {
       return data.keys().hasAll(['id', 'roomId', 'uid', 'username', 'displayName', 'accountType', 'text', 'createdAt']) &&
         data.keys().hasOnly([
           'id', 'roomId', 'uid', 'username', 'displayName', 'accountType', 'text',
-          'isGiftEvent', 'giftName', 'giftCurrency', 'giftAmount', 'createdAt'
+          'isGiftEvent', 'giftId', 'giftName', 'giftCurrency', 'giftAmount', 'createdAt'
         ]) &&
         data.id == messageId &&
         isValidId(data.id) &&
@@ -210,6 +210,7 @@ service cloud.firestore {
         data.accountType in ['USER', 'AGENT', 'SUPER_AGENT'] &&
         data.text is string && data.text.size() >= 1 && data.text.size() <= 400 &&
         (!('isGiftEvent' in data) || data.isGiftEvent is bool) &&
+        (!('giftId' in data) || (data.giftId is string && data.giftId.size() <= 48)) &&
         (!('giftName' in data) || (data.giftName is string && data.giftName.size() <= 48)) &&
         (!('giftCurrency' in data) || data.giftCurrency in ['COIN', 'DIAMOND']) &&
         (!('giftAmount' in data) || (data.giftAmount is int && data.giftAmount > 0)) &&
