@@ -117,7 +117,13 @@ export type GiftEffectKind =
   | 'fireworks'
   | 'confetti'
   | 'notes'
-  | 'glow';
+  | 'glow'
+  | 'streaks'
+  | 'diamonds'
+  | 'embers'
+  | 'aurora'
+  | 'petals'
+  | 'stars';
 
 export interface GiftCatalogItem {
   giftId: string;

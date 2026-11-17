@@ -48,7 +48,7 @@ import { Avatar } from '../ui/Avatar';
 import { MediaImage } from '../ui/MediaImage';
 import { GiftArtwork } from '../ui/GiftArtwork';
 import { GiftEffectsOverlay, GiftFx } from '../ui/GiftEffectsOverlay';
-import { GIFT_BY_ID } from '../../data/gifts';
+import { GIFT_BY_ID, giftTier, GiftTier } from '../../data/gifts';
 
 const GuestTileMedia: React.FC<{
   stream: MediaStream;
@@ -180,7 +180,9 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
   const [guestPanelOpen, setGuestPanelOpen] = useState(false);
   const [showGiftTray, setShowGiftTray] = useState(false);
   const [selectedGiftId, setSelectedGiftId] = useState<string>(gifts[0]?.giftId ?? '');
+  const [giftTab, setGiftTab] = useState<'all' | GiftTier>('all');
   const selectedGift = gifts.find((g) => g.giftId === selectedGiftId) ?? null;
+  const visibleGifts = giftTab === 'all' ? gifts : gifts.filter((g) => giftTier(g.price) === giftTab);
   const [confirmEndOpen, setConfirmEndOpen] = useState(false);
 
   // Gift effect queue — every new gift event in room chat drives an overlay effect
@@ -1231,33 +1233,83 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
 
       {/* Gift tray bottom sheet */}
       {showGiftTray && (
-        <div className="absolute inset-x-0 bottom-0 z-30 rounded-t-3xl bg-[#121521]/95 backdrop-blur-xl border-t border-amber-500/30 flex flex-col max-h-[68vh]">
-          <div className="flex items-center justify-between gap-2 p-4 pb-3">
-            <div>
-              <h3 className="font-display text-sm font-semibold text-white">Gifts</h3>
-              <p className="text-xs text-slate-400 flex items-center gap-1.5 mt-0.5">
-                <Coins className="w-3.5 h-3.5 text-amber-400" aria-hidden="true" />
-                <span className="font-mono text-amber-300 tabular-nums">
+        <div className="absolute inset-x-0 bottom-0 z-30 rounded-t-3xl bg-[#0b0e17]/95 backdrop-blur-2xl border-t border-white/10 flex flex-col max-h-[72vh]">
+          <span
+            className="absolute inset-x-0 top-0 h-px rounded-t-3xl"
+            style={{
+              background:
+                'linear-gradient(90deg, transparent, #FBBF24 22%, #EC4899 52%, #22D3EE 80%, transparent)',
+            }}
+          />
+          <div className="flex items-center justify-between gap-2 px-4 pt-4 pb-2">
+            <div className="flex items-center gap-2.5">
+              <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-amber-400/25 to-pink-500/25 border border-amber-300/30">
+                <Coins className="w-4 h-4 text-amber-300" aria-hidden="true" />
+              </span>
+              <div>
+                <h3 className="font-display text-sm font-bold text-white tracking-wide">Gifts</h3>
+                <p className="text-[10px] text-slate-500">Send a gift, light up the room</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="flex items-center gap-1.5 rounded-full border border-amber-300/25 bg-amber-400/10 px-3 py-1.5">
+                <span className="h-2.5 w-2.5 rounded-full bg-gradient-to-br from-amber-300 to-orange-500" />
+                <span className="font-mono text-xs font-bold text-amber-200 tabular-nums">
                   {coinBalance.toLocaleString()}
                 </span>
-                <span className="text-slate-500">coins available</span>
-              </p>
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowGiftTray(false)}
+                aria-label="Close gift tray"
+                className="w-8 h-8 rounded-full bg-white/[0.07] hover:bg-white/[0.14] flex items-center justify-center text-slate-300"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => setShowGiftTray(false)}
-              aria-label="Close gift tray"
-              className="w-8 h-8 rounded-full bg-white/[0.07] hover:bg-white/[0.14] flex items-center justify-center text-slate-300"
-            >
-              <X className="w-4 h-4" />
-            </button>
+          </div>
+
+          <div className="gift-tabs flex items-center gap-1.5 px-4 pb-3 overflow-x-auto">
+            {(
+              [
+                ['all', 'All'],
+                ['classic', 'Classic'],
+                ['premium', 'Premium'],
+                ['luxury', 'Luxury'],
+              ] as const
+            ).map(([key, label]) => {
+              const active = giftTab === key;
+              const count =
+                key === 'all' ? gifts.length : gifts.filter((g) => giftTier(g.price) === key).length;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setGiftTab(key)}
+                  aria-label={`Show ${label} gifts`}
+                  className={`shrink-0 rounded-full px-3 py-1.5 text-[11px] font-bold transition-all ${
+                    active
+                      ? key === 'luxury'
+                        ? 'bg-gradient-to-r from-amber-400 to-pink-500 text-[#1A1206] shadow-[0_0_16px_rgba(236,72,153,0.45)]'
+                        : 'bg-white/[0.12] text-white border border-white/20'
+                      : 'bg-white/[0.04] text-slate-400 border border-white/[0.06] hover:bg-white/[0.08] hover:text-slate-200'
+                  }`}
+                >
+                  {label}
+                  <span className={`ml-1 font-mono tabular-nums ${active ? 'opacity-70' : 'opacity-50'}`}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
           <div className="flex-1 overflow-y-auto px-4 pb-3">
             <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-2">
-              {gifts.map((gift) => {
+              {visibleGifts.map((gift) => {
                 const selected = gift.giftId === selectedGiftId;
                 const affordable = gift.price <= coinBalance;
+                const luxury = giftTier(gift.price) === 'luxury';
                 return (
                   <button
                     key={gift.giftId}
@@ -1265,35 +1317,47 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
                     disabled={isOfflineSimulated}
                     onClick={() => setSelectedGiftId(gift.giftId)}
                     aria-label={`Select ${gift.name}, ${gift.price} coins`}
-                    className={`relative rounded-xl border p-2 flex flex-col items-center gap-1 transition-all disabled:opacity-45 ${
+                    className={`group relative rounded-2xl border p-2 pt-3 flex flex-col items-center gap-1 transition-all duration-200 disabled:opacity-45 hover:-translate-y-0.5 ${
                       selected
                         ? 'bg-white/[0.08]'
-                        : 'bg-white/[0.03] border-white/[0.07] hover:bg-white/[0.06]'
+                        : 'bg-white/[0.03] border-white/[0.06] hover:bg-white/[0.06]'
                     }`}
                     style={
                       selected
                         ? {
                             borderColor: gift.accentHex,
-                            boxShadow: `0 0 0 1px ${gift.accentHex}, 0 4px 18px ${gift.accentHex}40`,
+                            boxShadow: `0 0 0 1px ${gift.accentHex}, 0 6px 22px ${gift.accentHex}50`,
                           }
                         : undefined
                     }
                   >
+                    <span
+                      className={`pointer-events-none absolute inset-x-3 top-2 h-14 rounded-full blur-xl transition-opacity ${
+                        selected ? 'opacity-60' : 'opacity-0 group-hover:opacity-35'
+                      }`}
+                      style={{ background: gift.accentHex }}
+                    />
                     <GiftArtwork
                       src={gift.imageUrl}
                       alt={gift.name}
-                      size={52}
-                      className={affordable ? '' : 'opacity-45'}
+                      size={54}
+                      className={`relative transition-transform duration-200 group-hover:scale-110 ${
+                        affordable ? '' : 'opacity-40 saturate-50'
+                      }`}
                     />
-                    <p className="text-[10px] font-medium text-slate-200 truncate w-full text-center">
+                    <p className="relative text-[10px] font-medium text-slate-200 truncate w-full text-center">
                       {gift.name}
                     </p>
-                    <p className="flex items-center gap-1 text-[10px] font-mono tabular-nums text-amber-300">
+                    <p
+                      className={`relative flex items-center gap-1 rounded-full bg-black/30 px-2 py-0.5 text-[10px] font-mono tabular-nums ${
+                        affordable ? 'text-amber-200' : 'text-rose-300/80'
+                      }`}
+                    >
                       <span className="w-2 h-2 rounded-full bg-gradient-to-br from-amber-300 to-yellow-600" />
                       {gift.price.toLocaleString()}
                     </p>
-                    {gift.price >= 1000 && (
-                      <span className="absolute top-1 right-1 rounded-full bg-amber-400/20 border border-amber-300/40 px-1 text-[8px] font-bold text-amber-200">
+                    {luxury && (
+                      <span className="absolute top-1 right-1 rounded-full bg-gradient-to-r from-amber-400 to-pink-500 px-1.5 text-[8px] font-black tracking-wider text-[#1A1206]">
                         LUX
                       </span>
                     )}
@@ -1309,24 +1373,50 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
             </p>
           )}
 
-          <div className="border-t border-white/[0.08] p-3 flex items-center gap-3 bg-[#0D1019]/80">
+          <div className="border-t border-white/[0.08] p-3 flex items-center gap-3 bg-[#080a12]/90">
             {selectedGift ? (
               <>
-                <GiftArtwork src={selectedGift.imageUrl} alt={selectedGift.name} size={40} />
+                <span
+                  className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border"
+                  style={{
+                    borderColor: `${selectedGift.accentHex}66`,
+                    background: `radial-gradient(circle at 50% 40%, ${selectedGift.accentHex}33, rgba(10,13,22,0.7))`,
+                  }}
+                >
+                  <GiftArtwork src={selectedGift.imageUrl} alt={selectedGift.name} size={40} />
+                </span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-semibold text-white truncate">{selectedGift.name}</p>
-                  <p className="text-[11px] font-mono text-amber-300 tabular-nums">
+                  <p className="text-xs font-bold text-white truncate">{selectedGift.name}</p>
+                  <p className="flex items-center gap-1.5 text-[11px] font-mono text-amber-300 tabular-nums">
                     {selectedGift.price.toLocaleString()} coins
+                    <span
+                      className={`rounded-full px-1.5 text-[9px] font-sans font-bold tracking-wider ${
+                        giftTier(selectedGift.price) === 'luxury'
+                          ? 'bg-gradient-to-r from-amber-400/25 to-pink-500/25 text-amber-200 border border-amber-300/30'
+                          : giftTier(selectedGift.price) === 'premium'
+                            ? 'bg-cyan-400/15 text-cyan-200 border border-cyan-300/25'
+                            : 'bg-white/[0.07] text-slate-300 border border-white/10'
+                      }`}
+                    >
+                      {giftTier(selectedGift.price).toUpperCase()}
+                    </span>
                   </p>
                 </div>
                 <button
                   type="button"
                   disabled={!currentUser || isOfflineSimulated || coinBalance < selectedGift.price}
                   onClick={() => onSendGift(room.roomId, selectedGift)}
-                  className="h-11 px-5 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-300 hover:to-orange-400 disabled:opacity-40 disabled:cursor-not-allowed text-sm font-bold text-[#1A1206] inline-flex items-center gap-2 transition-all active:scale-[0.97]"
+                  className="relative overflow-hidden h-11 px-6 rounded-xl bg-gradient-to-r from-amber-400 via-orange-500 to-pink-500 hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed text-sm font-extrabold text-[#1A1206] inline-flex items-center gap-2 transition-all active:scale-[0.97] shadow-[0_6px_20px_rgba(249,115,22,0.4)]"
                 >
                   <Send className="w-4 h-4" aria-hidden="true" />
                   <span>Send</span>
+                  <span
+                    className="gfx-shine-loop pointer-events-none absolute inset-0"
+                    style={{
+                      background:
+                        'linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.35) 50%, transparent 60%)',
+                    }}
+                  />
                 </button>
               </>
             ) : (
