@@ -1,4 +1,5 @@
 import { FRUIT_MANOR_CONFIG, FruitId, fruitProbability } from './config';
+import { gameCoinCredit, gameCoinDebit } from '../../lib/firestoreService';
 
 export type RoundPhase =
   | 'SCHEDULED'
@@ -50,7 +51,6 @@ export interface FmRecentResult {
 }
 
 export interface FmSnapshot {
-  balance: number;
   round: FmRound;
   phaseEndsAt: number;
   serverNow: number;
@@ -72,15 +72,20 @@ export type FmEvent =
       wins: number;
       bets: FmBet[];
     }
-  | { type: 'betsAccepted'; bets: FmBet[]; total: number; balance: number }
-  | { type: 'betsCancelled'; refunded: number; balance: number }
+  | { type: 'betsAccepted'; bets: FmBet[]; total: number }
+  | { type: 'betsCancelled'; refunded: number }
   | { type: 'rejected'; reason: string };
 
 export interface PlaceBetsResult {
   ok: boolean;
   reason?: string;
-  bets?: FmBet[];
-  balance?: number;
+  bet?: FmBet;
+}
+
+interface PendingCredit {
+  key: string;
+  amount: number;
+  reason: string;
 }
 
 const CFG = FRUIT_MANOR_CONFIG;
@@ -124,6 +129,14 @@ function writeJson(key: string, value: unknown) {
   }
 }
 
+export function loadFmHistory(uid: string): FmHistoryEntry[] {
+  return readJson<FmHistoryEntry[]>(`fm_history_${uid}`, []);
+}
+
+export function loadFmResults(uid: string): FmRecentResult[] {
+  return readJson<FmRecentResult[]>(`fm_results_${uid}`, []);
+}
+
 export class FruitManorEngine {
   private uid: string;
   private listeners = new Set<(snap: FmSnapshot) => void>();
@@ -132,53 +145,68 @@ export class FruitManorEngine {
   private lastTick = Date.now();
   private paused = false;
   private destroyed = false;
+  private settleBusy = false;
+  private pendingBusy = false;
+  private lastPendingAttempt = 0;
   private idempotency = new Map<string, PlaceBetsResult>();
 
-  private balance: number;
   private history: FmHistoryEntry[];
   private recentResults: FmRecentResult[];
+  private pending: PendingCredit[];
   private seq: number;
   private round: FmRound;
   private phaseEndsAt: number;
 
   constructor(uid: string) {
     this.uid = uid;
-    this.balance = readJson<number>(this.key('wallet'), CFG.demoStartBalance);
-    this.history = readJson<FmHistoryEntry[]>(this.key('history'), []);
-    this.recentResults = readJson<FmRecentResult[]>(this.key('results'), []);
+    this.history = loadFmHistory(uid);
+    this.recentResults = loadFmResults(uid);
+    // One-time migration: demo-era ledger entries carry fake refs, so they
+    // never mix with real Coin transactions.
+    if (!readJson<boolean>(this.key('liveMigrated'), false)) {
+      this.history = [];
+      this.recentResults = [];
+      writeJson(this.key('liveMigrated'), true);
+      try {
+        localStorage.removeItem(this.key('wallet'));
+      } catch {
+        // ignore
+      }
+    }
+    this.pending = readJson<PendingCredit[]>(this.key('pending'), []);
     this.seq = readJson<number>(this.key('seq'), 1041);
 
     // A round interrupted by reload/close is voided and every accepted bet
-    // refunded exactly once, so no stake is ever silently lost or duplicated.
+    // queued for an exactly-once wallet refund, so no stake is silently lost.
     const active = readJson<{ round: FmRound; phaseEndsAt: number } | null>(this.key('active'), null);
     if (active && active.round.phase !== 'SETTLED') {
-      const refund = active.round.bets
+      const at = Date.now();
+      active.round.bets
         .filter((b) => b.status === 'ACCEPTED')
-        .reduce((s, b) => s + b.stake, 0);
-      if (refund > 0) {
-        this.balance += refund;
-        const at = Date.now();
-        active.round.bets
-          .filter((b) => b.status === 'ACCEPTED')
-          .forEach((b) => {
-            b.status = 'REFUNDED';
-            this.history.unshift({
-              historyId: randId('FM-H-'),
-              roundId: b.roundId,
-              fruitId: b.fruitId,
-              stake: b.stake,
-              multiplier: b.multiplier,
-              outcome: 'REFUND',
-              payout: b.stake,
-              txRef: randId('FM-TX-R-'),
-              at,
-            });
+        .forEach((b) => {
+          b.status = 'REFUNDED';
+          const key = `fm-r-${b.betId}`;
+          this.pending.push({
+            key,
+            amount: b.stake,
+            reason: `Fruit Manor refund ${b.roundId} (round voided)`,
           });
-        this.history = this.history.slice(0, HISTORY_CAP);
-      }
+          this.history.unshift({
+            historyId: randId('FM-H-'),
+            roundId: b.roundId,
+            fruitId: b.fruitId,
+            stake: b.stake,
+            multiplier: b.multiplier,
+            outcome: 'REFUND',
+            payout: b.stake,
+            txRef: key,
+            at,
+          });
+        });
+      this.history = this.history.slice(0, HISTORY_CAP);
     }
     this.clearActive();
-    this.persistWallet();
+    this.persistLedger();
 
     this.seq += 1;
     this.round = this.newRound(this.seq);
@@ -186,6 +214,7 @@ export class FruitManorEngine {
     this.persistActive();
     this.lastTick = Date.now();
     this.timer = window.setInterval(() => this.tick(), 200);
+    void this.processPending();
   }
 
   private key(name: string): string {
@@ -202,11 +231,11 @@ export class FruitManorEngine {
     };
   }
 
-  private persistWallet() {
-    writeJson(this.key('wallet'), this.balance);
+  private persistLedger() {
     writeJson(this.key('history'), this.history);
     writeJson(this.key('results'), this.recentResults);
     writeJson(this.key('seq'), this.seq);
+    writeJson(this.key('pending'), this.pending);
   }
 
   private persistActive() {
@@ -234,7 +263,6 @@ export class FruitManorEngine {
 
   snapshot(): FmSnapshot {
     return {
-      balance: this.balance,
       round: this.round,
       phaseEndsAt: this.phaseEndsAt,
       serverNow: Date.now(),
@@ -275,6 +303,9 @@ export class FruitManorEngine {
       guard += 1;
       this.advance(now);
     }
+    if (this.pending.length && now - this.lastPendingAttempt > 5000) {
+      void this.processPending();
+    }
     this.emit();
   }
 
@@ -295,10 +326,13 @@ export class FruitManorEngine {
       this.round.phase = 'SETTLING';
       this.phaseEndsAt = now + CFG.settlingMs;
     } else if (phase === 'SETTLING') {
-      this.settle(now);
-      this.round.phase = 'SETTLED';
-      this.phaseEndsAt = now + CFG.settledDisplayMs;
-      this.clearActive();
+      if (this.settleBusy) {
+        this.phaseEndsAt = now + 250;
+        return;
+      }
+      this.settleBusy = true;
+      void this.runSettle(now);
+      return;
     } else if (phase === 'SETTLED') {
       this.seq += 1;
       this.round = this.newRound(this.seq);
@@ -310,22 +344,26 @@ export class FruitManorEngine {
     this.fire({ type: 'phase', phase: this.round.phase, roundId: this.round.roundId });
   }
 
-  private settle(now: number) {
+  private async runSettle(now: number) {
     const result = this.round.resultFruitId;
-    if (!result) return;
+    if (!result) {
+      this.settleBusy = false;
+      return;
+    }
     let totalStake = 0;
     let totalPayout = 0;
     let wins = 0;
+    const winners: FmBet[] = [];
     for (const bet of this.round.bets) {
       if (bet.status !== 'ACCEPTED') continue;
       totalStake += bet.stake;
       bet.status = 'SETTLED';
       if (bet.fruitId === result) {
         bet.payout = bet.stake * bet.multiplier;
-        bet.creditRef = randId('FM-TX-W-');
-        this.balance += bet.payout;
+        bet.creditRef = `fm-w-${bet.betId}`;
         totalPayout += bet.payout;
         wins += 1;
+        winners.push(bet);
       } else {
         bet.payout = 0;
       }
@@ -346,7 +384,32 @@ export class FruitManorEngine {
       { roundId: this.round.roundId, seq: this.round.seq, fruitId: result },
       ...this.recentResults,
     ].slice(0, RESULTS_CAP);
-    this.persistWallet();
+    this.persistLedger();
+
+    for (const bet of winners) {
+      try {
+        await gameCoinCredit(
+          this.uid,
+          bet.payout,
+          `Fruit Manor win ${bet.roundId} · ${bet.fruitId} x${bet.multiplier}`,
+          bet.creditRef!
+        );
+      } catch {
+        this.pending.push({
+          key: bet.creditRef!,
+          amount: bet.payout,
+          reason: `Fruit Manor win ${bet.roundId} (retry)`,
+        });
+        this.persistLedger();
+      }
+      if (this.destroyed) return;
+    }
+
+    this.round.phase = 'SETTLED';
+    this.phaseEndsAt = Date.now() + CFG.settledDisplayMs;
+    this.settleBusy = false;
+    this.clearActive();
+    this.persistActive();
     this.fire({
       type: 'settled',
       roundId: this.round.roundId,
@@ -357,9 +420,33 @@ export class FruitManorEngine {
       wins,
       bets: this.round.bets.filter((b) => b.status === 'SETTLED'),
     });
+    this.fire({ type: 'phase', phase: 'SETTLED', roundId: this.round.roundId });
+    this.emit();
   }
 
-  placeBets(entries: { fruitId: FruitId; stake: number }[], idempotencyKey: string): PlaceBetsResult {
+  private async processPending() {
+    if (this.pendingBusy || this.destroyed || !this.pending.length) return;
+    this.pendingBusy = true;
+    this.lastPendingAttempt = Date.now();
+    while (this.pending.length && !this.destroyed) {
+      const item = this.pending[0];
+      try {
+        await gameCoinCredit(this.uid, item.amount, item.reason, item.key);
+      } catch {
+        break;
+      }
+      this.pending.shift();
+      this.persistLedger();
+    }
+    this.pendingBusy = false;
+  }
+
+  async placeBet(
+    fruitId: FruitId,
+    stake: number,
+    availableBalance: number,
+    idempotencyKey: string
+  ): Promise<PlaceBetsResult> {
     const cached = this.idempotency.get(idempotencyKey);
     if (cached) return cached;
 
@@ -373,50 +460,74 @@ export class FruitManorEngine {
     if (this.round.phase !== 'OPEN' || Date.now() >= this.phaseEndsAt) {
       return fail('Betting is closed for this round.');
     }
-    if (!entries.length) return fail('Add at least one fruit bet.');
-    if (entries.length + this.round.bets.length > CFG.maxBetsPerRound) {
+    if (this.round.bets.length >= CFG.maxBetsPerRound) {
       return fail(`Maximum ${CFG.maxBetsPerRound} bets per round.`);
     }
+    const fruit = CFG.fruits.find((f) => f.fruitId === fruitId);
+    if (!fruit) return fail('Unknown fruit selection.');
+    if (!Number.isInteger(stake) || stake < CFG.minStake) {
+      return fail(`Minimum stake is ${CFG.minStake} coins.`);
+    }
+    if (stake > CFG.maxStakePerBet) {
+      return fail(`Maximum ${CFG.maxStakePerBet.toLocaleString('en-US')} coins per bet.`);
+    }
     const roundStake = this.round.bets.reduce((s, b) => s + (b.status === 'ACCEPTED' ? b.stake : 0), 0);
-    let total = 0;
-    for (const e of entries) {
-      const fruit = CFG.fruits.find((f) => f.fruitId === e.fruitId);
-      if (!fruit) return fail('Unknown fruit selection.');
-      if (!Number.isInteger(e.stake) || e.stake < CFG.minStake) {
-        return fail(`Minimum stake is ${CFG.minStake} coins.`);
-      }
-      if (e.stake > CFG.maxStakePerBet) {
-        return fail(`Maximum ${CFG.maxStakePerBet.toLocaleString()} coins per bet.`);
-      }
-      total += e.stake;
+    if (roundStake + stake > CFG.maxRoundStake) {
+      return fail(`Round limit is ${CFG.maxRoundStake.toLocaleString('en-US')} coins.`);
     }
-    if (roundStake + total > CFG.maxRoundStake) {
-      return fail(`Round limit is ${CFG.maxRoundStake.toLocaleString()} coins.`);
-    }
-    if (total > this.balance) return fail('Not enough demo coins for this bet.');
+    if (stake > availableBalance) return fail('Not enough Coins for this bet.');
 
-    const acceptedAt = Date.now();
-    const bets: FmBet[] = entries.map((e) => {
-      const fruit = CFG.fruits.find((f) => f.fruitId === e.fruitId)!;
-      return {
-        betId: randId('FM-B-'),
-        roundId: this.round.roundId,
-        fruitId: e.fruitId,
-        stake: e.stake,
+    const roundId = this.round.roundId;
+    let debitRef: string;
+    try {
+      debitRef = await gameCoinDebit(
+        this.uid,
+        stake,
+        `Fruit Manor bet ${roundId} · ${fruit.label}`,
+        idempotencyKey
+      );
+    } catch (error) {
+      return fail(error instanceof Error ? error.message : 'Bet failed — try again.');
+    }
+    if (this.destroyed) return { ok: false, reason: 'Game closed.' };
+
+    // The round may have locked while the debit was in flight — refund it.
+    if (this.round.phase !== 'OPEN' || this.round.roundId !== roundId) {
+      const refundKey = `fm-r-${idempotencyKey}`;
+      this.history.unshift({
+        historyId: randId('FM-H-'),
+        roundId,
+        fruitId,
+        stake,
         multiplier: fruit.multiplier,
-        status: 'ACCEPTED',
-        payout: 0,
-        debitRef: randId('FM-TX-D-'),
-        acceptedAt,
-      };
-    });
-    this.balance -= total;
-    this.round.bets.push(...bets);
-    this.persistWallet();
+        outcome: 'REFUND',
+        payout: stake,
+        txRef: refundKey,
+        at: Date.now(),
+      });
+      this.history = this.history.slice(0, HISTORY_CAP);
+      this.pending.push({ key: refundKey, amount: stake, reason: `Fruit Manor refund ${roundId} (late bet)` });
+      this.persistLedger();
+      void this.processPending();
+      return fail('Betting closed while your bet was processing — Coins refunded.');
+    }
+
+    const bet: FmBet = {
+      betId: randId('FM-B-'),
+      roundId,
+      fruitId,
+      stake,
+      multiplier: fruit.multiplier,
+      status: 'ACCEPTED',
+      payout: 0,
+      debitRef,
+      acceptedAt: Date.now(),
+    };
+    this.round.bets.push(bet);
     this.persistActive();
-    const res: PlaceBetsResult = { ok: true, bets, balance: this.balance };
+    const res: PlaceBetsResult = { ok: true, bet };
     this.idempotency.set(idempotencyKey, res);
-    this.fire({ type: 'betsAccepted', bets, total, balance: this.balance });
+    this.fire({ type: 'betsAccepted', bets: [bet], total: stake });
     this.emit();
     return res;
   }
@@ -431,6 +542,8 @@ export class FruitManorEngine {
     const at = Date.now();
     accepted.forEach((b) => {
       b.status = 'REFUNDED';
+      const key = `fm-r-${b.betId}`;
+      this.pending.push({ key, amount: b.stake, reason: `Fruit Manor refund ${b.roundId} (cancelled)` });
       this.history.unshift({
         historyId: randId('FM-H-'),
         roundId: b.roundId,
@@ -439,36 +552,24 @@ export class FruitManorEngine {
         multiplier: b.multiplier,
         outcome: 'REFUND',
         payout: b.stake,
-        txRef: randId('FM-TX-R-'),
+        txRef: key,
         at,
       });
     });
     this.history = this.history.slice(0, HISTORY_CAP);
-    this.balance += refunded;
-    this.persistWallet();
+    this.persistLedger();
     this.persistActive();
-    this.fire({ type: 'betsCancelled', refunded, balance: this.balance });
+    void this.processPending();
+    this.fire({ type: 'betsCancelled', refunded });
     this.emit();
     return { ok: true, refunded };
-  }
-
-  resetDemo(): number {
-    const accepted = this.round.bets.filter((b) => b.status === 'ACCEPTED');
-    this.balance += accepted.reduce((s, b) => s + b.stake, 0);
-    accepted.forEach((b) => (b.status = 'REFUNDED'));
-    this.balance = CFG.demoStartBalance;
-    this.history = [];
-    this.recentResults = [];
-    this.persistWallet();
-    this.persistActive();
-    this.emit();
-    return this.balance;
   }
 
   destroy() {
     this.destroyed = true;
     if (this.timer !== null) window.clearInterval(this.timer);
     this.persistActive();
+    this.persistLedger();
     this.listeners.clear();
     this.eventListeners.clear();
   }

@@ -7,7 +7,6 @@ import {
   User,
   Bell,
   Wallet,
-  Gamepad2,
 } from 'lucide-react';
 import { AppSection } from '../../types/app';
 import { BrandLogo } from '../ui/BrandLogo';
@@ -40,16 +39,6 @@ export const MobileTopBar: React.FC<MobileNavProps> = ({
       <BrandLogo />
       <div className="flex items-center gap-1.5">
         <PWAInstallButton compact />
-        <button
-          type="button"
-          onClick={() => onSelectSection('games')}
-          aria-label="Open Game Center"
-          className={`min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl hover:bg-white/[0.05] ${
-            activeSection === 'games' || activeSection === 'fruit-manor' ? 'text-amber-300' : 'text-slate-300 hover:text-white'
-          }`}
-        >
-          <Gamepad2 className="w-5 h-5" />
-        </button>
         {!isSignedIn && (
           <button
             type="button"
@@ -156,7 +145,8 @@ export const MobileBottomBar: React.FC<Omit<MobileNavProps, 'onToggleWallet'>> =
         onClick={() => onSelectSection('profile')}
         className={`min-h-[44px] flex flex-col items-center justify-center gap-0.5 text-[11px] font-medium transition-colors ${
           activeSection === 'profile' || activeSection === 'admin' || activeSection === 'wallet' ||
-          activeSection === 'coins-trading' || activeSection === 'super-agent-list' || activeSection === 'agent-list'
+          activeSection === 'coins-trading' || activeSection === 'super-agent-list' || activeSection === 'agent-list' ||
+          activeSection === 'fruit-manor' || activeSection === 'game-history'
             ? 'text-sky-400'
             : 'text-slate-400'
         }`}

@@ -8,6 +8,7 @@ interface FruitWheelProps {
   roundId: string;
   phase: RoundPhase;
   resultFruitId?: FruitId;
+  lastFruitId?: FruitId;
   spinMs: number;
   reducedMotion: boolean;
   burstKey: number;
@@ -38,6 +39,7 @@ export const FruitWheel: React.FC<FruitWheelProps> = ({
   roundId,
   phase,
   resultFruitId,
+  lastFruitId,
   spinMs,
   reducedMotion,
   burstKey,
@@ -221,7 +223,12 @@ export const FruitWheel: React.FC<FruitWheelProps> = ({
     };
   }, []);
 
-  const winner = phase === 'SETTLED' && resultFruitId ? FRUIT_BY_ID.get(resultFruitId) : undefined;
+  const winner =
+    phase === 'SETTLED' && resultFruitId
+      ? FRUIT_BY_ID.get(resultFruitId)
+      : (phase === 'OPEN' || phase === 'SCHEDULED' || phase === 'LOCKED') && lastFruitId
+        ? FRUIT_BY_ID.get(lastFruitId)
+        : undefined;
   const spinning = phase === 'DRAWN' || phase === 'SETTLING';
 
   return (
@@ -265,7 +272,7 @@ export const FruitWheel: React.FC<FruitWheelProps> = ({
               className="absolute inset-0"
               style={{ transform: `rotate(${i * 45 + 22.5}deg)` }}
             >
-              <div className="absolute left-1/2 top-[8%] flex w-[30%] -translate-x-1/2 flex-col items-center">
+              <div className="absolute left-1/2 top-[6%] flex w-[26%] -translate-x-1/2 flex-col items-center">
                 <FruitIcon fruitId={f.fruitId} className="w-full drop-shadow-[0_3px_6px_rgba(0,0,0,0.5)]" />
               </div>
             </div>

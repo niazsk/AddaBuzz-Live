@@ -19,7 +19,7 @@ export interface FruitCell {
 export interface FruitManorConfig {
   configVersion: string;
   effectiveLabel: string;
-  mode: 'DEMO';
+  mode: 'LIVE_COINS';
   payoutBasis: 'GROSS_RETURN';
   fruits: FruitCell[];
   chips: number[];
@@ -35,15 +35,14 @@ export interface FruitManorConfig {
   spinMs: number;
   settlingMs: number;
   settledDisplayMs: number;
-  demoStartBalance: number;
 }
 
-// Demo-only configuration (Phase 1). Real Coin betting stays disabled until
-// the product owner approves the payout table, odds and stake limits.
+// Real Coin play approved by the product owner on 18 November 2026:
+// stakes debit the app wallet atomically, wins credit it back.
 export const FRUIT_MANOR_CONFIG: FruitManorConfig = {
-  configVersion: 'fm-demo-v1',
+  configVersion: 'fm-v1',
   effectiveLabel: '18 November 2026',
-  mode: 'DEMO',
+  mode: 'LIVE_COINS',
   payoutBasis: 'GROSS_RETURN',
   fruits: [
     { fruitId: 'strawberry', label: 'Strawberry', multiplier: 3, accentHex: '#FF4D6D', order: 0 },
@@ -68,7 +67,6 @@ export const FRUIT_MANOR_CONFIG: FruitManorConfig = {
   spinMs: 4200,
   settlingMs: 1200,
   settledDisplayMs: 5200,
-  demoStartBalance: 10000,
 };
 
 export const FRUIT_BY_ID = new Map(FRUIT_MANOR_CONFIG.fruits.map((f) => [f.fruitId, f]));

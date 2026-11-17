@@ -1017,6 +1017,82 @@ export async function sendVirtualGiftTransaction(
   }
 }
 
+function gameTxDocId(idempotencyKey: string): string {
+  return idempotencyKey.replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 120);
+}
+
+// Exactly-once game wallet ops: the transaction doc id IS the idempotency key,
+// so a retry after a network failure sees the existing doc and skips the move.
+export async function gameCoinDebit(
+  uid: string,
+  amount: number,
+  reason: string,
+  idempotencyKey: string
+): Promise<string> {
+  const txId = gameTxDocId(idempotencyKey);
+  const walletRef = doc(db, 'wallets', uid);
+  const txRef = doc(db, 'wallets', uid, 'transactions', txId);
+  try {
+    await runTransaction(db, async (tx) => {
+      const [walletSnap, existing] = await Promise.all([tx.get(walletRef), tx.get(txRef)]);
+      if (existing.exists()) return;
+      if (!walletSnap.exists()) throw new Error('Wallet not initialized.');
+      const coins = Number(walletSnap.data().coinBalance ?? 0);
+      if (coins < amount) throw new Error(`Insufficient Coins (need ${amount.toLocaleString('en-US')}).`);
+      tx.update(walletRef, { coinBalance: coins - amount, updatedAt: serverTimestamp() });
+      tx.set(txRef, {
+        transactionId: txId,
+        uid,
+        currency: 'COIN',
+        direction: 'DEBIT',
+        amount,
+        reason: clampStr(reason, 160),
+        idempotencyKey,
+        createdAt: serverTimestamp(),
+      });
+    });
+    return txId;
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith('Insufficient')) throw error;
+    if (error instanceof Error && error.message.startsWith('Wallet not')) throw error;
+    handleFirestoreError(error, OperationType.WRITE, `wallets/${uid}`);
+  }
+}
+
+export async function gameCoinCredit(
+  uid: string,
+  amount: number,
+  reason: string,
+  idempotencyKey: string
+): Promise<string> {
+  const txId = gameTxDocId(idempotencyKey);
+  const walletRef = doc(db, 'wallets', uid);
+  const txRef = doc(db, 'wallets', uid, 'transactions', txId);
+  try {
+    await runTransaction(db, async (tx) => {
+      const [walletSnap, existing] = await Promise.all([tx.get(walletRef), tx.get(txRef)]);
+      if (existing.exists()) return;
+      if (!walletSnap.exists()) throw new Error('Wallet not initialized.');
+      const coins = Number(walletSnap.data().coinBalance ?? 0);
+      tx.update(walletRef, { coinBalance: coins + amount, updatedAt: serverTimestamp() });
+      tx.set(txRef, {
+        transactionId: txId,
+        uid,
+        currency: 'COIN',
+        direction: 'CREDIT',
+        amount,
+        reason: clampStr(reason, 160),
+        idempotencyKey,
+        createdAt: serverTimestamp(),
+      });
+    });
+    return txId;
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith('Wallet not')) throw error;
+    handleFirestoreError(error, OperationType.WRITE, `wallets/${uid}`);
+  }
+}
+
 export async function transferCoins(
   sender: UserProfile,
   recipient: UserProfile,
