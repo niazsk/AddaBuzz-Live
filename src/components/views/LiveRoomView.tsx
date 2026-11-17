@@ -1233,27 +1233,24 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
 
       {/* Gift tray bottom sheet */}
       {showGiftTray && (
-        <div className="absolute inset-x-0 bottom-0 z-30 rounded-t-3xl bg-[#0b0e17]/95 backdrop-blur-2xl border-t border-white/10 flex flex-col max-h-[72vh]">
+        <div className="gfx-sheet absolute inset-x-0 bottom-0 z-30 rounded-t-2xl bg-[#0b0e17]/95 backdrop-blur-2xl border-t border-white/10 flex flex-col max-h-[56vh]">
           <span
-            className="absolute inset-x-0 top-0 h-px rounded-t-3xl"
+            className="absolute inset-x-0 top-0 h-px rounded-t-2xl"
             style={{
               background:
                 'linear-gradient(90deg, transparent, #FBBF24 22%, #EC4899 52%, #22D3EE 80%, transparent)',
             }}
           />
-          <div className="flex items-center justify-between gap-2 px-4 pt-4 pb-2">
-            <div className="flex items-center gap-2.5">
-              <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-amber-400/25 to-pink-500/25 border border-amber-300/30">
-                <Coins className="w-4 h-4 text-amber-300" aria-hidden="true" />
-              </span>
-              <div>
-                <h3 className="font-display text-sm font-bold text-white tracking-wide">Gifts</h3>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="flex items-center gap-1.5 rounded-full border border-amber-300/25 bg-amber-400/10 px-3 py-1.5">
-                <span className="h-2.5 w-2.5 rounded-full bg-gradient-to-br from-amber-300 to-orange-500" />
-                <span className="font-mono text-xs font-bold text-amber-200 tabular-nums">
+          <span className="mx-auto mt-2 h-1 w-9 shrink-0 rounded-full bg-white/15" />
+          <div className="flex items-center justify-between gap-2 px-3 pt-1.5 pb-1.5">
+            <h3 className="flex items-center gap-1.5 font-display text-xs font-bold text-white tracking-wide">
+              <Coins className="w-3.5 h-3.5 text-amber-300" aria-hidden="true" />
+              Gifts
+            </h3>
+            <div className="flex items-center gap-1.5">
+              <span className="flex items-center gap-1.5 rounded-full border border-amber-300/25 bg-amber-400/10 px-2.5 py-1">
+                <span className="h-2 w-2 rounded-full bg-gradient-to-br from-amber-300 to-orange-500" />
+                <span className="font-mono text-[11px] font-bold text-amber-200 tabular-nums">
                   {coinBalance.toLocaleString()}
                 </span>
               </span>
@@ -1261,14 +1258,14 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
                 type="button"
                 onClick={() => setShowGiftTray(false)}
                 aria-label="Close gift tray"
-                className="w-8 h-8 rounded-full bg-white/[0.07] hover:bg-white/[0.14] flex items-center justify-center text-slate-300"
+                className="w-7 h-7 rounded-full bg-white/[0.07] hover:bg-white/[0.14] flex items-center justify-center text-slate-300"
               >
-                <X className="w-4 h-4" />
+                <X className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
 
-          <div className="gift-tabs flex items-center gap-1.5 px-4 pb-3 overflow-x-auto">
+          <div className="gift-tabs flex items-center gap-1 px-3 pb-2 overflow-x-auto">
             {(
               [
                 ['all', 'All'],
@@ -1286,16 +1283,16 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
                   type="button"
                   onClick={() => setGiftTab(key)}
                   aria-label={`Show ${label} gifts`}
-                  className={`shrink-0 rounded-full px-3 py-1.5 text-[11px] font-bold transition-all ${
+                  className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold transition-all ${
                     active
                       ? key === 'luxury'
-                        ? 'bg-gradient-to-r from-amber-400 to-pink-500 text-[#1A1206] shadow-[0_0_16px_rgba(236,72,153,0.45)]'
+                        ? 'bg-gradient-to-r from-amber-400 to-pink-500 text-[#1A1206] shadow-[0_0_12px_rgba(236,72,153,0.45)]'
                         : 'bg-white/[0.12] text-white border border-white/20'
                       : 'bg-white/[0.04] text-slate-400 border border-white/[0.06] hover:bg-white/[0.08] hover:text-slate-200'
                   }`}
                 >
                   {label}
-                  <span className={`ml-1 font-mono tabular-nums ${active ? 'opacity-70' : 'opacity-50'}`}>
+                  <span className={`ml-0.5 font-mono text-[9px] tabular-nums ${active ? 'opacity-70' : 'opacity-50'}`}>
                     {count}
                   </span>
                 </button>
@@ -1303,8 +1300,8 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
             })}
           </div>
 
-          <div className="flex-1 overflow-y-auto px-4 pb-3">
-            <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-2">
+          <div className="flex-1 overflow-y-auto px-3 pb-2">
+            <div className="grid grid-cols-5 sm:grid-cols-7 lg:grid-cols-10 gap-1.5">
               {visibleGifts.map((gift) => {
                 const selected = gift.giftId === selectedGiftId;
                 const affordable = gift.price <= coinBalance;
@@ -1316,47 +1313,50 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
                     disabled={isOfflineSimulated}
                     onClick={() => setSelectedGiftId(gift.giftId)}
                     aria-label={`Select ${gift.name}, ${gift.price} coins`}
-                    className={`group relative rounded-2xl border p-2 pt-3 flex flex-col items-center gap-1 transition-all duration-200 disabled:opacity-45 hover:-translate-y-0.5 ${
+                    title={gift.name}
+                    className={`group relative rounded-xl border p-1.5 pb-1 flex flex-col items-center transition-all duration-150 disabled:opacity-45 hover:-translate-y-px ${
                       selected
                         ? 'bg-white/[0.08]'
-                        : 'bg-white/[0.03] border-white/[0.06] hover:bg-white/[0.06]'
+                        : 'bg-white/[0.03] border-white/[0.06] hover:bg-white/[0.07]'
                     }`}
                     style={
                       selected
                         ? {
                             borderColor: gift.accentHex,
-                            boxShadow: `0 0 0 1px ${gift.accentHex}, 0 6px 22px ${gift.accentHex}50`,
+                            boxShadow: `0 0 0 1px ${gift.accentHex}, 0 4px 14px ${gift.accentHex}45`,
                           }
                         : undefined
                     }
                   >
                     <span
-                      className={`pointer-events-none absolute inset-x-3 top-2 h-14 rounded-full blur-xl transition-opacity ${
-                        selected ? 'opacity-60' : 'opacity-0 group-hover:opacity-35'
+                      className={`pointer-events-none absolute inset-x-2 top-1 h-9 rounded-full blur-lg transition-opacity ${
+                        selected ? 'opacity-55' : 'opacity-0 group-hover:opacity-30'
                       }`}
                       style={{ background: gift.accentHex }}
                     />
-                    <GiftArtwork
-                      src={gift.imageUrl}
-                      alt={gift.name}
-                      size={54}
-                      className={`relative transition-transform duration-200 group-hover:scale-110 ${
-                        affordable ? '' : 'opacity-40 saturate-50'
-                      }`}
-                    />
-                    <p className="relative text-[10px] font-medium text-slate-200 truncate w-full text-center">
+                    <span className="relative grid place-items-center">
+                      <GiftArtwork
+                        src={gift.imageUrl}
+                        alt={gift.name}
+                        size={38}
+                        className={`relative transition-transform duration-150 group-hover:scale-110 ${
+                          affordable ? '' : 'opacity-40 saturate-50'
+                        }`}
+                      />
+                      <span
+                        className={`absolute -bottom-1.5 left-1/2 -translate-x-1/2 flex items-center gap-0.5 rounded-full bg-black/65 backdrop-blur px-1.5 py-px text-[9px] font-mono tabular-nums whitespace-nowrap ${
+                          affordable ? 'text-amber-200' : 'text-rose-300/80'
+                        }`}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-gradient-to-br from-amber-300 to-yellow-600" />
+                        {gift.price.toLocaleString()}
+                      </span>
+                    </span>
+                    <p className="mt-2 w-full truncate text-center text-[9px] font-medium text-slate-300">
                       {gift.name}
                     </p>
-                    <p
-                      className={`relative flex items-center gap-1 rounded-full bg-black/30 px-2 py-0.5 text-[10px] font-mono tabular-nums ${
-                        affordable ? 'text-amber-200' : 'text-rose-300/80'
-                      }`}
-                    >
-                      <span className="w-2 h-2 rounded-full bg-gradient-to-br from-amber-300 to-yellow-600" />
-                      {gift.price.toLocaleString()}
-                    </p>
                     {luxury && (
-                      <span className="absolute top-1 right-1 rounded-full bg-gradient-to-r from-amber-400 to-pink-500 px-1.5 text-[8px] font-black tracking-wider text-[#1A1206]">
+                      <span className="absolute top-0.5 right-0.5 grid h-3 place-items-center rounded-full bg-gradient-to-r from-amber-400 to-pink-500 px-1 text-[7px] font-black tracking-wider text-[#1A1206]">
                         LUX
                       </span>
                     )}
@@ -1367,29 +1367,29 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
           </div>
 
           {selectedGift && coinBalance < selectedGift.price && (
-            <p className="px-4 pb-2 text-[11px] text-rose-300">
+            <p className="px-3 pb-1 text-[10px] text-rose-300">
               Need {(selectedGift.price - coinBalance).toLocaleString()} more coins for this gift.
             </p>
           )}
 
-          <div className="border-t border-white/[0.08] p-3 flex items-center gap-3 bg-[#080a12]/90">
+          <div className="border-t border-white/[0.08] p-2.5 flex items-center gap-2.5 bg-[#080a12]/90">
             {selectedGift ? (
               <>
                 <span
-                  className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border"
+                  className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border"
                   style={{
                     borderColor: `${selectedGift.accentHex}66`,
                     background: `radial-gradient(circle at 50% 40%, ${selectedGift.accentHex}33, rgba(10,13,22,0.7))`,
                   }}
                 >
-                  <GiftArtwork src={selectedGift.imageUrl} alt={selectedGift.name} size={40} />
+                  <GiftArtwork src={selectedGift.imageUrl} alt={selectedGift.name} size={32} />
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="text-xs font-bold text-white truncate">{selectedGift.name}</p>
-                  <p className="flex items-center gap-1.5 text-[11px] font-mono text-amber-300 tabular-nums">
+                  <p className="flex items-center gap-1.5 text-[10px] font-mono text-amber-300 tabular-nums">
                     {selectedGift.price.toLocaleString()} coins
                     <span
-                      className={`rounded-full px-1.5 text-[9px] font-sans font-bold tracking-wider ${
+                      className={`rounded-full px-1 text-[8px] font-sans font-bold tracking-wider ${
                         giftTier(selectedGift.price) === 'luxury'
                           ? 'bg-gradient-to-r from-amber-400/25 to-pink-500/25 text-amber-200 border border-amber-300/30'
                           : giftTier(selectedGift.price) === 'premium'
@@ -1405,9 +1405,9 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
                   type="button"
                   disabled={!currentUser || isOfflineSimulated || coinBalance < selectedGift.price}
                   onClick={() => onSendGift(room.roomId, selectedGift)}
-                  className="relative overflow-hidden h-11 px-6 rounded-xl bg-gradient-to-r from-amber-400 via-orange-500 to-pink-500 hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed text-sm font-extrabold text-[#1A1206] inline-flex items-center gap-2 transition-all active:scale-[0.97] shadow-[0_6px_20px_rgba(249,115,22,0.4)]"
+                  className="relative overflow-hidden h-9 px-4 rounded-lg bg-gradient-to-r from-amber-400 via-orange-500 to-pink-500 hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-extrabold text-[#1A1206] inline-flex items-center gap-1.5 transition-all active:scale-[0.97] shadow-[0_4px_16px_rgba(249,115,22,0.4)]"
                 >
-                  <Send className="w-4 h-4" aria-hidden="true" />
+                  <Send className="w-3.5 h-3.5" aria-hidden="true" />
                   <span>Send</span>
                   <span
                     className="gfx-shine-loop pointer-events-none absolute inset-0"
@@ -1419,7 +1419,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
                 </button>
               </>
             ) : (
-              <p className="text-xs text-slate-400 py-2">Pick a gift to send.</p>
+              <p className="text-xs text-slate-400 py-1.5">Pick a gift to send.</p>
             )}
           </div>
         </div>

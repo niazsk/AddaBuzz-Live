@@ -23,6 +23,8 @@ export type AppSection =
   | 'discover'
   | 'following'
   | 'messages'
+  | 'games'
+  | 'fruit-manor'
   | 'wallet'
   | 'coins-trading'
   | 'super-agent-list'

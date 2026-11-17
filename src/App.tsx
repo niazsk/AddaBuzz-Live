@@ -75,6 +75,8 @@ import { WalletView } from './components/views/WalletView';
 import { CoinsTradingView } from './components/views/CoinsTradingView';
 import { AgentDirectoryView } from './components/views/AgentDirectoryView';
 import { MessagesView } from './components/views/MessagesView';
+import { GameCenterView } from './components/views/GameCenterView';
+import { FruitManorView } from './components/views/FruitManorView';
 import { ProfileView } from './components/views/ProfileView';
 import { AdminRolesView } from './components/views/AdminRolesView';
 import { SignInView } from './components/views/SignInView';
@@ -1147,6 +1149,22 @@ export default function App() {
               onUnblockUser={handleToggleBlock}
               onOpenAuth={() => setActiveSection('signin')}
               isOfflineSimulated={isOffline}
+            />
+          )}
+
+          {activeSection === 'games' && (
+            <GameCenterView
+              isOffline={isOffline}
+              onOpenFruitManor={() => setActiveSection('fruit-manor')}
+            />
+          )}
+
+          {activeSection === 'fruit-manor' && (
+            <FruitManorView
+              currentUser={currentUser}
+              coinBalance={coinBalance}
+              isOffline={isOffline}
+              onBack={() => setActiveSection('games')}
             />
           )}
 
