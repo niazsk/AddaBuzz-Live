@@ -22,7 +22,7 @@ export const CoinsTradingView: React.FC<CoinsTradingViewProps> = ({
   onTransferCoins,
   onBack,
 }) => {
-  const [recipientUid, setRecipientUid] = useState('');
+  const [recipientId, setRecipientId] = useState('');
   const [amount, setAmount] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null);
@@ -44,10 +44,23 @@ export const CoinsTradingView: React.FC<CoinsTradingViewProps> = ({
 
   const handleTransfer = async (e: React.FormEvent) => {
     e.preventDefault();
-    const recipient = recipients.find((u) => u.uid === recipientUid);
+    const typed = recipientId.trim().toLowerCase();
+    const recipient = typed
+      ? recipients.find(
+          (u) =>
+            u.platformId.toLowerCase() === typed ||
+            u.username.toLowerCase() === typed ||
+            u.uid.toLowerCase() === typed
+        )
+      : undefined;
     const value = Math.floor(Number(amount));
     if (!recipient) {
-      setMsg({ tone: 'err', text: 'Pick a recipient account first.' });
+      setMsg({
+        tone: 'err',
+        text: recipients.length
+          ? 'Enter a valid ID first.'
+          : 'No eligible recipients yet.',
+      });
       return;
     }
     if (!Number.isFinite(value) || value <= 0) {
@@ -129,19 +142,30 @@ export const CoinsTradingView: React.FC<CoinsTradingViewProps> = ({
 
           <form onSubmit={handleTransfer} className="space-y-3">
             <label className="block space-y-1.5">
-              <span className="text-xs font-medium text-slate-300">Recipient</span>
-              <select
-                value={recipientUid}
-                onChange={(e) => setRecipientUid(e.target.value)}
+              <span className="text-xs font-medium text-slate-300">ID</span>
+              <input
+                type="text"
+                value={recipientId}
+                onChange={(e) => {
+                  setRecipientId(e.target.value);
+                  setMsg(null);
+                }}
+                list="coins-transfer-recipients"
+                autoComplete="off"
+                spellCheck={false}
+                placeholder="Enter or pick an ID…"
                 className="w-full h-10 px-3.5 rounded-xl bg-[#090B12] border border-white/[0.09] text-sm text-white focus:border-violet-500/60 focus:outline-none"
-              >
-                <option value="">Select account…</option>
+              />
+              <datalist id="coins-transfer-recipients">
                 {recipients.map((u) => (
-                  <option key={u.uid} value={u.uid}>
-                    {u.platformId}
+                  <option key={u.uid} value={u.platformId}>
+                    {u.username}
                   </option>
                 ))}
-              </select>
+              </datalist>
+              <span className="block text-[10px] text-slate-500">
+                Type a platform ID or username — or pick one from the list.
+              </span>
             </label>
 
             <div className="space-y-1.5">
