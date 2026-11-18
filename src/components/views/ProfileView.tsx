@@ -410,28 +410,32 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             Agent Management
           </h2>
           <div className="grid grid-cols-4 gap-2.5">
-            {(isBdAgent ? BD_AGENT_TILES : AGENT_TILES).map(renderTile)}
+            {(isBdAgent ? BD_AGENT_TILES : AGENT_TILES)
+              .filter((tile) => isAdminUser || tile.id !== 'agent-rewards')
+              .map(renderTile)}
           </div>
         </section>
       )}
 
-      {/* Roles & safety shortcut */}
-      <button
-        type="button"
-        onClick={() => onOpenSection('admin')}
-        className="w-full rounded-2xl bg-gradient-to-r from-violet-500/15 to-[#111420] border border-violet-500/25 hover:border-violet-400/50 p-4 flex items-center justify-between gap-3 transition-colors"
-      >
-        <div className="flex items-center gap-3 min-w-0">
-          <span className="w-10 h-10 rounded-xl bg-violet-500/20 flex items-center justify-center shrink-0">
-            <ShieldCheck className="w-5 h-5 text-violet-300" />
-          </span>
-          <div className="text-left min-w-0">
-            <p className="text-sm font-semibold text-white">Roles & Safety</p>
-            <p className="text-xs text-slate-400 truncate">Promotions & moderation</p>
+      {/* Roles & safety shortcut — admin accounts only */}
+      {isAdminUser && (
+        <button
+          type="button"
+          onClick={() => onOpenSection('admin')}
+          className="w-full rounded-2xl bg-gradient-to-r from-violet-500/15 to-[#111420] border border-violet-500/25 hover:border-violet-400/50 p-4 flex items-center justify-between gap-3 transition-colors"
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="w-10 h-10 rounded-xl bg-violet-500/20 flex items-center justify-center shrink-0">
+              <ShieldCheck className="w-5 h-5 text-violet-300" />
+            </span>
+            <div className="text-left min-w-0">
+              <p className="text-sm font-semibold text-white">Roles & Safety</p>
+              <p className="text-xs text-slate-400 truncate">Promotions & moderation</p>
+            </div>
           </div>
-        </div>
-        <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
-      </button>
+          <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
+        </button>
+      )}
 
       {/* Blocked accounts */}
       {blockedUsers.length > 0 && (

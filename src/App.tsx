@@ -347,6 +347,8 @@ export default function App() {
     if (section === 'wallet') {
       handleToggleWallet();
     } else if (section === 'admin') {
+      // Roles & Safety is an admin-only area.
+      if (!isAdminUser) return;
       if (activeSection !== 'admin') adminReturnRef.current = activeSection;
       setActiveSection('admin');
     } else {
@@ -1241,7 +1243,7 @@ export default function App() {
             />
           )}
 
-          {activeSection === 'admin' && (
+          {activeSection === 'admin' && isAdminUser && (
             <AdminRolesView
               currentUser={currentUser}
               isAdminUser={isAdminUser}
