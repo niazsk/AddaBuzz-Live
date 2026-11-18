@@ -76,6 +76,7 @@ import { CoinsTradingView } from './components/views/CoinsTradingView';
 import { AgentDirectoryView } from './components/views/AgentDirectoryView';
 import { MessagesView } from './components/views/MessagesView';
 import { FruitManorView } from './components/views/FruitManorView';
+import { GamesView } from './components/views/GamesView';
 import { GameHistoryView } from './components/views/GameHistoryView';
 import { ProfileView } from './components/views/ProfileView';
 import { AdminRolesView } from './components/views/AdminRolesView';
@@ -1152,12 +1153,20 @@ export default function App() {
             />
           )}
 
+          {activeSection === 'games' && (
+            <GamesView
+              coinBalance={coinBalance}
+              onBack={() => setActiveSection('profile')}
+              onOpenFruitManor={() => setActiveSection('fruit-manor')}
+            />
+          )}
+
           {activeSection === 'fruit-manor' && (
             <FruitManorView
               currentUser={currentUser}
               coinBalance={coinBalance}
               isOffline={isOffline}
-              onBack={() => setActiveSection('profile')}
+              onBack={() => setActiveSection('games')}
               onOpenHistory={() => setActiveSection('game-history')}
             />
           )}

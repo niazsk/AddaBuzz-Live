@@ -256,6 +256,17 @@ service cloud.firestore {
         data.updatedAt is timestamp;
     }
 
+    // Fruit Manor game ledger keys written by the client:
+    //   fm-w-<betId>  winning payout (max stake x highest multiplier = 1,900,000)
+    //   fm-r-<key>    refund of a cancelled / voided / late stake (max 100,000)
+    function isGameWinKey(key) {
+      return key is string && key.matches('^fm-w-.*$');
+    }
+
+    function isGameRefundKey(key) {
+      return key is string && key.matches('^fm-r-.*$');
+    }
+
     function isValidWalletTransaction(data, txId, uid) {
       return data.keys().hasAll(['transactionId', 'uid', 'currency', 'direction', 'amount', 'reason', 'idempotencyKey', 'createdAt']) &&
         data.keys().hasOnly(['transactionId', 'uid', 'currency', 'direction', 'amount', 'reason', 'counterparty', 'idempotencyKey', 'createdAt']) &&
@@ -617,6 +628,106 @@ service cloud.firestore {
       }
     }
 
+    // Fruit Manor shared board: one round for every player at the same time.
+    // A short leader lease decides which client advances the phase clock.
+    function isFmFruit(f) {
+      return f == null || f in ['strawberry', 'apple', 'banana', 'orange', 'grapes', 'cherries', 'watermelon', 'plum'];
+    }
+
+    function isValidFmBoard(data) {
+      return data.keys().hasAll([
+          'roundId', 'seq', 'configVersion', 'phase', 'phaseEndsAt', 'resultFruitId',
+          'recentResults', 'leaderUid', 'leaderLeaseUntil', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'roundId', 'seq', 'configVersion', 'phase', 'phaseEndsAt', 'resultFruitId',
+          'recentResults', 'leaderUid', 'leaderLeaseUntil', 'createdAt', 'updatedAt'
+        ]) &&
+        data.roundId is string && data.roundId.matches('^FM-[0-9]{1,9}$') &&
+        data.seq is int && data.seq >= 1 && data.seq <= 999999999 &&
+        data.configVersion is string && data.configVersion.size() >= 1 && data.configVersion.size() <= 32 &&
+        data.phase in ['SCHEDULED', 'OPEN', 'LOCKED', 'DRAWN', 'SETTLING', 'SETTLED', 'VOIDED'] &&
+        data.phaseEndsAt is timestamp &&
+        isFmFruit(data.resultFruitId) &&
+        data.recentResults is list && data.recentResults.size() <= 30 &&
+        isFmValidId(data.leaderUid) &&
+        data.leaderLeaseUntil is timestamp &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isFmValidId(value) {
+      return value is string && value.size() >= 1 && value.size() <= 128 && value.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidFmBet(data, betId) {
+      return data.keys().hasAll([
+          'betId', 'roundId', 'uid', 'username', 'fruitId', 'stake', 'multiplier',
+          'status', 'payout', 'debitRef', 'createdAt'
+        ]) &&
+        data.keys().hasOnly([
+          'betId', 'roundId', 'uid', 'username', 'fruitId', 'stake', 'multiplier',
+          'status', 'payout', 'debitRef', 'creditRef', 'createdAt', 'settledAt'
+        ]) &&
+        data.betId == betId &&
+        isFmValidId(data.betId) &&
+        data.roundId is string && data.roundId.matches('^FM-[0-9]{1,9}$') &&
+        data.uid is string && data.uid == request.auth.uid &&
+        data.username is string && data.username.size() >= 1 && data.username.size() <= 32 &&
+        data.fruitId in ['strawberry', 'apple', 'banana', 'orange', 'grapes', 'cherries', 'watermelon', 'plum'] &&
+        data.stake is int && data.stake >= 10 && data.stake <= 50000 &&
+        data.multiplier is int && data.multiplier >= 3 && data.multiplier <= 38 &&
+        data.status == 'ACCEPTED' &&
+        data.payout is int && data.payout == 0 &&
+        data.debitRef is string && data.debitRef.size() >= 1 && data.debitRef.size() <= 128 &&
+        (!('creditRef' in data) || (data.creditRef is string && data.creditRef.size() <= 128)) &&
+        data.createdAt == request.time;
+    }
+
+    match /fruitManor/{boardId} {
+      allow get, list: if isSignedIn();
+      allow create: if isVerifiedUser() &&
+        boardId == 'board' &&
+        isValidFmBoard(incoming()) &&
+        incoming().leaderUid == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isVerifiedUser() &&
+        boardId == 'board' &&
+        isValidFmBoard(incoming()) &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          (incoming().leaderUid == existing().leaderUid && existing().leaderUid == request.auth.uid) ||
+          (incoming().leaderUid == request.auth.uid && existing().leaderLeaseUntil <= request.time)
+        );
+      allow delete: if false;
+    }
+
+    // Public bet slips for the shared round — everyone sees the whole pool.
+    match /fruitManorBets/{betId} {
+      allow get, list: if isSignedIn();
+      allow create: if isVerifiedUser() &&
+        isValidFmBet(incoming(), betId) &&
+        exists(/databases/$(database)/documents/fruitManor/board) &&
+        get(/databases/$(database)/documents/fruitManor/board).data.roundId == incoming().roundId &&
+        get(/databases/$(database)/documents/fruitManor/board).data.phase == 'OPEN';
+      allow update: if isVerifiedUser() &&
+        isFmValidId(betId) &&
+        existing().uid == request.auth.uid &&
+        incoming().betId == existing().betId &&
+        incoming().roundId == existing().roundId &&
+        incoming().uid == existing().uid &&
+        incoming().stake == existing().stake &&
+        incoming().multiplier == existing().multiplier &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'payout', 'creditRef', 'settledAt']) &&
+        incoming().status in ['WON', 'LOST', 'REFUNDED'] &&
+        incoming().payout is int && incoming().payout >= 0 && incoming().payout <= 1900000 &&
+        incoming().settledAt == request.time;
+      allow delete: if false;
+    }
+
     // Wallets (Coins & Diamonds — No Top-Up, No Client Inflation)
     match /wallets/{uid} {
       allow get: if isValidId(uid) && (isOwner(uid) || isAdmin() || isSuperAgent());
@@ -639,6 +750,15 @@ service cloud.firestore {
             uid != request.auth.uid &&
             incoming().diff(existing()).affectedKeys().hasOnly(['coinBalance', 'updatedAt']) &&
             incoming().coinBalance > existing().coinBalance
+          ) ||
+          (
+            // Fruit Manor pays winnings / refunds back into the owner's own
+            // wallet. Bounded by the largest possible single game payout
+            // (maxStakePerBet 50,000 x top multiplier 38 = 1,900,000).
+            isOwner(uid) &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['coinBalance', 'updatedAt']) &&
+            incoming().coinBalance > existing().coinBalance &&
+            incoming().coinBalance - existing().coinBalance <= 1900000
           ) ||
           (
             isOwner(uid) &&
@@ -671,6 +791,20 @@ service cloud.firestore {
               incoming().direction == 'CREDIT' &&
               incoming().amount <= 500 &&
               incoming().idempotencyKey.matches('^welcome_grant_.*$')
+            ) ||
+            (
+              // Fruit Manor payouts: the credited amount must equal the exact
+              // wallet increase committed in the same transaction.
+              isOwner(uid) &&
+              incoming().direction == 'CREDIT' &&
+              incoming().currency == 'COIN' &&
+              (
+                (isGameWinKey(incoming().idempotencyKey) && incoming().amount <= 1900000) ||
+                (isGameRefundKey(incoming().idempotencyKey) && incoming().amount <= 100000)
+              ) &&
+              incoming().amount ==
+                getAfter(/databases/$(database)/documents/wallets/$(uid)).data.coinBalance -
+                get(/databases/$(database)/documents/wallets/$(uid)).data.coinBalance
             )
           );
       }

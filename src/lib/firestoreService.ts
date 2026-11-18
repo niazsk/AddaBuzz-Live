@@ -1093,6 +1093,249 @@ export async function gameCoinCredit(
   }
 }
 
+// ---------------------------------------------------------------------------
+// Fruit Manor — one shared board for every player.
+// The round, phase clock and result live in a single document and a short
+// leader lease decides which client advances them. Bets are public documents
+// so every player sees the whole pool; each player settles only their own bets.
+// ---------------------------------------------------------------------------
+
+export type SharedBoardPhase =
+  | 'SCHEDULED'
+  | 'OPEN'
+  | 'LOCKED'
+  | 'DRAWN'
+  | 'SETTLING'
+  | 'SETTLED'
+  | 'VOIDED';
+
+export interface SharedBoard {
+  roundId: string;
+  seq: number;
+  configVersion: string;
+  phase: SharedBoardPhase;
+  phaseEndsAt: number;
+  resultFruitId: string | null;
+  recentResults: { roundId: string; seq: number; fruitId: string }[];
+  leaderUid: string;
+  leaderLeaseUntil: number;
+}
+
+export interface SharedBet {
+  betId: string;
+  roundId: string;
+  uid: string;
+  username: string;
+  fruitId: string;
+  stake: number;
+  multiplier: number;
+  status: 'ACCEPTED' | 'WON' | 'LOST' | 'REFUNDED';
+  payout: number;
+  debitRef: string;
+  creditRef?: string;
+  createdAt: number;
+}
+
+export interface SharedBoardPatch {
+  roundId?: string;
+  seq?: number;
+  phase?: SharedBoardPhase;
+  phaseEndsAt?: number;
+  resultFruitId?: string | null;
+  recentResults?: { roundId: string; seq: number; fruitId: string }[];
+}
+
+const BOARD_PATH = ['fruitManor', 'board'] as const;
+export const FRUIT_MANOR_LEADER_LEASE_MS = 12000;
+
+function toMillis(value: unknown): number {
+  return value instanceof Timestamp ? value.toMillis() : 0;
+}
+
+function mapBoard(d: Record<string, unknown>): SharedBoard {
+  return {
+    roundId: String(d.roundId ?? ''),
+    seq: Number(d.seq ?? 0),
+    configVersion: String(d.configVersion ?? ''),
+    phase: (String(d.phase ?? 'SCHEDULED') as SharedBoardPhase) ?? 'SCHEDULED',
+    phaseEndsAt: toMillis(d.phaseEndsAt),
+    resultFruitId: typeof d.resultFruitId === 'string' ? d.resultFruitId : null,
+    recentResults: Array.isArray(d.recentResults)
+      ? (d.recentResults as { roundId: string; seq: number; fruitId: string }[]).map((r) => ({
+          roundId: String(r.roundId),
+          seq: Number(r.seq),
+          fruitId: String(r.fruitId),
+        }))
+      : [],
+    leaderUid: String(d.leaderUid ?? ''),
+    leaderLeaseUntil: toMillis(d.leaderLeaseUntil),
+  };
+}
+
+export function subscribeFruitManorBoard(
+  onBoard: (board: SharedBoard | null) => void,
+  onError?: (message: string) => void
+): Unsubscribe {
+  return onSnapshot(
+    doc(db, BOARD_PATH[0], BOARD_PATH[1]),
+    (snap) => onBoard(snap.exists() ? mapBoard(snap.data() as Record<string, unknown>) : null),
+    (error) => {
+      onError?.(error instanceof Error ? error.message : String(error));
+      handleFirestoreError(error, OperationType.GET, 'fruitManor/board');
+    }
+  );
+}
+
+export function subscribeFruitManorBets(
+  roundId: string,
+  onBets: (bets: SharedBet[]) => void,
+  onError?: (message: string) => void
+): Unsubscribe {
+  return onSnapshot(
+    query(collection(db, 'fruitManorBets'), where('roundId', '==', roundId)),
+    (snap) => {
+      const list = snap.docs.map((docSnap) => {
+        const d = docSnap.data();
+        return {
+          betId: String(d.betId ?? docSnap.id),
+          roundId: String(d.roundId ?? ''),
+          uid: String(d.uid ?? ''),
+          username: String(d.username ?? ''),
+          fruitId: String(d.fruitId ?? ''),
+          stake: Number(d.stake ?? 0),
+          multiplier: Number(d.multiplier ?? 0),
+          status: (String(d.status ?? 'ACCEPTED') as SharedBet['status']) ?? 'ACCEPTED',
+          payout: Number(d.payout ?? 0),
+          debitRef: String(d.debitRef ?? ''),
+          creditRef: d.creditRef ? String(d.creditRef) : undefined,
+          createdAt: toMillis(d.createdAt),
+        };
+      });
+      list.sort((a, b) => a.createdAt - b.createdAt);
+      onBets(list);
+    },
+    (error) => {
+      onError?.(error instanceof Error ? error.message : String(error));
+      handleFirestoreError(error, OperationType.LIST, 'fruitManorBets');
+    }
+  );
+}
+
+/**
+ * Become the round leader when the current lease is free or expired.
+ * Also seeds the very first board document, so whoever opens the game first
+ * starts the shared clock for everybody else.
+ */
+export async function claimFruitManorLeadership(
+  uid: string,
+  initial: { roundId: string; seq: number; configVersion: string; phaseEndsAtMs: number }
+): Promise<boolean> {
+  const boardRef = doc(db, BOARD_PATH[0], BOARD_PATH[1]);
+  try {
+    return await runTransaction(db, async (tx) => {
+      const snap = await tx.get(boardRef);
+      const now = Date.now();
+      if (!snap.exists()) {
+        tx.set(boardRef, {
+          roundId: initial.roundId,
+          seq: initial.seq,
+          configVersion: initial.configVersion,
+          phase: 'SCHEDULED',
+          phaseEndsAt: Timestamp.fromMillis(initial.phaseEndsAtMs),
+          resultFruitId: null,
+          recentResults: [],
+          leaderUid: uid,
+          leaderLeaseUntil: Timestamp.fromMillis(now + FRUIT_MANOR_LEADER_LEASE_MS),
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+        return true;
+      }
+      const d = snap.data();
+      const leaseUntil = toMillis(d.leaderLeaseUntil);
+      if (String(d.leaderUid) !== uid && leaseUntil > now) return false;
+      tx.update(boardRef, {
+        leaderUid: uid,
+        leaderLeaseUntil: Timestamp.fromMillis(now + FRUIT_MANOR_LEADER_LEASE_MS),
+        updatedAt: serverTimestamp(),
+      });
+      return true;
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, 'fruitManor/board');
+  }
+}
+
+export async function advanceFruitManorBoard(
+  uid: string,
+  expectedRoundId: string,
+  expectedPhase: SharedBoardPhase,
+  patch: SharedBoardPatch
+): Promise<boolean> {
+  const boardRef = doc(db, BOARD_PATH[0], BOARD_PATH[1]);
+  try {
+    return await runTransaction(db, async (tx) => {
+      const snap = await tx.get(boardRef);
+      if (!snap.exists()) return false;
+      const d = snap.data();
+      if (String(d.leaderUid) !== uid) return false;
+      if (String(d.roundId) !== expectedRoundId) return false;
+      if (String(d.phase) !== expectedPhase) return false;
+      const next: Record<string, unknown> = { updatedAt: serverTimestamp() };
+      if (patch.roundId !== undefined) next.roundId = patch.roundId;
+      if (patch.seq !== undefined) next.seq = patch.seq;
+      if (patch.phase !== undefined) next.phase = patch.phase;
+      if (patch.phaseEndsAt !== undefined) next.phaseEndsAt = Timestamp.fromMillis(patch.phaseEndsAt);
+      if (patch.resultFruitId !== undefined) next.resultFruitId = patch.resultFruitId;
+      if (patch.recentResults !== undefined) next.recentResults = patch.recentResults;
+      tx.update(boardRef, next);
+      return true;
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, 'fruitManor/board');
+  }
+}
+
+export async function createFruitManorBet(bet: {
+  betId: string;
+  roundId: string;
+  uid: string;
+  username: string;
+  fruitId: string;
+  stake: number;
+  multiplier: number;
+  debitRef: string;
+}): Promise<void> {
+  try {
+    await setDoc(doc(db, 'fruitManorBets', bet.betId), {
+      ...bet,
+      status: 'ACCEPTED',
+      payout: 0,
+      createdAt: serverTimestamp(),
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, `fruitManorBets/${bet.betId}`);
+  }
+}
+
+export async function resolveFruitManorBet(
+  betId: string,
+  status: 'WON' | 'LOST' | 'REFUNDED',
+  payout: number,
+  creditRef?: string
+): Promise<void> {
+  try {
+    await updateDoc(doc(db, 'fruitManorBets', betId), {
+      status,
+      payout,
+      ...(creditRef ? { creditRef } : {}),
+      settledAt: serverTimestamp(),
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, `fruitManorBets/${betId}`);
+  }
+}
+
 export async function transferCoins(
   sender: UserProfile,
   recipient: UserProfile,

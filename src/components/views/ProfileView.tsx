@@ -217,7 +217,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         type="button"
         onClick={() => {
           if (tile.id === 'coins-trading') onOpenSection('coins-trading');
-          else if (tile.id === 'games') onOpenSection('fruit-manor');
+          else if (tile.id === 'games') onOpenSection('games');
           else if (tile.id === 'super-agent-list') onOpenSection('super-agent-list');
           else if (tile.id === 'agent-list') onOpenSection('agent-list');
           else if (tile.id === 'agent-rewards') onOpenSection('admin');

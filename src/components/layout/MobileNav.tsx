@@ -146,7 +146,7 @@ export const MobileBottomBar: React.FC<Omit<MobileNavProps, 'onToggleWallet'>> =
         className={`min-h-[44px] flex flex-col items-center justify-center gap-0.5 text-[11px] font-medium transition-colors ${
           activeSection === 'profile' || activeSection === 'admin' || activeSection === 'wallet' ||
           activeSection === 'coins-trading' || activeSection === 'super-agent-list' || activeSection === 'agent-list' ||
-          activeSection === 'fruit-manor' || activeSection === 'game-history'
+          activeSection === 'fruit-manor' || activeSection === 'game-history' || activeSection === 'games'
             ? 'text-sky-400'
             : 'text-slate-400'
         }`}

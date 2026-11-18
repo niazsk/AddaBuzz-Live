@@ -9,6 +9,7 @@ import {
   Radio,
   LogIn,
   LogOut,
+  Gamepad2,
 } from 'lucide-react';
 import { AppSection, UserProfile } from '../../types/app';
 import { BrandLogo } from '../ui/BrandLogo';
@@ -32,6 +33,7 @@ const NAV_ITEMS: { id: AppSection; label: string; icon: React.ComponentType<{ cl
   { id: 'discover', label: 'Home', icon: Compass },
   { id: 'following', label: 'Friends', icon: Heart },
   { id: 'messages', label: 'Messages', icon: MessageSquare },
+  { id: 'games', label: 'Games', icon: Gamepad2 },
   { id: 'wallet', label: 'Wallet', icon: Wallet },
   { id: 'profile', label: 'Profile', icon: User },
   { id: 'admin', label: 'Roles & Safety', icon: ShieldCheck },

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  AlertTriangle,
   ArrowLeft,
   CircleHelp,
   Coins,
@@ -107,7 +108,7 @@ export const FruitManorView: React.FC<FruitManorViewProps> = ({
   }, [soundOn]);
 
   useEffect(() => {
-    const engine = new FruitManorEngine(currentUser.uid);
+    const engine = new FruitManorEngine(currentUser.uid, currentUser.username);
     engineRef.current = engine;
     const unsub = engine.subscribe(setSnap);
     const unsubEv = engine.onEvent((ev) => eventsRef.current(ev));
@@ -179,9 +180,11 @@ export const FruitManorView: React.FC<FruitManorViewProps> = ({
   const remainingMs = snap ? Math.max(0, snap.phaseEndsAt - snap.serverNow) : 0;
   const remainingSec = Math.ceil(remainingMs / 1000);
   const openProgress = phase === 'OPEN' ? Math.max(0, Math.min(1, remainingMs / CFG.openMs)) : 0;
-  const acceptedBets = useMemo(() => round?.bets.filter((b) => b.status === 'ACCEPTED') ?? [], [snap, round]);
-  const acceptedStake = acceptedBets.reduce((s, b) => s + b.stake, 0);
-  const canBet = phase === 'OPEN' && !isOffline && !snap?.paused;
+  const acceptedBets = useMemo(() => snap?.myBets ?? [], [snap]);
+  const acceptedStake = snap?.myStake ?? 0;
+  const poolStake = snap?.poolStake ?? 0;
+  const players = snap?.players ?? 0;
+  const canBet = phase === 'OPEN' && !isOffline && !!snap?.connected && !snap?.paused;
 
   const lastResult = snap?.recentResults[0];
   const lastResultFruit = lastResult ? FRUIT_BY_ID.get(lastResult.fruitId) : undefined;
@@ -193,6 +196,12 @@ export const FruitManorView: React.FC<FruitManorViewProps> = ({
   }, [snap, lastResult]);
 
   const stakeByFruit = useMemo(() => {
+    const map = new Map<FruitId, number>();
+    CFG.fruits.forEach((f) => map.set(f.fruitId, snap?.poolByFruit?.[f.fruitId] ?? 0));
+    return map;
+  }, [snap]);
+
+  const myStakeByFruit = useMemo(() => {
     const map = new Map<FruitId, number>();
     CFG.fruits.forEach((f) => map.set(f.fruitId, 0));
     acceptedBets.forEach((b) => map.set(b.fruitId, (map.get(b.fruitId) ?? 0) + b.stake));
@@ -344,6 +353,13 @@ export const FruitManorView: React.FC<FruitManorViewProps> = ({
           </div>
         )}
 
+        {snap?.error && (
+          <div className="mt-2 flex items-start gap-2 rounded-xl border border-rose-400/40 bg-rose-950/70 px-3 py-2.5 text-xs text-rose-100">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rose-300" />
+            <span className="leading-relaxed">{snap.error}</span>
+          </div>
+        )}
+
         <div className="mt-2 grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-2 [grid-template-areas:'status_status'_'wheel_board'_'recent_board'_'chips_chips'] lg:grid-cols-[minmax(0,300px)_minmax(0,1fr)] lg:gap-4 lg:[grid-template-areas:'status_board'_'wheel_chips'_'recent_chips']">
           {/* Round status + wallet + always-visible last result */}
           <div className="[grid-area:status] rounded-2xl border border-white/[0.08] bg-[#0B1F16]/85 px-3 py-1.5 backdrop-blur lg:self-start">
@@ -369,6 +385,14 @@ export const FruitManorView: React.FC<FruitManorViewProps> = ({
                 }`}
                 style={{ width: phase === 'OPEN' ? `${openProgress * 100}%` : phase === 'SCHEDULED' ? '100%' : '0%' }}
               />
+            </div>
+            <div className="mt-1 flex items-center gap-1.5 text-[9px] font-semibold">
+              <span className="rounded-full bg-emerald-400/10 px-1.5 py-px text-emerald-200/80">
+                {players} playing
+              </span>
+              <span className="rounded-full bg-amber-400/10 px-1.5 py-px text-amber-200/80">
+                shared pool {formatCoins(poolStake)}
+              </span>
             </div>
             <div className="mt-1.5 flex items-center gap-1.5">
               <span className="shrink-0 text-[8px] font-semibold uppercase tracking-[0.14em] text-emerald-200/60">Last result</span>
@@ -447,6 +471,7 @@ export const FruitManorView: React.FC<FruitManorViewProps> = ({
           <div className="[grid-area:board] grid grid-cols-4 grid-rows-2 gap-1.5 self-stretch" role="group" aria-label="Fruit betting board">
             {CFG.fruits.map((f) => {
               const st = stakeByFruit.get(f.fruitId) ?? 0;
+              const mine = myStakeByFruit.get(f.fruitId) ?? 0;
               const isWinner = lastResult?.fruitId === f.fruitId;
               const active = st > 0;
               const busy = !!placing[f.fruitId];
@@ -456,7 +481,7 @@ export const FruitManorView: React.FC<FruitManorViewProps> = ({
                   type="button"
                   onClick={() => void tapFruit(f.fruitId)}
                   disabled={!canBet || busy}
-                  aria-label={`Bet ${formatCoins(selectedChip)} coins on ${f.label}, multiplier ${f.multiplier}${st ? `, ${st} coins accepted` : ''}`}
+                  aria-label={`Bet ${formatCoins(selectedChip)} coins on ${f.label}, multiplier ${f.multiplier}${st ? `, ${st} coins on the shared board` : ''}${mine ? `, ${mine} of them yours` : ''}`}
                   className={`fm-cell group relative flex flex-col items-center justify-center gap-0.5 rounded-xl border px-1 pb-1.5 pt-1.5 transition-all duration-150 ${
                     canBet && !busy ? 'hover:-translate-y-0.5 active:scale-[0.97]' : 'cursor-not-allowed opacity-70'
                   } ${isWinner ? 'fm-cell-winner' : ''}`}
@@ -479,6 +504,11 @@ export const FruitManorView: React.FC<FruitManorViewProps> = ({
                   {st > 0 && (
                     <span className="fm-chip-badge absolute -right-1.5 -top-1.5 flex items-center gap-0.5 rounded-full border border-amber-300/60 bg-gradient-to-r from-amber-400 to-amber-500 px-1 py-px font-mono text-[8px] font-black text-[#3B2A05] shadow">
                       {formatCoins(st)}
+                    </span>
+                  )}
+                  {mine > 0 && (
+                    <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full border border-emerald-300/50 bg-emerald-500/90 px-1 py-px font-mono text-[7px] font-black text-emerald-950 shadow">
+                      YOU {formatCoins(mine)}
                     </span>
                   )}
                   {busy && (
@@ -532,7 +562,7 @@ export const FruitManorView: React.FC<FruitManorViewProps> = ({
             <div className="mt-1.5 flex items-center justify-between gap-2 border-t border-white/[0.07] pt-1">
               <div className="leading-tight">
                 <p className="text-[9px] uppercase tracking-wide text-slate-400">
-                  Round stake{acceptedBets.length > 0 ? ` · ${acceptedBets.length} bet${acceptedBets.length > 1 ? 's' : ''}` : ''}
+                  Your stake{acceptedBets.length > 0 ? ` · ${acceptedBets.length} bet${acceptedBets.length > 1 ? 's' : ''}` : ''}
                 </p>
                 <p className="font-mono text-sm font-black tabular-nums text-[#F7F3E8]">
                   {formatCoins(acceptedStake)}
@@ -581,10 +611,10 @@ export const FruitManorView: React.FC<FruitManorViewProps> = ({
             </div>
 
             <ol className="mt-3 space-y-2 text-xs leading-relaxed text-slate-300">
-              <li className="flex gap-2"><span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-amber-400/15 font-mono text-[10px] font-black text-amber-300">1</span>While betting is open, pick a chip value and tap a fruit cell — the bet is confirmed instantly and your Coins are debited once.</li>
-              <li className="flex gap-2"><span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-amber-400/15 font-mono text-[10px] font-black text-amber-300">2</span>Tap more fruits to spread stakes, or Cancel bets any time before lock for a full refund.</li>
-              <li className="flex gap-2"><span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-amber-400/15 font-mono text-[10px] font-black text-amber-300">3</span>Betting locks, the wheel spins and the result is revealed. The last result stays on screen at all times.</li>
-              <li className="flex gap-2"><span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-amber-400/15 font-mono text-[10px] font-black text-amber-300">4</span>Winning bets pay stake × multiplier straight back to your Coin balance; every debit, payout and refund is recorded in My game history.</li>
+              <li className="flex gap-2"><span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-amber-400/15 font-mono text-[10px] font-black text-amber-300">1</span>Fruit Manor runs one shared board for everybody — you join automatically when you open it, and everyone sees the same round, the same timer and the same result.</li>
+              <li className="flex gap-2"><span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-amber-400/15 font-mono text-[10px] font-black text-amber-300">2</span>While betting is open, pick a chip value and tap a fruit cell — the bet is confirmed instantly and your Coins are debited once. The badge shows the whole shared pool on that fruit, the green tag shows your own stake.</li>
+              <li className="flex gap-2"><span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-amber-400/15 font-mono text-[10px] font-black text-amber-300">3</span>Tap more fruits to spread stakes, or Cancel bets any time before lock for a full refund.</li>
+              <li className="flex gap-2"><span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-amber-400/15 font-mono text-[10px] font-black text-amber-300">4</span>Betting locks, the wheel spins and the result is revealed. Winning bets pay stake × multiplier straight back to your Coin balance; every debit, payout and refund is recorded in My game history.</li>
             </ol>
 
             <div className="mt-3 rounded-xl border border-amber-300/25 bg-amber-400/[0.07] p-2.5 text-[11px] leading-relaxed text-amber-100/90">
@@ -617,7 +647,7 @@ export const FruitManorView: React.FC<FruitManorViewProps> = ({
               </table>
             </div>
             <p className="mt-1.5 text-[10px] text-slate-400">
-              Theoretical return ≈ {(theoreticalReturn() * 100).toFixed(1)}% of total stakes over time. Results are drawn with a cryptographically secure RNG — never by the animation or your device.
+              Theoretical return ≈ {(theoreticalReturn() * 100).toFixed(1)}% of total stakes over time. One shared board runs for every player at once — the round clock, the pool and the result are identical for everybody. Results are drawn with a cryptographically secure RNG, never by the wheel animation.
             </p>
 
             <div className="mt-3 grid grid-cols-2 gap-2 text-[10px] text-slate-300">

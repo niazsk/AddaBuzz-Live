@@ -23,6 +23,7 @@ export type AppSection =
   | 'discover'
   | 'following'
   | 'messages'
+  | 'games'
   | 'fruit-manor'
   | 'game-history'
   | 'wallet'
