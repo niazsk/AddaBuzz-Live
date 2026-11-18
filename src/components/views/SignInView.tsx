@@ -51,16 +51,19 @@ interface SignInViewProps {
 }
 
 function formatAuthError(err: unknown): string {
-  const msg = err instanceof Error ? err.message : String(err);
+  const msg = (err instanceof Error ? err.message : String(err)).replace(
+    /^Firebase(Error)?:\s*/i,
+    ''
+  );
   if (msg.includes('auth/operation-not-allowed')) {
-    return 'Email/Password sign-in is not yet enabled in Firebase Console. Open Firebase Console → Authentication → Sign-in method → Enable Email/Password for project addabuzz-live-usa.';
+    return 'Email/Password sign-in is not available right now. Please use Google sign-in or try again later.';
   }
   if (
     msg.includes('auth/invalid-credential') ||
     msg.includes('auth/wrong-password') ||
     msg.includes('auth/user-not-found')
   ) {
-    return 'Invalid email or password. If this account has not been created yet, switch to Create Account or add the user in Firebase Console → Authentication → Users.';
+    return 'Invalid email or password. If this account has not been created yet, switch to Create Account.';
   }
   if (msg.includes('auth/email-already-in-use')) {
     return 'An account with this email already exists. Switch to Sign In to access it.';
@@ -323,7 +326,7 @@ export const SignInView: React.FC<SignInViewProps> = ({
                   </div>
                   <p className="text-xs text-slate-300 leading-relaxed">
                     Signed in as <strong className="text-white">{userEmail}</strong>.
-                    Firestore Security Rules require a verified email before creating your{' '}
+                    A verified email is required before creating your{' '}
                     <span className="font-mono text-sky-300">
                       {isAdminBootstrapEmail(userEmail)
                         ? 'Admin'

@@ -27,7 +27,7 @@ export const WalletView: React.FC<WalletViewProps> = ({
             Coins, Diamonds & Ledger
           </h1>
           <p className="text-sm text-slate-400 mt-1">
-            Separate virtual balances with immutable server-side transaction auditing.
+            Separate balances with immutable server-side transaction auditing.
           </p>
         </div>
         <span className="inline-flex items-center gap-1.5 text-xs text-slate-400">
@@ -66,7 +66,7 @@ export const WalletView: React.FC<WalletViewProps> = ({
             {diamondBalance.toLocaleString()}
           </p>
           <p className="text-xs text-slate-400">
-            Used for featured virtual gifts and creator milestone recognition.
+            Used for featured gifts and creator milestone recognition.
           </p>
         </div>
       </div>

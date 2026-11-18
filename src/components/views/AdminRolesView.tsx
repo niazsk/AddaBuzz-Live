@@ -121,7 +121,7 @@ export const AdminRolesView: React.FC<AdminRolesViewProps> = ({
 
             {!isSuperAgent && (
               <div className="rounded-xl bg-amber-500/10 border border-amber-500/25 px-4 py-3 text-xs text-amber-200">
-                Firestore Security Rules enforce a two-tier promotion ladder: the{' '}
+                Security rules enforce a two-tier promotion ladder: the{' '}
                 <strong className="font-mono">BD_AGENT</strong> promotes a{' '}
                 <strong className="font-mono">USER</strong> to{' '}
                 <strong className="font-mono">SUPER_AGENT</strong> or{' '}
@@ -195,7 +195,7 @@ export const AdminRolesView: React.FC<AdminRolesViewProps> = ({
             <div className="rounded-2xl bg-[#111420] border border-white/[0.08] overflow-hidden">
               {promotions.length === 0 ? (
                 <p className="p-6 text-xs text-slate-400">
-                  No promotions recorded in Firestore yet.
+                  No promotions recorded yet.
                 </p>
               ) : (
                 <div className="overflow-x-auto">
@@ -242,7 +242,7 @@ export const AdminRolesView: React.FC<AdminRolesViewProps> = ({
             <div className="rounded-2xl bg-[#111420] border border-white/[0.08] divide-y divide-white/[0.06]">
               {reports.length === 0 ? (
                 <p className="p-6 text-xs text-slate-400">
-                  No open safety reports in Firestore.
+                  No open safety reports.
                 </p>
               ) : (
                 reports.map((report) => (

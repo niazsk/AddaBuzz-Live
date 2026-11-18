@@ -23,7 +23,7 @@ export default defineConfig(() => {
           name: 'AddaBuzz Live',
           short_name: 'AddaBuzz',
           description:
-            'Connect • Stream • Chat • Enjoy — Social live-streaming, 8-seat multi-guest rooms, real-time chat, and virtual gifts.',
+            'Connect • Stream • Chat • Enjoy — Social live-streaming, 8-seat multi-guest rooms, real-time chat, and gifts.',
           theme_color: '#08090E',
           background_color: '#08090E',
           display: 'standalone',

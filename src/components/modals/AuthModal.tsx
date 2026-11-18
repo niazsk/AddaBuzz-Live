@@ -117,7 +117,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       await onGoogleSignIn();
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : 'Unable to sign in with Google.'
+        (err instanceof Error ? err.message : 'Unable to sign in with Google.').replace(
+          /^Firebase(Error)?:\s*/i,
+          ''
+        )
       );
     } finally {
       setBusy(false);
@@ -125,7 +128,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   };
 
   const formatModalAuthError = (err: unknown): string => {
-    const msg = err instanceof Error ? err.message : String(err);
+    const msg = (err instanceof Error ? err.message : String(err)).replace(
+      /^Firebase(Error)?:\s*/i,
+      ''
+    );
     if (
       msg.includes('auth/invalid-credential') ||
       msg.includes('auth/wrong-password') ||

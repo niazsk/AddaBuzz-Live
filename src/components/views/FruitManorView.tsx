@@ -588,7 +588,7 @@ export const FruitManorView: React.FC<FruitManorViewProps> = ({
         </div>
 
         <p className="mt-2 pb-1 text-center text-[9px] leading-relaxed text-emerald-200/40">
-          Bets use your AddaBuzz Coins — virtual platform points with no cash value. Config {CFG.configVersion}.
+          Bets use your AddaBuzz Coins — platform points with no cash value. Config {CFG.configVersion}.
         </p>
       </div>
 
@@ -666,7 +666,7 @@ export const FruitManorView: React.FC<FruitManorViewProps> = ({
             <div className="mt-3 rounded-xl border border-white/[0.08] bg-white/[0.03] p-2.5 text-[11px] leading-relaxed text-slate-300">
               <p className="font-bold text-slate-200">Your Coins</p>
               <p className="mt-1">
-                Fruit Manor plays with your real AddaBuzz Coin balance ({formatCoins(coinBalance)} coins). Every bet debits your wallet atomically and every win or refund credits it back — the same ledger as gifts and transfers. Diamonds are never used. Coins are virtual platform points: no cash value, no purchases, no withdrawals.
+                Fruit Manor plays with your real AddaBuzz Coin balance ({formatCoins(coinBalance)} coins). Every bet debits your wallet atomically and every win or refund credits it back — the same ledger as gifts and transfers. Diamonds are never used. Coins are platform points: no cash value, no purchases, no withdrawals.
               </p>
               <p className="mt-1 text-slate-400">Config {CFG.configVersion} · effective {CFG.effectiveLabel} · interrupted rounds are voided and stakes refunded automatically.</p>
             </div>

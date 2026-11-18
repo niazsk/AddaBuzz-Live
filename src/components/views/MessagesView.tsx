@@ -42,7 +42,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
         <div>
           <h1 className="font-display text-2xl font-bold text-white">Direct Messages</h1>
           <p className="text-sm text-slate-400 mt-1">
-            Private conversations protected by Firestore membership rules.
+            Private conversations protected by membership rules.
           </p>
         </div>
         <div className="rounded-2xl bg-[#111420] border border-white/[0.08] p-10 text-center space-y-4">
@@ -98,7 +98,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
       <div>
         <h1 className="font-display text-2xl font-bold text-white">Direct Messages</h1>
         <p className="text-sm text-slate-400 mt-1">
-          Real-time Firestore conversations subject to block and privacy rules.
+          Real-time conversations subject to block and privacy rules.
         </p>
       </div>
 

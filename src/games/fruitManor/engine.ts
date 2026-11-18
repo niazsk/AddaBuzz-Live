@@ -341,7 +341,10 @@ export class FruitManorEngine {
   }
 
   private describeError(raw: unknown): string {
-    const text = raw instanceof Error ? raw.message : String(raw);
+    const text = (raw instanceof Error ? raw.message : String(raw)).replace(
+      /^Firebase(Error)?:\s*/i,
+      ''
+    );
     try {
       const info = JSON.parse(text) as {
         error?: string;

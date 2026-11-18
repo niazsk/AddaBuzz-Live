@@ -32,7 +32,7 @@ export const RightRail: React.FC<RightRailProps> = ({
       {!hideWallet && (
       <section aria-label="Wallet balances">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="font-display text-sm font-semibold text-white">Virtual Balances</h2>
+          <h2 className="font-display text-sm font-semibold text-white">Live Balances</h2>
           <button
             type="button"
             onClick={onOpenWallet}

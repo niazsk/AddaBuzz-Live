@@ -43,8 +43,9 @@ export function handleFirestoreError(
   operationType: OperationType,
   path: string | null
 ): never {
+  const raw = error instanceof Error ? error.message : String(error);
   const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
+    error: raw.replace(/^Firebase(Error)?:\s*/i, ''),
     authInfo: {
       userId: auth.currentUser?.uid,
       email: auth.currentUser?.email,

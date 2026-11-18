@@ -107,7 +107,7 @@ export const GamesView: React.FC<GamesViewProps> = ({
       </div>
 
       <p className="text-[10px] leading-relaxed text-slate-500">
-        All games use virtual AddaBuzz Coins — no cash value, no purchases, no withdrawals.
+        All games use AddaBuzz Coins — no cash value, no purchases, no withdrawals.
       </p>
     </div>
   );

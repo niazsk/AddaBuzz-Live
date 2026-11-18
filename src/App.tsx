@@ -548,11 +548,11 @@ export default function App() {
       const roomId = await createLiveRoomDoc(me, payload);
       setGoLiveOpen(false);
       setActiveRoomId(roomId);
-      pushToast('Live room created in Firestore', payload.title, 'success');
+      pushToast('Live room created', payload.title, 'success');
     } catch (err) {
       pushToast(
         'Could not create live room',
-        err instanceof Error ? err.message : 'Firestore write rejected.',
+        err instanceof Error ? err.message : 'Could not save the room. Please try again.',
         'error'
       );
     }
@@ -562,7 +562,7 @@ export default function App() {
     try {
       await endLiveRoomDoc(roomId);
       setActiveRoomId(null);
-      pushToast('Live room ended', 'Room status updated to ENDED in Firestore.');
+      pushToast('Live room ended', 'Room status updated to ENDED.');
     } catch (err) {
       pushToast(
         'End room failed',
@@ -600,7 +600,7 @@ export default function App() {
       );
       pushToast(
         `Sent ${gift.name}`,
-        `Atomic Firestore transaction recorded (-${gift.price} ${
+        `Transaction recorded (-${gift.price} ${
           gift.currency === 'COIN' ? 'Coins' : 'Diamonds'
         }).`,
         'success'
@@ -760,7 +760,7 @@ export default function App() {
       await promoteUserDoc(me, target, afterType);
       pushToast(
         `Promoted @${target.username} to ${afterType === 'SUPER_AGENT' ? 'Super Agent' : 'Agent'}`,
-        'Immutable Firestore promotion audit record saved.',
+        'Immutable promotion audit record saved.',
         'success'
       );
     } catch (err) {
@@ -822,7 +822,7 @@ export default function App() {
       });
       setReportTarget(null);
       pushToast(
-        'Safety report saved to Firestore',
+        'Safety report saved',
         'Queued in Roles & Safety for moderation review.',
         'success'
       );
@@ -877,7 +877,7 @@ export default function App() {
             setCurrentUser(created);
             setNeedsOnboarding(false);
             pushToast(
-              'Account created in Firestore!',
+              'Account created!',
               `@${created.username} (${created.accountType})`,
               'success'
             );
@@ -1229,7 +1229,7 @@ export default function App() {
               onUpdateProfile={async (updates) => {
                 if (!currentUser) return;
                 await updateOwnProfile(currentUser.uid, updates);
-                pushToast('Profile saved to Firestore', undefined, 'success');
+                pushToast('Profile saved', undefined, 'success');
               }}
               onUnblockUser={handleToggleBlock}
               onOpenSection={handleSelectSection}
@@ -1286,7 +1286,7 @@ export default function App() {
                 setCurrentUser(created);
                 setNeedsOnboarding(false);
                 pushToast(
-                  'Account created in Firestore!',
+                  'Account created!',
                   `@${created.username} (${created.accountType})`,
                   'success'
                 );
@@ -1364,7 +1364,7 @@ export default function App() {
           setCurrentUser(created);
           setNeedsOnboarding(false);
           pushToast(
-            'Account created in Firestore!',
+            'Account created!',
             `@${created.username}`,
             'success'
           );
