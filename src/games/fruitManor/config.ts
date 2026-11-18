@@ -24,6 +24,7 @@ export interface FruitManorConfig {
   fruits: FruitCell[];
   chips: number[];
   minStake: number;
+  maxStakePerBet: number;
   cancellationEnabled: boolean;
   multipleBetsEnabled: boolean;
   scheduledMs: number;
@@ -54,8 +55,6 @@ export const FRUIT_MANOR_CONFIG: FruitManorConfig = {
   chips: [10, 100, 1000, 5000, 50000],
   minStake: 10,
   maxStakePerBet: 50000,
-  maxRoundStake: 100000,
-  maxBetsPerRound: 12,
   cancellationEnabled: true,
   multipleBetsEnabled: true,
   scheduledMs: 3000,

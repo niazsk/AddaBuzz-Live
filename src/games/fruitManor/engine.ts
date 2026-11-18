@@ -692,9 +692,6 @@ export class FruitManorEngine {
     if (board.phase !== 'OPEN' || Date.now() >= board.phaseEndsAt) {
       return fail('Betting is closed for this round.');
     }
-    if (this.myAcceptedBets().length >= CFG.maxBetsPerRound) {
-      return fail(`Maximum ${CFG.maxBetsPerRound} bets per round.`);
-    }
     const fruit = CFG.fruits.find((f) => f.fruitId === fruitId);
     if (!fruit) return fail('Unknown fruit selection.');
     if (!Number.isInteger(stake) || stake < CFG.minStake) {
@@ -702,10 +699,6 @@ export class FruitManorEngine {
     }
     if (stake > CFG.maxStakePerBet) {
       return fail(`Maximum ${CFG.maxStakePerBet.toLocaleString('en-US')} coins per bet.`);
-    }
-    const myRoundStake = this.myAcceptedBets().reduce((s, b) => s + b.stake, 0);
-    if (myRoundStake + stake > CFG.maxRoundStake) {
-      return fail(`Round limit is ${CFG.maxRoundStake.toLocaleString('en-US')} coins.`);
     }
     if (stake > availableBalance) return fail('Not enough Coins for this bet.');
 

@@ -5,6 +5,7 @@ import {
   getDoc,
   limit,
   onSnapshot,
+  orderBy,
   query,
   runTransaction,
   serverTimestamp,
@@ -908,7 +909,7 @@ export function subscribeWalletData(
   );
 
   const unsubTxs = onSnapshot(
-    query(collection(db, 'wallets', uid, 'transactions'), limit(60)),
+    query(collection(db, 'wallets', uid, 'transactions'), orderBy('createdAt', 'desc'), limit(60)),
     (snap) => {
       const list = snap.docs
         .map((docSnap) => {

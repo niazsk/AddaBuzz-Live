@@ -211,16 +211,6 @@ export const FruitManorView: React.FC<FruitManorViewProps> = ({
   const tapFruit = async (fruitId: FruitId) => {
     unlockAudio();
     if (!canBet || placing[fruitId]) return;
-    if (acceptedBets.length >= CFG.maxBetsPerRound) {
-      setBetError(`Maximum ${CFG.maxBetsPerRound} bets per round.`);
-      fmAudio.reject();
-      return;
-    }
-    if (acceptedStake + selectedChip > CFG.maxRoundStake) {
-      setBetError(`Round limit is ${formatCoins(CFG.maxRoundStake)} coins.`);
-      fmAudio.reject();
-      return;
-    }
     if (selectedChip > coinBalance) {
       setBetError(`Not enough Coins — you have ${formatCoins(coinBalance)}.`);
       fmAudio.reject();
@@ -654,7 +644,7 @@ export const FruitManorView: React.FC<FruitManorViewProps> = ({
               <div className="rounded-lg border border-white/[0.07] bg-white/[0.03] p-2">
                 <p className="font-bold text-slate-200">Stake limits</p>
                 <p className="mt-0.5">Min {formatCoins(CFG.minStake)} · Max {formatCoins(CFG.maxStakePerBet)} per bet</p>
-                <p>{formatCoins(CFG.maxRoundStake)} per round · {CFG.maxBetsPerRound} bets max</p>
+                <p>Unlimited bets & round stake — only your Coin balance limits you</p>
               </div>
               <div className="rounded-lg border border-white/[0.07] bg-white/[0.03] p-2">
                 <p className="font-bold text-slate-200">Round timing</p>
