@@ -37,11 +37,6 @@ export const CoinsTradingView: React.FC<CoinsTradingViewProps> = ({
 
   const coinActivity = transactions.filter((t) => t.currency === 'COIN').slice(0, 6);
 
-  const setFraction = (frac: number) => {
-    setAmount(String(Math.max(1, Math.floor(coinBalance * frac))));
-    setMsg(null);
-  };
-
   const handleTransfer = async (e: React.FormEvent) => {
     e.preventDefault();
     const typed = recipientId.trim().toLowerCase();
@@ -170,38 +165,15 @@ export const CoinsTradingView: React.FC<CoinsTradingViewProps> = ({
 
             <div className="space-y-1.5">
               <span className="text-xs font-medium text-slate-300">Coins</span>
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  min={1}
-                  max={coinBalance}
-                  value={amount}
-                  onChange={(e) => { setAmount(e.target.value); setMsg(null); }}
-                  placeholder="0"
-                  className="flex-1 h-10 px-3.5 rounded-xl bg-[#090B12] border border-white/[0.09] text-sm text-white font-mono focus:border-violet-500/60 focus:outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={() => setFraction(0.25)}
-                  className="h-10 px-3 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-xs font-medium text-slate-200 transition-colors"
-                >
-                  25%
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFraction(0.5)}
-                  className="h-10 px-3 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-xs font-medium text-slate-200 transition-colors"
-                >
-                  50%
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFraction(1)}
-                  className="h-10 px-3 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-xs font-semibold text-amber-200 transition-colors"
-                >
-                  Max
-                </button>
-              </div>
+              <input
+                type="number"
+                min={1}
+                max={coinBalance}
+                value={amount}
+                onChange={(e) => { setAmount(e.target.value); setMsg(null); }}
+                placeholder="0"
+                className="w-full h-10 px-3.5 rounded-xl bg-[#090B12] border border-white/[0.09] text-sm text-white font-mono focus:border-violet-500/60 focus:outline-none"
+              />
             </div>
 
             <button
