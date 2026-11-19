@@ -956,6 +956,10 @@ export async function sendVirtualGiftTransaction(
   hostUsername: string,
   gift: GiftCatalogItem
 ): Promise<void> {
+  if (hostUid && sender.uid === hostUid) {
+    throw new Error('You cannot send a gift to yourself.');
+  }
+
   const walletRef = doc(db, 'wallets', sender.uid);
   const hostWalletRef = hostUid ? doc(db, 'wallets', hostUid) : null;
   const txId = `tx_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;

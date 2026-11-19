@@ -606,6 +606,10 @@ export default function App() {
     const me = requireSignedIn();
     if (!me) return;
     const room = liveRooms.find((r) => r.roomId === roomId);
+    if (room && room.hostUid === me.uid) {
+      pushToast('Cannot Gift Yourself', 'You cannot send a gift to yourself in your own live room.', 'warning');
+      return;
+    }
     const host = users.find((u) => u.uid === room?.hostUid);
     try {
       await sendVirtualGiftTransaction(

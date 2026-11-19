@@ -902,21 +902,23 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
       {/* Right floating action rail (multi-guest only) */}
       {!isSolo && (
       <div className="absolute right-3 bottom-44 z-20 flex flex-col items-center gap-2.5">
-        <button
-          type="button"
-          onClick={() => {
-            if (!currentUser) {
-              onOpenAuth();
-              return;
-            }
-            setShowGiftTray((s) => !s);
-          }}
-          disabled={isOfflineSimulated}
-          aria-label="Send gift"
-          className="w-11 h-11 rounded-full bg-gradient-to-br from-pink-500 to-amber-400 hover:from-pink-400 hover:to-amber-300 disabled:opacity-45 flex items-center justify-center text-white shadow-lg shadow-pink-600/30 transition-all"
-        >
-          <Gift className="w-5 h-5" />
-        </button>
+        {!isOwnerHost && (
+          <button
+            type="button"
+            onClick={() => {
+              if (!currentUser) {
+                onOpenAuth();
+                return;
+              }
+              setShowGiftTray((s) => !s);
+            }}
+            disabled={isOfflineSimulated}
+            aria-label="Send gift"
+            className="w-11 h-11 rounded-full bg-gradient-to-br from-pink-500 to-amber-400 hover:from-pink-400 hover:to-amber-300 disabled:opacity-45 flex items-center justify-center text-white shadow-lg shadow-pink-600/30 transition-all"
+          >
+            <Gift className="w-5 h-5" />
+          </button>
+        )}
         <button
           type="button"
           onClick={() => onShareRoom(room)}
@@ -1164,21 +1166,23 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
                   )}
                 </button>
               )}
-              <button
-                type="button"
-                onClick={() => {
-                  if (!currentUser) {
-                    onOpenAuth();
-                    return;
-                  }
-                  setShowGiftTray((s) => !s);
-                }}
-                disabled={isOfflineSimulated}
-                aria-label="Send gift"
-                className="w-11 h-11 rounded-full bg-gradient-to-br from-pink-500 to-amber-400 hover:from-pink-400 hover:to-amber-300 disabled:opacity-45 flex items-center justify-center text-white shrink-0 transition-all"
-              >
-                <Gift className="w-5 h-5" />
-              </button>
+              {!isOwnerHost && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!currentUser) {
+                      onOpenAuth();
+                      return;
+                    }
+                    setShowGiftTray((s) => !s);
+                  }}
+                  disabled={isOfflineSimulated}
+                  aria-label="Send gift"
+                  className="w-11 h-11 rounded-full bg-gradient-to-br from-pink-500 to-amber-400 hover:from-pink-400 hover:to-amber-300 disabled:opacity-45 flex items-center justify-center text-white shrink-0 transition-all"
+                >
+                  <Gift className="w-5 h-5" />
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setLikes((n) => n + 1)}
