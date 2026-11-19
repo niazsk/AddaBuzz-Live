@@ -350,7 +350,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             <p className="text-sm text-slate-300 mt-3 leading-relaxed">{currentUser.bio}</p>
           )}
 
-          {!isBdAgent && (
+          {isBdAgent ? (
+            <div className="mt-5 rounded-2xl bg-gradient-to-r from-violet-600/20 via-[#111420] to-fuchsia-600/10 border border-violet-500/25 p-4 text-center cursor-pointer hover:border-violet-500/50 transition-colors" onClick={() => onOpenSection('coins-trading')}>
+              <p className="font-mono text-2xl font-black text-amber-300 tabular-nums">
+                {(tradingCoinBalance ?? 0).toLocaleString()}
+              </p>
+              <p className="text-xs font-semibold text-violet-300 mt-0.5">Coins Trading Balance</p>
+            </div>
+          ) : (
             <>
           <div className="mt-5 grid grid-cols-4 divide-x divide-white/[0.07] rounded-2xl bg-white/[0.04] border border-white/[0.06] py-3 text-center">
             <div>

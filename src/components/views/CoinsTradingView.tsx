@@ -189,8 +189,8 @@ export const CoinsTradingView: React.FC<CoinsTradingViewProps> = ({
         </span>
       </div>
 
-      {/* Two Separate Balances: Trading Balance & Main Balance */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {/* Balances Section */}
+      <div className={`grid ${isBdAgent ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'} gap-4`}>
         {/* Coins Trading Balance Card */}
         <div className="rounded-3xl bg-gradient-to-br from-violet-600/25 via-[#111420] to-fuchsia-600/10 border border-violet-500/30 p-5 space-y-2">
           <div className="flex items-center justify-between">
@@ -211,52 +211,27 @@ export const CoinsTradingView: React.FC<CoinsTradingViewProps> = ({
           </p>
         </div>
 
-        {/* Main Wallet Coin Balance Card */}
-        <div className="rounded-3xl bg-gradient-to-br from-amber-500/20 via-[#111420] to-[#111420] border border-amber-500/25 p-5 space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="inline-flex items-center gap-2 text-xs font-bold text-amber-300 uppercase tracking-wider">
-              <Coins className="w-4 h-4 text-amber-400" />
-              <span>Main Balance</span>
-            </span>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300">
-              In-App Use
-            </span>
-          </div>
-          <p className="font-mono text-3xl font-black text-amber-400 tabular-nums">
-            {coinBalance.toLocaleString()}{' '}
-            <span className="text-xs font-sans font-normal text-amber-300">Coins</span>
-          </p>
-          <div className="flex items-center justify-between gap-2 pt-1">
-            <p className="text-[11px] text-slate-400">
-              Used for gifts, games, deposits and in-app activities.
+        {/* Main Wallet Coin Balance Card - Hidden for BD Agent */}
+        {!isBdAgent && (
+          <div className="rounded-3xl bg-gradient-to-br from-amber-500/20 via-[#111420] to-[#111420] border border-amber-500/25 p-5 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="inline-flex items-center gap-2 text-xs font-bold text-amber-300 uppercase tracking-wider">
+                <Coins className="w-4 h-4 text-amber-400" />
+                <span>Main Balance</span>
+              </span>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300">
+                In-App Use
+              </span>
+            </div>
+            <p className="font-mono text-3xl font-black text-amber-400 tabular-nums">
+              {coinBalance.toLocaleString()}{' '}
+              <span className="text-xs font-sans font-normal text-amber-300">Coins</span>
             </p>
-            {isBdAgent && coinBalance > 0 && (
-              <button
-                type="button"
-                disabled={busy}
-                onClick={async () => {
-                  if (!currentUser) return;
-                  setBusy(true);
-                  try {
-                    const res = await moveMainCoinsToTradingBalance(currentUser.uid);
-                    onToast?.(
-                      'All Coins Moved!',
-                      `${res.movedAmount.toLocaleString()} Coins moved from Main Balance to Coins Trading Balance.`,
-                      'success'
-                    );
-                  } catch (e: any) {
-                    onToast?.('Transfer Failed', e?.message || 'Failed to move coins.', 'error');
-                  } finally {
-                    setBusy(false);
-                  }
-                }}
-                className="px-3 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-[11px] font-semibold text-white shrink-0 shadow transition-colors"
-              >
-                Move to Trading
-              </button>
-            )}
+            <p className="text-[11px] text-slate-400">
+              Used for gifts, games, deposits and all in-app activities.
+            </p>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Tabs: Transfer Coins vs Coins Exchange */}
