@@ -73,14 +73,14 @@ export function isSuperAgentBootstrapEmail(email?: string | null): boolean {
 }
 
 export const ADMIN_PLATFORM_ID = '111111';
-export const SUPER_AGENT_PLATFORM_ID = '111112';
+export const SUPER_AGENT_PLATFORM_ID = '112200';
 export const USER_PLATFORM_ID_START = 112201;
 
 // The BD Agent is the single provisioned SUPER_AGENT account; promoted super agents keep the standard role.
 export function isBdAgentProfile(user: UserProfile | null | undefined): boolean {
   return (
     user?.accountType === 'SUPER_AGENT' &&
-    user.platformId === SUPER_AGENT_PLATFORM_ID
+    (user.platformId === '112200' || user.platformId === '111112')
   );
 }
 
@@ -2139,27 +2139,35 @@ export async function setBdAgentTradingBalance(
   const stamp = Date.now();
   const txId = `tx_bda_${stamp}`;
   try {
-    await runTransaction(db, async (tx) => {
-      const snap = await tx.get(walletRef);
-      if (!snap.exists()) return;
-      const curTrading = Number(snap.data().tradingCoinBalance ?? 0);
-      if (curTrading < targetBalance) {
-        tx.update(walletRef, {
-          tradingCoinBalance: targetBalance,
-          updatedAt: serverTimestamp(),
-        });
-        tx.set(doc(db, 'wallets', uid, 'transactions', txId), {
-          transactionId: txId,
-          uid,
-          currency: 'COIN',
-          direction: 'CREDIT',
-          amount: targetBalance - curTrading,
-          reason: 'BD Agent Coins Trading Balance Allocation',
-          idempotencyKey: txId,
-          createdAt: serverTimestamp(),
-        });
-      }
-    });
+    const snap = await getDoc(walletRef);
+    if (!snap.exists()) {
+      await setDoc(walletRef, {
+        uid,
+        coinBalance: 0,
+        diamondBalance: 0,
+        tradingCoinBalance: targetBalance,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+      return;
+    }
+    const curTrading = Number(snap.data()?.tradingCoinBalance ?? 0);
+    if (curTrading < targetBalance) {
+      await updateDoc(walletRef, {
+        tradingCoinBalance: targetBalance,
+        updatedAt: serverTimestamp(),
+      });
+      await setDoc(doc(db, 'wallets', uid, 'transactions', txId), {
+        transactionId: txId,
+        uid,
+        currency: 'COIN',
+        direction: 'CREDIT',
+        amount: targetBalance - curTrading,
+        reason: 'BD Agent Coins Trading Balance Allocation',
+        idempotencyKey: txId,
+        createdAt: serverTimestamp(),
+      });
+    }
   } catch (err) {
     console.error('Error setting BD Agent trading balance:', err);
   }
