@@ -84,7 +84,7 @@ const AGENT_TILES: Tile[] = [
 const BD_AGENT_TILES: Tile[] = [
   { id: 'super-agent-list', label: 'Super Agent List', icon: BadgeCheck },
   { id: 'agent-list', label: 'Agent List', icon: Users },
-  { id: 'invite-agent', label: 'Invite Agent', icon: UserPlus },
+  { id: 'agent-promote', label: 'Agent Promote', icon: TrendingUp },
   { id: 'coins-trading', label: 'Coins Trading', icon: Coins },
   { id: 'agent-rewards', label: 'Agent Promote', icon: Wallet, wide: true },
 ];
@@ -221,6 +221,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           else if (tile.id === 'super-agent-list') onOpenSection('super-agent-list');
           else if (tile.id === 'agent-list') onOpenSection('agent-list');
           else if (tile.id === 'agent-rewards') onOpenSection('admin');
+          else if (tile.id === 'agent-promote') onOpenSection('agent-promote');
           else setComingSoon(tile.label);
         }}
         className={`group rounded-2xl bg-white/[0.04] border border-white/[0.06] hover:bg-white/[0.08] hover:border-violet-500/40 p-3.5 flex flex-col items-center gap-2 transition-colors ${

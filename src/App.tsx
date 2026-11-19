@@ -82,6 +82,7 @@ import { GoldenFlowerView } from './components/views/GoldenFlowerView';
 import { GfHistoryView } from './components/views/GfHistoryView';
 import { ProfileView } from './components/views/ProfileView';
 import { AdminRolesView } from './components/views/AdminRolesView';
+import { AgentPromoteView } from './components/views/AgentPromoteView';
 import { SignInView } from './components/views/SignInView';
 import { GoLiveModal } from './components/modals/GoLiveModal';
 import { AuthModal } from './components/modals/AuthModal';
@@ -1236,6 +1237,16 @@ export default function App() {
               users={users}
               onOpenUserProfile={(u) => setInspectedUser(u)}
               onBack={() => setActiveSection('profile')}
+            />
+          )}
+
+          {activeSection === 'agent-promote' && (
+            <AgentPromoteView
+              currentUser={currentUser}
+              users={users}
+              onPromoteUser={handlePromoteUser}
+              onBack={() => setActiveSection('profile')}
+              isOffline={isOffline}
             />
           )}
 

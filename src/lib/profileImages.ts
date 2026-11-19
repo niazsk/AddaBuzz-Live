@@ -1,6 +1,3 @@
-import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
-import { storage } from './firebase';
-
 export type ProfileImageKind = 'avatar' | 'cover';
 
 const MAX_DIM: Record<ProfileImageKind, number> = { avatar: 256, cover: 1280 };
@@ -26,17 +23,64 @@ async function compressToJpeg(file: File, maxDim: number): Promise<Blob> {
   });
 }
 
+/**
+ * Uploads a profile image (avatar or cover) using free, reliable image hosts
+ * without requiring any paid Firebase Cloud Storage or billing cards.
+ */
 export async function uploadProfileImage(
-  uid: string,
+  _uid: string,
   kind: ProfileImageKind,
   file: File
 ): Promise<string> {
-  if (!file.type.startsWith('image/')) throw new Error('Please choose an image file.');
+  if (!file.type.startsWith('image/')) {
+    throw new Error('Please choose an image file.');
+  }
+
   const blob = await compressToJpeg(file, MAX_DIM[kind]);
-  const path = `profilePhotos/${uid}/${kind}.jpg`;
-  const snap = await uploadBytes(ref(storage, path), blob, {
-    contentType: 'image/jpeg',
-    cacheControl: 'public, max-age=3600',
-  });
-  return getDownloadURL(snap.ref);
+
+  // Strategy 1: Imgur API
+  try {
+    const formData = new FormData();
+    formData.append('image', blob, `${kind}.jpg`);
+
+    const res = await fetch('https://api.imgur.com/3/image', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Client-ID 546c25a59c58ad7',
+      },
+      body: formData,
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.success && data.data && data.data.link) {
+        return data.data.link;
+      }
+    }
+  } catch (err) {
+    console.warn('Imgur upload fallback triggered:', err);
+  }
+
+  // Strategy 2: Catbox fallback
+  try {
+    const formData = new FormData();
+    formData.append('reqtype', 'fileupload');
+    formData.append('fileToUpload', blob, `${kind}.jpg`);
+
+    const res = await fetch('https://catbox.moe/user/api.php', {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (res.ok) {
+      const text = (await res.text()).trim();
+      if (text.startsWith('http://') || text.startsWith('https://')) {
+        return text;
+      }
+    }
+  } catch (err) {
+    console.warn('Catbox upload fallback triggered:', err);
+  }
+
+  throw new Error('Image upload failed. Please check your internet connection and try again.');
 }

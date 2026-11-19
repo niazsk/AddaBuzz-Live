@@ -32,6 +32,7 @@ export type AppSection =
   | 'coins-trading'
   | 'super-agent-list'
   | 'agent-list'
+  | 'agent-promote'
   | 'profile'
   | 'admin'
   | 'signin';
