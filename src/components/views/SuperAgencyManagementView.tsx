@@ -138,9 +138,6 @@ export const SuperAgencyManagementView: React.FC<SuperAgencyManagementViewProps>
               <HeaderIcon className={`w-5 h-5 ${isAgentMode ? 'text-violet-400' : 'text-sky-400'}`} />
               <span>{title}</span>
             </h1>
-            <p className="text-xs text-slate-400">
-              {commissionPercent}% daily gift commission • 30-day commission story
-            </p>
           </div>
         </div>
 
