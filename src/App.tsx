@@ -83,6 +83,12 @@ import { GfHistoryView } from './components/views/GfHistoryView';
 import { ProfileView } from './components/views/ProfileView';
 import { AdminRolesView } from './components/views/AdminRolesView';
 import { AgentPromoteView } from './components/views/AgentPromoteView';
+import { RankView } from './components/views/RankView';
+import { AgentRankingView } from './components/views/AgentRankingView';
+import { InviteView } from './components/views/InviteView';
+import { InviteAgentView } from './components/views/InviteAgentView';
+import { DepositView } from './components/views/DepositView';
+import { SalaryView } from './components/views/SalaryView';
 import { SignInView } from './components/views/SignInView';
 import { GoLiveModal } from './components/modals/GoLiveModal';
 import { AuthModal } from './components/modals/AuthModal';
@@ -1247,6 +1253,55 @@ export default function App() {
               onPromoteUser={handlePromoteUser}
               onBack={() => setActiveSection('profile')}
               isOffline={isOffline}
+            />
+          )}
+
+          {activeSection === 'rank' && (
+            <RankView
+              currentUser={currentUser}
+              users={users}
+              onOpenUserProfile={(u) => setInspectedUser(u)}
+              onBack={() => setActiveSection('profile')}
+            />
+          )}
+
+          {activeSection === 'agent-ranking' && (
+            <AgentRankingView
+              currentUser={currentUser}
+              users={users}
+              onOpenUserProfile={(u) => setInspectedUser(u)}
+              onBack={() => setActiveSection('profile')}
+            />
+          )}
+
+          {activeSection === 'invite' && (
+            <InviteView
+              currentUser={currentUser}
+              onBack={() => setActiveSection('profile')}
+            />
+          )}
+
+          {activeSection === 'invite-agent' && (
+            <InviteAgentView
+              currentUser={currentUser}
+              onBack={() => setActiveSection('profile')}
+            />
+          )}
+
+          {activeSection === 'deposit' && (
+            <DepositView
+              currentUser={currentUser}
+              coinBalance={coinBalance}
+              onBack={() => setActiveSection('profile')}
+              onToast={pushToast}
+            />
+          )}
+
+          {activeSection === 'salary' && (
+            <SalaryView
+              currentUser={currentUser}
+              diamondBalance={diamondBalance}
+              onBack={() => setActiveSection('profile')}
             />
           )}
 

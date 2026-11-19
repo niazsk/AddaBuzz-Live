@@ -33,6 +33,12 @@ export type AppSection =
   | 'super-agent-list'
   | 'agent-list'
   | 'agent-promote'
+  | 'rank'
+  | 'agent-ranking'
+  | 'invite'
+  | 'invite-agent'
+  | 'deposit'
+  | 'salary'
   | 'profile'
   | 'admin'
   | 'signin';

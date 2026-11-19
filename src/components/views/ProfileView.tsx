@@ -1,10 +1,12 @@
 import React, { useRef, useState } from 'react';
 import {
   BadgeCheck,
+  Banknote,
   Camera,
   Check,
   ChevronRight,
   Coins,
+  CreditCard,
   Edit3,
   Gamepad2,
   Gift,
@@ -12,7 +14,6 @@ import {
   LogIn,
   LogOut,
   MapPin,
-  Medal,
   Mic,
   ShieldCheck,
   ShoppingBag,
@@ -68,8 +69,8 @@ const FEATURE_TILES: Tile[] = [
   { id: 'store', label: 'Store', icon: ShoppingBag },
   { id: 'invite', label: 'Invite', icon: Users },
   { id: 'honor', label: 'Honor Level', icon: ShieldCheck },
-  { id: 'fanclub', label: 'Fan Club', icon: Heart },
-  { id: 'medal', label: 'Medal Wall', icon: Medal },
+  { id: 'deposit', label: 'Deposit', icon: CreditCard },
+  { id: 'salary', label: 'Salary', icon: Banknote },
 ];
 
 const AGENT_TILES: Tile[] = [
@@ -87,6 +88,7 @@ const BD_AGENT_TILES: Tile[] = [
   { id: 'agent-promote', label: 'Agent Promote', icon: TrendingUp },
   { id: 'coins-trading', label: 'Coins Trading', icon: Coins },
   { id: 'agent-rewards', label: 'Agent Promote', icon: Wallet, wide: true },
+  { id: 'agent-ranking', label: 'Agent Ranking', icon: TrendingUp, wide: true },
 ];
 
 export const ProfileView: React.FC<ProfileViewProps> = ({
@@ -222,6 +224,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           else if (tile.id === 'agent-list') onOpenSection('agent-list');
           else if (tile.id === 'agent-rewards') onOpenSection('admin');
           else if (tile.id === 'agent-promote') onOpenSection('agent-promote');
+          else if (tile.id === 'rank') onOpenSection('rank');
+          else if (tile.id === 'agent-ranking') onOpenSection('agent-ranking');
+          else if (tile.id === 'invite') onOpenSection('invite');
+          else if (tile.id === 'invite-agent') onOpenSection('invite-agent');
+          else if (tile.id === 'deposit') onOpenSection('deposit');
+          else if (tile.id === 'salary') onOpenSection('salary');
           else setComingSoon(tile.label);
         }}
         className={`group rounded-2xl bg-white/[0.04] border border-white/[0.06] hover:bg-white/[0.08] hover:border-violet-500/40 p-3.5 flex flex-col items-center gap-2 transition-colors ${
