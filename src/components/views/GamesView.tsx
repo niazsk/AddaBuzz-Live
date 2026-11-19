@@ -104,7 +104,13 @@ export const GamesView: React.FC<GamesViewProps> = ({
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-1.5">
               <h2 className="font-display text-lg font-extrabold text-[#F7F3E8]">Golden Flower</h2>
+              <span className="flex items-center gap-1 rounded-full border border-rose-400/40 bg-rose-500/15 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-rose-200">
+                <span className="h-1.5 w-1.5 rounded-full bg-rose-400" /> Live
+              </span>
               <span className="rounded-full border border-violet-300/30 bg-violet-400/10 px-1.5 py-0.5 text-[9px] font-bold text-violet-200">
+                Shared board
+              </span>
+              <span className="rounded-full border border-amber-300/30 bg-amber-400/10 px-1.5 py-0.5 text-[9px] font-bold text-amber-200">
                 Win ×2.98
               </span>
             </div>

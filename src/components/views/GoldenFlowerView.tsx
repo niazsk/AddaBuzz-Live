@@ -258,8 +258,16 @@ export const GoldenFlowerView: React.FC<GoldenFlowerViewProps> = ({
           <span className="font-display text-2xl font-black italic leading-none bg-gradient-to-b from-yellow-100 via-amber-300 to-yellow-600 bg-clip-text text-transparent drop-shadow-[0_3px_10px_rgba(0,0,0,0.8)]">
             Golden Flower
           </span>
-          <span className="mt-0.5 rounded-full bg-black/45 px-2 py-0.5 text-[8px] font-bold uppercase tracking-[0.18em] text-amber-200">
-            Win ×2.98
+          <span className="mt-0.5 flex items-center gap-1">
+            <span className="flex items-center gap-1 rounded-full bg-black/45 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-rose-200">
+              <span className="h-1 w-1 rounded-full bg-rose-400" /> Live
+            </span>
+            <span className="rounded-full bg-black/45 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.14em] text-violet-200">
+              Shared board
+            </span>
+            <span className="rounded-full bg-black/45 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.14em] text-amber-200">
+              ×2.98
+            </span>
           </span>
         </div>
       </div>
