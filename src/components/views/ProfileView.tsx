@@ -88,6 +88,7 @@ const AGENT_TILES: Tile[] = [
 const SUPER_AGENT_TILES: Tile[] = [
   { id: 'my-agent', label: 'My Agent', icon: Users },
   { id: 'my-host', label: 'My Host', icon: Mic },
+  { id: 'invite-agent', label: 'Invite Agent', icon: UserPlus },
   { id: 'coins-trading', label: 'Coins Trading', icon: Coins },
   { id: 'agent-ranking', label: 'Agent Ranking', icon: TrendingUp },
 ];
@@ -97,6 +98,7 @@ const BD_AGENT_TILES: Tile[] = [
   { id: 'agent-list', label: 'Agent List', icon: Users },
   { id: 'my-agent', label: 'My Agent', icon: Users },
   { id: 'my-host', label: 'My Host', icon: Mic },
+  { id: 'invite-agent', label: 'Invite Agent', icon: UserPlus },
   { id: 'agent-promote', label: 'Agent Promote', icon: TrendingUp },
   { id: 'coins-trading', label: 'Coins Trading', icon: Coins },
   { id: 'agent-rewards', label: 'Agent Promote', icon: Wallet, wide: true },
