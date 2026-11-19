@@ -38,6 +38,7 @@ export type AppSection =
   | 'invite'
   | 'invite-agent'
   | 'deposit'
+  | 'coins-convert'
   | 'salary'
   | 'withdraw'
   | 'profile'

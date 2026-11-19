@@ -365,27 +365,19 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             </div>
           </div>
 
-          <div className={`mt-2.5 grid ${tradingCoinBalance > 0 || isAgentUser ? 'grid-cols-3' : 'grid-cols-2'} divide-x divide-white/[0.07] rounded-2xl bg-white/[0.04] border border-white/[0.06] py-3 text-center`}>
-            <button type="button" onClick={() => onOpenSection('wallet')} className="hover:opacity-80 transition-opacity">
+          <div className="mt-2.5 grid grid-cols-2 divide-x divide-white/[0.07] rounded-2xl bg-white/[0.04] border border-white/[0.06] py-3 text-center">
+            <button type="button" onClick={() => onOpenSection('coins-convert')} className="hover:opacity-80 transition-opacity">
               <p className="font-mono text-base sm:text-lg font-bold text-amber-300 tabular-nums">
                 {coinBalance.toLocaleString()}
               </p>
               <p className="text-[11px] text-slate-400">Coins Balance</p>
             </button>
-            <button type="button" onClick={() => onOpenSection('wallet')} className="hover:opacity-80 transition-opacity">
+            <button type="button" onClick={() => onOpenSection('salary')} className="hover:opacity-80 transition-opacity">
               <p className="font-mono text-base sm:text-lg font-bold text-sky-300 tabular-nums">
                 {diamondBalance.toLocaleString()}
               </p>
               <p className="text-[11px] text-slate-400">Diamonds Balance</p>
             </button>
-            {(tradingCoinBalance > 0 || isAgentUser) && (
-              <button type="button" onClick={() => onOpenSection('coins-trading')} className="hover:opacity-80 transition-opacity">
-                <p className="font-mono text-base sm:text-lg font-bold text-violet-300 tabular-nums">
-                  {tradingCoinBalance.toLocaleString()}
-                </p>
-                <p className="text-[11px] text-slate-400">Trading Coins Balance</p>
-              </button>
-            )}
           </div>
             </>
           )}

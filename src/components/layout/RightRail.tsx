@@ -10,6 +10,8 @@ interface RightRailProps {
   diamondBalance: number;
   onOpenUserProfile: (user: UserProfile) => void;
   onStartDirectMessage: (user: UserProfile) => void;
+  onOpenCoinsConvert?: () => void;
+  onOpenDiamondsWithdraw?: () => void;
   onOpenWallet: () => void;
   hideWallet?: boolean;
 }
@@ -20,6 +22,8 @@ export const RightRail: React.FC<RightRailProps> = ({
   diamondBalance,
   onOpenUserProfile,
   onStartDirectMessage,
+  onOpenCoinsConvert,
+  onOpenDiamondsWithdraw,
   onOpenWallet,
   hideWallet = false,
 }) => {
@@ -46,7 +50,7 @@ export const RightRail: React.FC<RightRailProps> = ({
         <div className="grid grid-cols-2 gap-2.5">
           <button
             type="button"
-            onClick={onOpenWallet}
+            onClick={onOpenCoinsConvert || onOpenWallet}
             className="text-left rounded-xl bg-[#111420] border border-white/[0.08] hover:border-white/15 p-3.5 transition-colors"
           >
             <div className="flex items-center gap-1.5 text-xs text-slate-400 mb-1">
@@ -60,7 +64,7 @@ export const RightRail: React.FC<RightRailProps> = ({
 
           <button
             type="button"
-            onClick={onOpenWallet}
+            onClick={onOpenDiamondsWithdraw || onOpenWallet}
             className="text-left rounded-xl bg-[#111420] border border-white/[0.08] hover:border-white/15 p-3.5 transition-colors"
           >
             <div className="flex items-center gap-1.5 text-xs text-slate-400 mb-1">

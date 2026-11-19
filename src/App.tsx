@@ -88,6 +88,7 @@ import { AgentRankingView } from './components/views/AgentRankingView';
 import { InviteView } from './components/views/InviteView';
 import { InviteAgentView } from './components/views/InviteAgentView';
 import { DepositView } from './components/views/DepositView';
+import { CoinsConvertView } from './components/views/CoinsConvertView';
 import { SalaryView } from './components/views/SalaryView';
 import { SignInView } from './components/views/SignInView';
 import { GoLiveModal } from './components/modals/GoLiveModal';
@@ -1308,6 +1309,16 @@ export default function App() {
             />
           )}
 
+          {activeSection === 'coins-convert' && (
+            <CoinsConvertView
+              currentUser={currentUser}
+              coinBalance={coinBalance}
+              diamondBalance={diamondBalance}
+              onBack={() => setActiveSection('profile')}
+              onToast={pushToast}
+            />
+          )}
+
           {(activeSection === 'salary' || activeSection === 'withdraw') && (
             <SalaryView
               currentUser={currentUser}
@@ -1410,6 +1421,8 @@ export default function App() {
           diamondBalance={diamondBalance}
           onOpenUserProfile={(u) => setInspectedUser(u)}
           onStartDirectMessage={handleStartDirectMessage}
+          onOpenCoinsConvert={() => setActiveSection('coins-convert')}
+          onOpenDiamondsWithdraw={() => setActiveSection('salary')}
           onOpenWallet={handleToggleWallet}
           hideWallet={isBdAgent}
         />
