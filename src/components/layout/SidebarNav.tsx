@@ -3,7 +3,6 @@ import {
   Compass,
   Heart,
   MessageSquare,
-  Wallet,
   User,
   ShieldCheck,
   Radio,
@@ -25,7 +24,6 @@ interface SidebarNavProps {
   currentUser: UserProfile | null;
   unreadMessagesCount: number;
   isOffline: boolean;
-  hideWallet?: boolean;
   isAdminUser?: boolean;
 }
 
@@ -34,7 +32,6 @@ const NAV_ITEMS: { id: AppSection; label: string; icon: React.ComponentType<{ cl
   { id: 'following', label: 'Friends', icon: Heart },
   { id: 'messages', label: 'Messages', icon: MessageSquare },
   { id: 'games', label: 'Games', icon: Gamepad2 },
-  { id: 'wallet', label: 'Wallet', icon: Wallet },
   { id: 'profile', label: 'Profile', icon: User },
   { id: 'admin', label: 'Roles & Safety', icon: ShieldCheck },
 ];
@@ -69,7 +66,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
         </button>
 
         <nav className="space-y-1" aria-label="Primary navigation">
-          {NAV_ITEMS.filter((item) => !(hideWallet && item.id === 'wallet') && !(item.id === 'admin' && !isAdminUser)).map((item) => {
+          {NAV_ITEMS.filter((item) => !(item.id === 'admin' && !isAdminUser)).map((item) => {
             const Icon = item.icon;
             const isActive = activeSection === item.id;
             return (

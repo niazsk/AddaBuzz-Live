@@ -6,7 +6,6 @@ import {
   Radio,
   User,
   Bell,
-  Wallet,
 } from 'lucide-react';
 import { AppSection } from '../../types/app';
 import { BrandLogo } from '../ui/BrandLogo';
@@ -15,24 +14,20 @@ import { PWAInstallButton } from '../ui/PWAInstallButton';
 interface MobileNavProps {
   activeSection: AppSection;
   onSelectSection: (section: AppSection) => void;
-  onToggleWallet: () => void;
   onOpenGoLive: () => void;
   onOpenNotifications: () => void;
   unreadNotificationsCount: number;
   unreadMessagesCount: number;
   isOfflineSimulated: boolean;
   isSignedIn?: boolean;
-  hideWallet?: boolean;
 }
 
 export const MobileTopBar: React.FC<MobileNavProps> = ({
   activeSection,
   onSelectSection,
-  onToggleWallet,
   onOpenNotifications,
   unreadNotificationsCount,
   isSignedIn = false,
-  hideWallet = false,
 }) => {
   return (
     <header className="lg:hidden sticky top-0 z-30 h-13 px-4 flex items-center justify-between bg-[#08090E]/90 backdrop-blur-md border-b border-white/[0.07]">
@@ -46,18 +41,6 @@ export const MobileTopBar: React.FC<MobileNavProps> = ({
             className="px-2.5 py-1.5 rounded-xl bg-violet-600/20 border border-violet-500/35 text-xs font-medium text-violet-200 hover:bg-violet-600/30"
           >
             Sign In
-          </button>
-        )}
-        {!hideWallet && (
-          <button
-            type="button"
-            onClick={onToggleWallet}
-            aria-label={activeSection === 'wallet' ? 'Close Wallet' : 'Open Wallet'}
-            className={`min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl hover:bg-white/[0.05] ${
-              activeSection === 'wallet' ? 'text-sky-400' : 'text-slate-300 hover:text-white'
-            }`}
-          >
-            <Wallet className="w-5 h-5" />
           </button>
         )}
         <button
@@ -78,7 +61,7 @@ export const MobileTopBar: React.FC<MobileNavProps> = ({
   );
 };
 
-export const MobileBottomBar: React.FC<Omit<MobileNavProps, 'onToggleWallet'>> = ({
+export const MobileBottomBar: React.FC<MobileNavProps> = ({
   activeSection,
   onSelectSection,
   onOpenGoLive,

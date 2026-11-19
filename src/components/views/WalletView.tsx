@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  ArrowLeft,
   Coins,
   Gem,
   ShieldCheck,
@@ -20,6 +21,7 @@ interface WalletViewProps {
   transactions: WalletTransaction[];
   currentUser: UserProfile | null;
   onOpenSection?: (section: AppSection) => void;
+  onBack?: () => void;
   onToast?: (title: string, desc?: string, tone?: 'info' | 'success' | 'warning' | 'error') => void;
 }
 
@@ -30,6 +32,7 @@ export const WalletView: React.FC<WalletViewProps> = ({
   transactions,
   currentUser,
   onOpenSection,
+  onBack,
   onToast,
 }) => {
   const [filter, setFilter] = useState<'ALL' | CurrencyType>('ALL');
@@ -83,16 +86,28 @@ export const WalletView: React.FC<WalletViewProps> = ({
   return (
     <div className="space-y-6 pb-12 max-w-2xl mx-auto">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
-        <div>
-          <h1 className="font-display text-2xl font-bold text-white">
-            Wallet & Balance Ledger
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-400 mt-1">
-            Coins & Diamonds with immutable transactional auditing.
-          </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              aria-label="Back"
+              className="w-9 h-9 rounded-full bg-white/[0.08] hover:bg-white/[0.15] border border-white/10 flex items-center justify-center text-white transition-colors shrink-0"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+          )}
+          <div>
+            <h1 className="font-display text-2xl font-bold text-white">
+              Wallet & Balance Ledger
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-400 mt-1">
+              Coins & Diamonds with immutable transactional auditing.
+            </p>
+          </div>
         </div>
-        <span className="inline-flex items-center gap-1.5 text-xs text-slate-400">
+        <span className="inline-flex items-center gap-1.5 text-xs text-slate-400 shrink-0">
           <ShieldCheck className="w-4 h-4 text-sky-400" aria-hidden="true" />
           <span>Server-Audited Security</span>
         </span>

@@ -1220,6 +1220,7 @@ export default function App() {
               transactions={transactions}
               currentUser={currentUser}
               onOpenSection={handleSelectSection}
+              onBack={() => handleToggleWallet()}
               onToast={pushToast}
             />
           )}
