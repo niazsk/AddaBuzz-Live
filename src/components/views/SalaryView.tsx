@@ -1,40 +1,124 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Banknote, Calendar, CheckCircle2, Clock, DollarSign, Download, ShieldCheck } from 'lucide-react';
-import { UserProfile } from '../../types/app';
+import {
+  ArrowLeft,
+  Gem,
+  Send,
+  ShieldCheck,
+  CheckCircle2,
+  Users,
+  Search,
+  BadgeCheck,
+  Sparkles,
+} from 'lucide-react';
+import { UserProfile, WalletTransaction } from '../../types/app';
+import { isBdAgentProfile, withdrawDiamondsToAgent } from '../../lib/firestoreService';
+import { Avatar } from '../ui/Avatar';
 
 interface SalaryViewProps {
   currentUser: UserProfile | null;
   diamondBalance: number;
+  users: UserProfile[];
+  transactions?: WalletTransaction[];
   onBack: () => void;
+  onToast?: (title: string, desc?: string, tone?: 'info' | 'success' | 'warning' | 'error') => void;
 }
 
 export const SalaryView: React.FC<SalaryViewProps> = ({
   currentUser,
   diamondBalance,
+  users,
+  transactions = [],
   onBack,
+  onToast,
 }) => {
-  const [withdrawAmount, setWithdrawAmount] = useState('');
-  const [payoutMethod, setPayoutMethod] = useState<'BKASH' | 'NAGAD' | 'BANK'>('BKASH');
-  const [accountNumber, setAccountNumber] = useState('');
-  const [submitted, setSubmitted] = useState(false);
+  const [selectedAgent, setSelectedAgent] = useState<UserProfile | null>(null);
+  const [recipientSearch, setRecipientSearch] = useState('');
+  const [amount, setAmount] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [successData, setSuccessData] = useState<{
+    diamonds: number;
+    agentName: string;
+    agentId: string;
+  } | null>(null);
 
-  // Conversion: 10,000 Diamonds = $1.00 USD (approx 120 BDT)
-  const usdRate = (diamondBalance / 10000).toFixed(2);
-  const bdtRate = Math.floor((diamondBalance / 10000) * 122);
+  // Eligible withdrawal targets: Super Agents and Agents only (excluding self)
+  const eligibleAgents = users.filter((u) => {
+    if (!currentUser) return false;
+    if (u.uid === currentUser.uid) return false;
+    return (
+      u.accountType === 'AGENT' ||
+      u.accountType === 'SUPER_AGENT' ||
+      isBdAgentProfile(u)
+    );
+  });
 
-  const history = [
-    { id: 'sal_01', month: 'October 2026', diamonds: '500,000', bdt: '৳ 6,100', status: 'PAID', date: 'Nov 05, 2026' },
-    { id: 'sal_02', month: 'September 2026', diamonds: '320,000', bdt: '৳ 3,904', status: 'PAID', date: 'Oct 05, 2026' },
-  ];
+  const filteredAgents = eligibleAgents.filter((a) => {
+    if (!recipientSearch.trim()) return true;
+    const q = recipientSearch.toLowerCase();
+    return (
+      a.displayName.toLowerCase().includes(q) ||
+      a.username.toLowerCase().includes(q) ||
+      a.platformId.includes(q)
+    );
+  });
 
-  const handleWithdraw = (e: React.FormEvent) => {
+  const parsedAmount = Math.max(0, parseInt(amount, 10) || 0);
+
+  const handleWithdrawSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!accountNumber.trim()) return;
-    setSubmitted(true);
+    if (!currentUser) {
+      onToast?.('Sign in required', 'Please sign in to withdraw diamonds.', 'warning');
+      return;
+    }
+
+    if (!selectedAgent) {
+      onToast?.('Select Agent', 'Please select a Super Agent or Agent to receive withdrawal.', 'warning');
+      return;
+    }
+
+    if (parsedAmount < 100) {
+      onToast?.('Minimum Amount', 'Minimum withdrawal is 100 Diamonds.', 'warning');
+      return;
+    }
+
+    if (parsedAmount > diamondBalance) {
+      onToast?.('Insufficient Diamonds', 'You do not have enough diamonds in your balance.', 'error');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await withdrawDiamondsToAgent(currentUser, selectedAgent, parsedAmount);
+
+      setSuccessData({
+        diamonds: parsedAmount,
+        agentName: selectedAgent.displayName,
+        agentId: selectedAgent.platformId,
+      });
+
+      onToast?.(
+        'Diamonds Withdrawn Successfully!',
+        `Transferred ${parsedAmount.toLocaleString()} Diamonds to @${selectedAgent.username}.`,
+        'success'
+      );
+      setAmount('');
+    } catch (err) {
+      onToast?.(
+        'Withdrawal Failed',
+        err instanceof Error ? err.message : 'Unable to complete diamonds withdrawal.',
+        'error'
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
+  const diamondWithdrawals = transactions
+    .filter((t) => t.currency === 'DIAMOND' && t.direction === 'DEBIT' && t.reason.toLowerCase().includes('withdraw'))
+    .slice(0, 10);
+
   return (
-    <div className="space-y-6 pb-12">
+    <div className="space-y-6 pb-12 max-w-2xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-3">
         <button
@@ -46,133 +130,206 @@ export const SalaryView: React.FC<SalaryViewProps> = ({
           <ArrowLeft className="w-4 h-4" />
         </button>
         <div className="flex items-center gap-2">
-          <Banknote className="w-5 h-5 text-amber-400" />
-          <h1 className="font-display text-lg font-bold text-white">Creator & Host Salary</h1>
+          <Gem className="w-5 h-5 text-sky-400" />
+          <h1 className="font-display text-lg font-bold text-white">Diamonds Withdraw</h1>
         </div>
       </div>
 
-      {/* Salary Overview Card */}
-      <div className="rounded-3xl bg-gradient-to-br from-amber-500/20 via-[#111420] to-orange-500/10 border border-amber-500/20 p-6 space-y-4">
+      {/* Available Diamonds Overview */}
+      <div className="rounded-3xl bg-gradient-to-br from-sky-500/20 via-[#111420] to-violet-600/10 border border-sky-500/20 p-6 space-y-3">
         <div className="flex items-center justify-between">
-          <span className="text-xs text-slate-400 font-medium uppercase tracking-wider">
-            Withdrawable Creator Revenue
+          <span className="text-xs text-slate-400 font-medium uppercase tracking-wider flex items-center gap-1.5">
+            <Gem className="w-4 h-4 text-sky-400" />
+            <span>Available Diamonds</span>
           </span>
-          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
-            Monthly Cycle
+          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-sky-400 bg-sky-500/10 px-2.5 py-0.5 rounded-full border border-sky-500/20">
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span>Agency Settlement</span>
           </span>
         </div>
 
         <div className="space-y-1">
-          <p className="font-mono text-3xl font-black text-amber-400">
-            ৳ {bdtRate.toLocaleString()}
+          <p className="font-mono text-3xl font-black text-sky-400 tabular-nums">
+            {diamondBalance.toLocaleString()} <span className="text-sm font-normal text-slate-300 font-sans">Diamonds</span>
           </p>
-          <p className="text-xs font-mono text-slate-400">
-            ≈ ${usdRate} USD ({diamondBalance.toLocaleString()} Diamonds)
+          <p className="text-xs text-slate-400">
+            Diamonds are withdrawable directly to authorized Super Agents and Agents.
           </p>
-        </div>
-
-        <div className="pt-2 border-t border-white/[0.08] flex items-center justify-between text-xs text-slate-300">
-          <span>Target Settlement: <strong>1st - 5th of every month</strong></span>
-          <span className="text-emerald-400 font-medium">Automatic / Manual</span>
         </div>
       </div>
 
-      {/* Withdrawal Request */}
-      <section className="rounded-2xl bg-[#111420] border border-white/[0.08] p-5 space-y-4">
-        <h2 className="font-display text-sm font-semibold text-white">
-          Request Salary Settlement
-        </h2>
-
-        {submitted ? (
-          <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-4 text-center space-y-2">
-            <CheckCircle2 className="w-6 h-6 text-emerald-400 mx-auto" />
-            <p className="text-xs font-bold text-white">Settlement Request Submitted</p>
-            <p className="text-[11px] text-slate-400">
-              Payment will be transferred to your {payoutMethod} account ({accountNumber}) by the next finance payout cycle.
-            </p>
-            <button
-              type="button"
-              onClick={() => {
-                setSubmitted(false);
-                setAccountNumber('');
-                setWithdrawAmount('');
-              }}
-              className="text-xs text-emerald-400 hover:underline pt-1"
-            >
-              Close
-            </button>
+      {/* Success Notification */}
+      {successData ? (
+        <div className="rounded-3xl bg-emerald-500/10 border border-emerald-500/30 p-6 text-center space-y-3">
+          <div className="w-12 h-12 mx-auto rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+            <CheckCircle2 className="w-6 h-6" />
           </div>
-        ) : (
-          <form onSubmit={handleWithdraw} className="space-y-3">
-            <div className="grid grid-cols-3 gap-2">
-              {(['BKASH', 'NAGAD', 'BANK'] as const).map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => setPayoutMethod(m)}
-                  className={`py-2 rounded-xl text-xs font-bold border transition-colors ${
-                    payoutMethod === m
-                      ? 'bg-amber-500 text-[#111420] border-amber-400'
-                      : 'bg-[#0B0D14] text-slate-400 border-white/[0.08]'
-                  }`}
-                >
-                  {m}
-                </button>
-              ))}
-            </div>
+          <h3 className="font-display text-base font-bold text-white">Withdrawal Complete</h3>
+          <p className="text-xs text-slate-300">
+            Successfully transferred <span className="font-mono text-sky-400 font-bold">{successData.diamonds.toLocaleString()} Diamonds</span> to {successData.agentName} (ID: {successData.agentId}). Coins have been credited to their agency trading balance.
+          </p>
+          <button
+            type="button"
+            onClick={() => setSuccessData(null)}
+            className="px-5 py-2.5 rounded-xl bg-white/[0.08] hover:bg-white/[0.15] text-xs font-semibold text-white"
+          >
+            Submit Another Withdrawal
+          </button>
+        </div>
+      ) : (
+        /* Withdrawal Form */
+        <form onSubmit={handleWithdrawSubmit} className="rounded-2xl bg-[#111420] border border-white/[0.08] p-5 space-y-4">
+          <h2 className="font-display text-sm font-semibold text-white flex items-center gap-2">
+            <Send className="w-4 h-4 text-sky-400" />
+            <span>Select Target Super Agent / Agent</span>
+          </h2>
 
-            <div className="space-y-1">
-              <label className="text-[11px] text-slate-400 font-medium">Payout Account / IBAN</label>
+          {/* Agent Picker / Search */}
+          <div className="space-y-2">
+            <div className="relative">
+              <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                required
-                value={accountNumber}
-                onChange={(e) => setAccountNumber(e.target.value)}
-                placeholder="Enter personal account number"
-                className="w-full h-11 px-4 rounded-xl bg-[#0B0D14] border border-white/[0.08] focus:border-amber-500/60 focus:outline-none text-xs text-white"
+                value={recipientSearch}
+                onChange={(e) => setRecipientSearch(e.target.value)}
+                placeholder="Search agent by name, username or ID..."
+                className="w-full h-10 pl-10 pr-4 rounded-xl bg-[#0B0D14] border border-white/[0.08] focus:border-sky-500/60 focus:outline-none text-xs text-white placeholder:text-slate-500"
               />
             </div>
 
-            <div className="space-y-1">
-              <label className="text-[11px] text-slate-400 font-medium">Amount to Settle (BDT)</label>
+            {/* List of Agents */}
+            <div className="max-h-48 overflow-y-auto rounded-xl border border-white/[0.06] divide-y divide-white/[0.04] bg-[#0B0D14]">
+              {filteredAgents.length === 0 ? (
+                <div className="p-4 text-center text-xs text-slate-500">
+                  No registered Super Agents or Agents found.
+                </div>
+              ) : (
+                filteredAgents.map((agent) => {
+                  const isSelected = selectedAgent?.uid === agent.uid;
+                  const isSuper = agent.accountType === 'SUPER_AGENT';
+                  return (
+                    <button
+                      key={agent.uid}
+                      type="button"
+                      onClick={() => setSelectedAgent(agent)}
+                      className={`w-full flex items-center gap-3 p-3 text-left transition-colors ${
+                        isSelected
+                          ? 'bg-sky-500/15 border-l-2 border-sky-400'
+                          : 'hover:bg-white/[0.03]'
+                      }`}
+                    >
+                      <Avatar name={agent.displayName} src={agent.avatarUrl} color={agent.avatarColor} size="sm" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-xs font-semibold text-white truncate">{agent.displayName}</p>
+                          <span
+                            className={`text-[9px] px-1.5 py-0.2 rounded font-bold uppercase ${
+                              isSuper ? 'bg-amber-500/20 text-amber-300' : 'bg-violet-500/20 text-violet-300'
+                            }`}
+                          >
+                            {isSuper ? 'Super Agent' : 'Agent'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-400 font-mono">
+                          ID: {agent.platformId} • @{agent.username}
+                        </p>
+                      </div>
+                      {isSelected && (
+                        <CheckCircle2 className="w-4 h-4 text-sky-400 shrink-0" />
+                      )}
+                    </button>
+                  );
+                })
+              )}
+            </div>
+
+            {selectedAgent && (
+              <div className="p-3 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-between text-xs">
+                <span className="text-slate-300">Selected Recipient:</span>
+                <span className="font-semibold text-white flex items-center gap-1.5">
+                  <BadgeCheck className="w-4 h-4 text-sky-400" />
+                  <span>{selectedAgent.displayName} (@{selectedAgent.username})</span>
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Amount input */}
+          <div className="space-y-2 pt-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs text-slate-400 font-medium">Diamonds Amount</label>
+              <span className="text-[11px] text-slate-500">Min: 100 Diamonds</span>
+            </div>
+            <div className="relative">
+              <Gem className="w-5 h-5 text-sky-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 type="number"
-                min="500"
-                value={withdrawAmount}
-                onChange={(e) => setWithdrawAmount(e.target.value)}
-                placeholder={`Max available: ৳ ${bdtRate}`}
-                className="w-full h-11 px-4 rounded-xl bg-[#0B0D14] border border-white/[0.08] focus:border-amber-500/60 focus:outline-none text-xs text-white font-mono"
+                min="100"
+                max={diamondBalance}
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="Enter diamond amount to withdraw"
+                className="w-full h-12 pl-11 pr-4 rounded-xl bg-[#0B0D14] border border-white/[0.08] focus:border-sky-500/60 focus:outline-none text-base font-mono font-bold text-white placeholder:text-slate-600"
               />
             </div>
 
-            <button
-              type="submit"
-              className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-xs font-bold text-[#111420] transition-all"
-            >
-              Submit Settlement Request
-            </button>
-          </form>
-        )}
-      </section>
+            {/* Quick Amount Buttons */}
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {[1000, 5000, 10000, 50000].map((amt) => (
+                <button
+                  key={amt}
+                  type="button"
+                  onClick={() => setAmount(amt.toString())}
+                  className="px-3 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] text-xs font-mono text-slate-300 transition-colors"
+                >
+                  +{amt.toLocaleString()}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => setAmount(diamondBalance.toString())}
+                className="px-3 py-1.5 rounded-xl bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 text-xs font-mono font-bold text-sky-400 transition-colors"
+              >
+                MAX
+              </button>
+            </div>
+          </div>
 
-      {/* Salary History */}
+          <button
+            type="submit"
+            disabled={isSubmitting || !selectedAgent || parsedAmount <= 0 || parsedAmount > diamondBalance}
+            className="w-full py-3.5 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 disabled:opacity-50 text-sm font-bold text-white transition-all shadow-lg shadow-sky-500/20 active:scale-[0.99] flex items-center justify-center gap-2"
+          >
+            <Send className="w-4 h-4" />
+            <span>{isSubmitting ? 'Processing Withdrawal...' : `Withdraw ${parsedAmount.toLocaleString()} Diamonds`}</span>
+          </button>
+        </form>
+      )}
+
+      {/* Recent Withdrawals History */}
       <section className="space-y-2">
         <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-1">
-          Settlement History
+          Recent Diamonds Withdrawals
         </h3>
         <div className="rounded-2xl bg-[#111420] border border-white/[0.08] divide-y divide-white/[0.06] overflow-hidden">
-          {history.map((h) => (
-            <div key={h.id} className="p-4 flex items-center justify-between">
-              <div className="space-y-0.5">
-                <p className="text-xs font-bold text-white">{h.month}</p>
-                <p className="text-[10px] text-slate-400">Processed on {h.date}</p>
-              </div>
-              <div className="text-right">
-                <p className="font-mono text-xs font-bold text-emerald-400">{h.bdt}</p>
-                <span className="text-[10px] text-slate-500 font-mono">{h.diamonds} 💎</span>
-              </div>
+          {diamondWithdrawals.length === 0 ? (
+            <div className="p-6 text-center text-xs text-slate-500">
+              No recent diamond withdrawals found.
             </div>
-          ))}
+          ) : (
+            diamondWithdrawals.map((tx) => (
+              <div key={tx.transactionId} className="p-4 flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <p className="text-xs font-bold text-white">{tx.reason}</p>
+                  <p className="text-[10px] text-slate-400 font-mono">{tx.timestampLabel}</p>
+                </div>
+                <div className="text-right">
+                  <p className="font-mono text-xs font-bold text-rose-400">-{tx.amount.toLocaleString()}</p>
+                  <span className="text-[10px] text-slate-500 font-mono">Diamonds</span>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </section>
     </div>

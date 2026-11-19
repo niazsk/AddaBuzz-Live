@@ -39,6 +39,7 @@ export type AppSection =
   | 'invite-agent'
   | 'deposit'
   | 'salary'
+  | 'withdraw'
   | 'profile'
   | 'admin'
   | 'signin';

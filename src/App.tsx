@@ -131,6 +131,7 @@ export default function App() {
   const adminReturnRef = useRef<AppSection>('profile');
   const [coinBalance, setCoinBalance] = useState<number>(0);
   const [diamondBalance, setDiamondBalance] = useState<number>(0);
+  const [tradingCoinBalance, setTradingCoinBalance] = useState<number>(0);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
@@ -222,6 +223,7 @@ export default function App() {
         setBlockedUids([]);
         setCoinBalance(0);
         setDiamondBalance(0);
+        setTradingCoinBalance(0);
         setTransactions([]);
         setConversations([]);
         setPromotions([]);
@@ -289,9 +291,10 @@ export default function App() {
 
     const unsubWallet = subscribeWalletData(
       currentUser.uid,
-      (coins, diamonds) => {
+      (coins, diamonds, tradingCoins) => {
         setCoinBalance(coins);
         setDiamondBalance(diamonds);
+        setTradingCoinBalance(tradingCoins);
       },
       (txs) => setTransactions(txs)
     );
@@ -606,6 +609,7 @@ export default function App() {
       await sendVirtualGiftTransaction(
         roomId,
         me,
+        room?.hostUid,
         host?.username ?? 'host',
         gift
       );
@@ -1212,19 +1216,25 @@ export default function App() {
             <WalletView
               coinBalance={coinBalance}
               diamondBalance={diamondBalance}
+              tradingCoinBalance={tradingCoinBalance}
               transactions={transactions}
+              currentUser={currentUser}
+              onOpenSection={handleSelectSection}
+              onToast={pushToast}
             />
           )}
 
           {activeSection === 'coins-trading' && (
             <CoinsTradingView
               coinBalance={coinBalance}
+              tradingCoinBalance={tradingCoinBalance}
               transactions={transactions}
               currentUser={currentUser}
               isAdminUser={isAdminUser}
               users={users}
               onTransferCoins={handleTransferCoins}
               onBack={() => setActiveSection('profile')}
+              onToast={pushToast}
             />
           )}
 
@@ -1297,11 +1307,14 @@ export default function App() {
             />
           )}
 
-          {activeSection === 'salary' && (
+          {(activeSection === 'salary' || activeSection === 'withdraw') && (
             <SalaryView
               currentUser={currentUser}
               diamondBalance={diamondBalance}
+              users={users}
+              transactions={transactions}
               onBack={() => setActiveSection('profile')}
+              onToast={pushToast}
             />
           )}
 
@@ -1315,6 +1328,7 @@ export default function App() {
               friendsCount={followingUids.filter((uid) => followerUids.includes(uid)).length}
               coinBalance={coinBalance}
               diamondBalance={diamondBalance}
+              tradingCoinBalance={tradingCoinBalance}
               onUpdateProfile={async (updates) => {
                 if (!currentUser) return;
                 await updateOwnProfile(currentUser.uid, updates);

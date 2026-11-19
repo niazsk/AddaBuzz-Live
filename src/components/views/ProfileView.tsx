@@ -9,8 +9,10 @@ import {
   CreditCard,
   Edit3,
   Gamepad2,
+  Gem,
   Gift,
   Heart,
+  Layers,
   LogIn,
   LogOut,
   MapPin,
@@ -40,6 +42,7 @@ interface ProfileViewProps {
   friendsCount: number;
   coinBalance: number;
   diamondBalance: number;
+  tradingCoinBalance?: number;
   onUpdateProfile: (updates: {
     displayName: string;
     bio: string;
@@ -70,7 +73,7 @@ const FEATURE_TILES: Tile[] = [
   { id: 'invite', label: 'Invite', icon: Users },
   { id: 'honor', label: 'Honor Level', icon: ShieldCheck },
   { id: 'deposit', label: 'Deposit', icon: CreditCard },
-  { id: 'salary', label: 'Salary', icon: Banknote },
+  { id: 'salary', label: 'Withdraw', icon: Gem },
 ];
 
 const AGENT_TILES: Tile[] = [
@@ -100,6 +103,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   friendsCount,
   coinBalance,
   diamondBalance,
+  tradingCoinBalance = 0,
   onUpdateProfile,
   onUnblockUser,
   onOpenSection,
@@ -361,19 +365,27 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             </div>
           </div>
 
-          <div className="mt-2.5 grid grid-cols-2 divide-x divide-white/[0.07] rounded-2xl bg-white/[0.04] border border-white/[0.06] py-3 text-center">
-            <div>
-              <p className="font-mono text-lg font-bold text-amber-300 tabular-nums">
+          <div className={`mt-2.5 grid ${tradingCoinBalance > 0 || isAgentUser ? 'grid-cols-3' : 'grid-cols-2'} divide-x divide-white/[0.07] rounded-2xl bg-white/[0.04] border border-white/[0.06] py-3 text-center`}>
+            <button type="button" onClick={() => onOpenSection('wallet')} className="hover:opacity-80 transition-opacity">
+              <p className="font-mono text-base sm:text-lg font-bold text-amber-300 tabular-nums">
                 {coinBalance.toLocaleString()}
               </p>
               <p className="text-[11px] text-slate-400">Coins</p>
-            </div>
-            <div>
-              <p className="font-mono text-lg font-bold text-sky-300 tabular-nums">
+            </button>
+            <button type="button" onClick={() => onOpenSection('wallet')} className="hover:opacity-80 transition-opacity">
+              <p className="font-mono text-base sm:text-lg font-bold text-sky-300 tabular-nums">
                 {diamondBalance.toLocaleString()}
               </p>
               <p className="text-[11px] text-slate-400">Diamonds</p>
-            </div>
+            </button>
+            {(tradingCoinBalance > 0 || isAgentUser) && (
+              <button type="button" onClick={() => onOpenSection('coins-trading')} className="hover:opacity-80 transition-opacity">
+                <p className="font-mono text-base sm:text-lg font-bold text-violet-300 tabular-nums">
+                  {tradingCoinBalance.toLocaleString()}
+                </p>
+                <p className="text-[11px] text-slate-400">Trading Coins</p>
+              </button>
+            )}
           </div>
             </>
           )}

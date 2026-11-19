@@ -292,7 +292,8 @@ export async function completeUserOnboarding(
   batch.set(doc(db, 'wallets', firebaseUser.uid), {
     uid: firebaseUser.uid,
     coinBalance: 500,
-    diamondBalance: 120,
+    diamondBalance: 0,
+    tradingCoinBalance: 0,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
@@ -894,7 +895,7 @@ export async function updateSeatStateDoc(
 
 export function subscribeWalletData(
   uid: string,
-  onWallet: (coins: number, diamonds: number) => void,
+  onWallet: (coins: number, diamonds: number, tradingCoins: number) => void,
   onTransactions: (txs: WalletTransaction[]) => void
 ): () => void {
   const unsubWallet = onSnapshot(
@@ -902,7 +903,11 @@ export function subscribeWalletData(
     (snap) => {
       if (snap.exists()) {
         const d = snap.data();
-        onWallet(Number(d.coinBalance ?? 0), Number(d.diamondBalance ?? 0));
+        onWallet(
+          Number(d.coinBalance ?? 0),
+          Number(d.diamondBalance ?? 0),
+          Number(d.tradingCoinBalance ?? 0)
+        );
       }
     },
     (error) => handleFirestoreError(error, OperationType.GET, `wallets/${uid}`)
@@ -947,19 +952,29 @@ export function subscribeWalletData(
 export async function sendVirtualGiftTransaction(
   roomId: string,
   sender: UserProfile,
+  hostUid: string | undefined,
   hostUsername: string,
   gift: GiftCatalogItem
 ): Promise<void> {
   const walletRef = doc(db, 'wallets', sender.uid);
+  const hostWalletRef = hostUid ? doc(db, 'wallets', hostUid) : null;
   const txId = `tx_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+  const hostTxId = `tx_h_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
   const txRef = doc(db, 'wallets', sender.uid, 'transactions', txId);
   const msgId = `msg_gift_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
   const msgRef = doc(db, 'liveRooms', roomId, 'messages', msgId);
   const idempotencyKey = `gift_${gift.giftId}_${Date.now().toString(36)}`;
 
+  // Host receives diamonds (30% less silently)
+  const hostDiamondsToAdd = Math.floor(gift.price * 0.70);
+
   try {
     await runTransaction(db, async (tx) => {
-      const walletSnap = await tx.get(walletRef);
+      const [walletSnap, hostWalletSnap] = await Promise.all([
+        tx.get(walletRef),
+        hostWalletRef ? tx.get(hostWalletRef) : Promise.resolve(null),
+      ]);
+
       if (!walletSnap.exists()) {
         throw new Error('Wallet not initialized.');
       }
@@ -991,6 +1006,26 @@ export async function sendVirtualGiftTransaction(
         idempotencyKey,
         createdAt: serverTimestamp(),
       });
+
+      // Credit host with diamonds if host wallet exists and sender is not host
+      if (hostWalletRef && hostWalletSnap && hostWalletSnap.exists() && sender.uid !== hostUid && hostDiamondsToAdd > 0) {
+        const curHostDiamonds = Number(hostWalletSnap.data().diamondBalance ?? 0);
+        tx.update(hostWalletRef, {
+          diamondBalance: curHostDiamonds + hostDiamondsToAdd,
+          updatedAt: serverTimestamp(),
+        });
+        tx.set(doc(db, 'wallets', hostUid!, 'transactions', hostTxId), {
+          transactionId: hostTxId,
+          uid: hostUid!,
+          currency: 'DIAMOND',
+          direction: 'CREDIT',
+          amount: hostDiamondsToAdd,
+          reason: clampStr(`Received ${gift.name} from @${sender.username}`, 160),
+          counterparty: clampStr(`@${sender.username}`, 64),
+          idempotencyKey: hostTxId,
+          createdAt: serverTimestamp(),
+        });
+      }
 
       tx.set(msgRef, {
         id: msgId,
@@ -1662,19 +1697,48 @@ export async function transferCoins(
       if (!senderSnap.exists() || !recipientSnap.exists()) {
         throw new Error('Wallet not initialized.');
       }
-      const senderCoins = Number(senderSnap.data().coinBalance ?? 0);
-      const recipientCoins = Number(recipientSnap.data().coinBalance ?? 0);
-      if (senderCoins < value) {
-        throw new Error(`Insufficient Coins (need ${value}).`);
+
+      const senderMainCoins = Number(senderSnap.data().coinBalance ?? 0);
+      const senderTradingCoins = Number(senderSnap.data().tradingCoinBalance ?? 0);
+      const recipientMainCoins = Number(recipientSnap.data().coinBalance ?? 0);
+      const recipientTradingCoins = Number(recipientSnap.data().tradingCoinBalance ?? 0);
+
+      // Prefer deducting from trading balance if available (e.g. for Agents / Super Agents)
+      const useTradingDebit = senderTradingCoins >= value;
+      if (!useTradingDebit && senderMainCoins < value) {
+        throw new Error(`Insufficient Coins (need ${value.toLocaleString()}).`);
       }
-      tx.update(senderRef, {
-        coinBalance: senderCoins - value,
-        updatedAt: serverTimestamp(),
-      });
-      tx.update(recipientRef, {
-        coinBalance: recipientCoins + value,
-        updatedAt: serverTimestamp(),
-      });
+
+      if (useTradingDebit) {
+        tx.update(senderRef, {
+          tradingCoinBalance: senderTradingCoins - value,
+          updatedAt: serverTimestamp(),
+        });
+      } else {
+        tx.update(senderRef, {
+          coinBalance: senderMainCoins - value,
+          updatedAt: serverTimestamp(),
+        });
+      }
+
+      // BD Agent -> Super Agent -> Agent: Coins transfer adds to recipient Trading Balance!
+      const isAgencyRecipient =
+        recipient.accountType === 'SUPER_AGENT' ||
+        recipient.accountType === 'AGENT' ||
+        isBdAgentProfile(recipient);
+
+      if (isAgencyRecipient) {
+        tx.update(recipientRef, {
+          tradingCoinBalance: recipientTradingCoins + value,
+          updatedAt: serverTimestamp(),
+        });
+      } else {
+        tx.update(recipientRef, {
+          coinBalance: recipientMainCoins + value,
+          updatedAt: serverTimestamp(),
+        });
+      }
+
       tx.set(doc(db, 'wallets', sender.uid, 'transactions', debitId), {
         transactionId: debitId,
         uid: sender.uid,
@@ -1692,7 +1756,7 @@ export async function transferCoins(
         currency: 'COIN',
         direction: 'CREDIT',
         amount: value,
-        reason: clampStr(`Transfer from @${sender.username}`, 160),
+        reason: clampStr(`Transfer from @${sender.username} (${isAgencyRecipient ? 'Trading Balance' : 'Main Balance'})`, 160),
         counterparty: clampStr(`@${sender.username}`, 64),
         idempotencyKey,
         createdAt: serverTimestamp(),
@@ -1709,6 +1773,234 @@ export async function transferCoins(
       throw error;
     }
     handleFirestoreError(error, OperationType.WRITE, `wallets/${sender.uid}`);
+  }
+}
+
+/**
+ * Convert Main Coins to Diamonds
+ * (30% less silently applied under the hood)
+ */
+export async function convertCoinsToDiamonds(
+  uid: string,
+  coinAmount: number
+): Promise<{ convertedCoins: number; diamondsReceived: number }> {
+  const coins = Math.floor(coinAmount);
+  if (coins <= 0) throw new Error('Enter a valid coin amount.');
+
+  // 30% reduction applied silently
+  const diamondsReceived = Math.floor(coins * 0.70);
+  if (diamondsReceived <= 0) throw new Error('Amount too small to convert.');
+
+  const walletRef = doc(db, 'wallets', uid);
+  const stamp = Date.now();
+  const rand = Math.random().toString(36).slice(2, 6);
+  const txDebitId = `tx_conv_d_${stamp}_${rand}`;
+  const txCreditId = `tx_conv_c_${stamp}_${rand}`;
+
+  try {
+    await runTransaction(db, async (tx) => {
+      const snap = await tx.get(walletRef);
+      if (!snap.exists()) throw new Error('Wallet not initialized.');
+
+      const curCoins = Number(snap.data().coinBalance ?? 0);
+      const curDiamonds = Number(snap.data().diamondBalance ?? 0);
+      if (curCoins < coins) throw new Error(`Insufficient coins (need ${coins.toLocaleString()}).`);
+
+      tx.update(walletRef, {
+        coinBalance: curCoins - coins,
+        diamondBalance: curDiamonds + diamondsReceived,
+        updatedAt: serverTimestamp(),
+      });
+
+      tx.set(doc(db, 'wallets', uid, 'transactions', txDebitId), {
+        transactionId: txDebitId,
+        uid,
+        currency: 'COIN',
+        direction: 'DEBIT',
+        amount: coins,
+        reason: 'Converted to Diamonds',
+        idempotencyKey: txDebitId,
+        createdAt: serverTimestamp(),
+      });
+
+      tx.set(doc(db, 'wallets', uid, 'transactions', txCreditId), {
+        transactionId: txCreditId,
+        uid,
+        currency: 'DIAMOND',
+        direction: 'CREDIT',
+        amount: diamondsReceived,
+        reason: 'Converted from Coins',
+        idempotencyKey: txCreditId,
+        createdAt: serverTimestamp(),
+      });
+    });
+
+    return { convertedCoins: coins, diamondsReceived };
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith('Insufficient')) throw error;
+    if (error instanceof Error && error.message.startsWith('Amount too small')) throw error;
+    handleFirestoreError(error, OperationType.WRITE, `wallets/${uid}`);
+  }
+}
+
+/**
+ * Withdraw Diamonds to Agent or Super Agent
+ * Target agent receives coins in their Coins Trading Balance
+ * (3% less silently applied under the hood)
+ */
+export async function withdrawDiamondsToAgent(
+  sender: UserProfile,
+  targetAgent: UserProfile,
+  diamondAmount: number
+): Promise<{ diamondsDebited: number; recipientTradingCoins: number }> {
+  const diamonds = Math.floor(diamondAmount);
+  if (diamonds <= 0) throw new Error('Enter a valid diamonds amount.');
+  if (sender.uid === targetAgent.uid) throw new Error('Cannot withdraw diamonds to yourself.');
+
+  const isAgentOrSuper =
+    targetAgent.accountType === 'AGENT' ||
+    targetAgent.accountType === 'SUPER_AGENT' ||
+    isBdAgentProfile(targetAgent);
+
+  if (!isAgentOrSuper) {
+    throw new Error('Diamonds can only be withdrawn to an official Agent or Super Agent.');
+  }
+
+  // 3% reduction applied silently to recipient's trading coins
+  const recipientTradingCoins = Math.floor(diamonds * 0.97);
+  if (recipientTradingCoins <= 0) throw new Error('Amount too small to withdraw.');
+
+  const senderRef = doc(db, 'wallets', sender.uid);
+  const agentRef = doc(db, 'wallets', targetAgent.uid);
+  const stamp = Date.now();
+  const rand = Math.random().toString(36).slice(2, 6);
+  const txDebitId = `tx_w_d_${stamp}_${rand}`;
+  const txCreditId = `tx_w_c_${stamp}_${rand}`;
+
+  try {
+    await runTransaction(db, async (tx) => {
+      const [senderSnap, agentSnap] = await Promise.all([
+        tx.get(senderRef),
+        tx.get(agentRef),
+      ]);
+      if (!senderSnap.exists() || !agentSnap.exists()) throw new Error('Wallet not initialized.');
+
+      const curDiamonds = Number(senderSnap.data().diamondBalance ?? 0);
+      if (curDiamonds < diamonds) {
+        throw new Error(`Insufficient diamonds (need ${diamonds.toLocaleString()}).`);
+      }
+
+      const agentTradingCoins = Number(agentSnap.data().tradingCoinBalance ?? 0);
+
+      tx.update(senderRef, {
+        diamondBalance: curDiamonds - diamonds,
+        updatedAt: serverTimestamp(),
+      });
+
+      tx.update(agentRef, {
+        tradingCoinBalance: agentTradingCoins + recipientTradingCoins,
+        updatedAt: serverTimestamp(),
+      });
+
+      tx.set(doc(db, 'wallets', sender.uid, 'transactions', txDebitId), {
+        transactionId: txDebitId,
+        uid: sender.uid,
+        currency: 'DIAMOND',
+        direction: 'DEBIT',
+        amount: diamonds,
+        reason: clampStr(`Diamonds Withdraw to @${targetAgent.username}`, 160),
+        counterparty: clampStr(`@${targetAgent.username}`, 64),
+        idempotencyKey: txDebitId,
+        createdAt: serverTimestamp(),
+      });
+
+      tx.set(doc(db, 'wallets', targetAgent.uid, 'transactions', txCreditId), {
+        transactionId: txCreditId,
+        uid: targetAgent.uid,
+        currency: 'COIN',
+        direction: 'CREDIT',
+        amount: recipientTradingCoins,
+        reason: clampStr(`Diamonds Withdraw from @${sender.username} (Trading Balance)`, 160),
+        counterparty: clampStr(`@${sender.username}`, 64),
+        idempotencyKey: txCreditId,
+        createdAt: serverTimestamp(),
+      });
+    });
+
+    return { diamondsDebited: diamonds, recipientTradingCoins };
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith('Insufficient')) throw error;
+    if (error instanceof Error && error.message.startsWith('Diamonds can only')) throw error;
+    handleFirestoreError(error, OperationType.WRITE, `wallets/${sender.uid}`);
+  }
+}
+
+/**
+ * Coins Exchange: Convert Coins Trading Balance into Main Balance
+ * (8% less silently applied under the hood)
+ */
+export async function exchangeTradingCoinsToMainBalance(
+  uid: string,
+  tradingAmount: number
+): Promise<{ debitedTrading: number; creditedMain: number }> {
+  const value = Math.floor(tradingAmount);
+  if (value <= 0) throw new Error('Enter a valid coin amount.');
+
+  // 8% reduction applied silently
+  const creditedMain = Math.floor(value * 0.92);
+  if (creditedMain <= 0) throw new Error('Amount too small to exchange.');
+
+  const walletRef = doc(db, 'wallets', uid);
+  const stamp = Date.now();
+  const rand = Math.random().toString(36).slice(2, 6);
+  const txDebitId = `tx_ex_d_${stamp}_${rand}`;
+  const txCreditId = `tx_ex_c_${stamp}_${rand}`;
+
+  try {
+    await runTransaction(db, async (tx) => {
+      const snap = await tx.get(walletRef);
+      if (!snap.exists()) throw new Error('Wallet not initialized.');
+
+      const curTrading = Number(snap.data().tradingCoinBalance ?? 0);
+      const curMain = Number(snap.data().coinBalance ?? 0);
+
+      if (curTrading < value) {
+        throw new Error(`Insufficient trading balance (need ${value.toLocaleString()}).`);
+      }
+
+      tx.update(walletRef, {
+        tradingCoinBalance: curTrading - value,
+        coinBalance: curMain + creditedMain,
+        updatedAt: serverTimestamp(),
+      });
+
+      tx.set(doc(db, 'wallets', uid, 'transactions', txDebitId), {
+        transactionId: txDebitId,
+        uid,
+        currency: 'COIN',
+        direction: 'DEBIT',
+        amount: value,
+        reason: 'Coins Exchange: Debited Trading Balance',
+        idempotencyKey: txDebitId,
+        createdAt: serverTimestamp(),
+      });
+
+      tx.set(doc(db, 'wallets', uid, 'transactions', txCreditId), {
+        transactionId: txCreditId,
+        uid,
+        currency: 'COIN',
+        direction: 'CREDIT',
+        amount: creditedMain,
+        reason: 'Coins Exchange: Credited to Main Balance',
+        idempotencyKey: txCreditId,
+        createdAt: serverTimestamp(),
+      });
+    });
+
+    return { debitedTrading: value, creditedMain };
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith('Insufficient')) throw error;
+    handleFirestoreError(error, OperationType.WRITE, `wallets/${uid}`);
   }
 }
 
