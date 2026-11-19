@@ -728,6 +728,145 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Golden Flower: Poppo-style shared seat-betting board (same trust model
+    // as Fruit Manor). One round document with a leader lease, public seat bet
+    // slips, idempotent per-player settlement.
+    function isGfValidId(value) {
+      return value is string && value.size() >= 1 && value.size() <= 128 && value.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isGfCard(c) {
+      return c is map && c.keys().hasOnly(['id', 'suit', 'rank']) &&
+        c.id is string && c.id.size() <= 8 &&
+        c.suit in ['S', 'H', 'D', 'C'] &&
+        c.rank is int && c.rank >= 2 && c.rank <= 14;
+    }
+
+    function isGfCards(cards) {
+      return cards is list && cards.size() == 3 &&
+        isGfCard(cards[0]) && isGfCard(cards[1]) && isGfCard(cards[2]);
+    }
+
+    function isValidGfBoard(data) {
+      return data.keys().hasAll([
+          'roundId', 'seq', 'configVersion', 'phase', 'phaseEndsAt', 'seatCards',
+          'seatCats', 'winnerSeat', 'recentResults', 'leaderUid', 'leaderLeaseUntil',
+          'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'roundId', 'seq', 'configVersion', 'phase', 'phaseEndsAt', 'seatCards',
+          'seatCats', 'winnerSeat', 'recentResults', 'leaderUid', 'leaderLeaseUntil',
+          'createdAt', 'updatedAt'
+        ]) &&
+        data.roundId is string && data.roundId.matches('^GF-[0-9]{1,9}$') &&
+        data.seq is int && data.seq >= 1 && data.seq <= 999999999 &&
+        data.configVersion is string && data.configVersion.size() >= 1 && data.configVersion.size() <= 32 &&
+        data.phase in ['OPEN', 'LOCKED', 'DRAWN', 'SETTLED', 'VOIDED'] &&
+        data.phaseEndsAt is timestamp &&
+        (data.seatCards == null || (
+          data.seatCards is map && data.seatCards.keys().hasOnly(['0', '1', '2']) &&
+          isGfCards(data.seatCards['0']) && isGfCards(data.seatCards['1']) && isGfCards(data.seatCards['2'])
+        )) &&
+        (data.seatCats == null || (
+          data.seatCats is map && data.seatCats.keys().hasOnly(['0', '1', '2']) &&
+          data.seatCats['0'] is string && data.seatCats['0'].size() <= 40 &&
+          data.seatCats['1'] is string && data.seatCats['1'].size() <= 40 &&
+          data.seatCats['2'] is string && data.seatCats['2'].size() <= 40
+        )) &&
+        (data.winnerSeat == null || (data.winnerSeat is int && data.winnerSeat >= 0 && data.winnerSeat <= 2)) &&
+        data.recentResults is list && data.recentResults.size() <= 30 &&
+        isGfValidId(data.leaderUid) &&
+        data.leaderLeaseUntil is timestamp &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidGfBet(data, betId) {
+      return data.keys().hasAll([
+          'betId', 'roundId', 'uid', 'username', 'seat', 'stake',
+          'status', 'payout', 'debitRef', 'createdAt'
+        ]) &&
+        data.keys().hasOnly([
+          'betId', 'roundId', 'uid', 'username', 'seat', 'stake',
+          'status', 'payout', 'debitRef', 'creditRef', 'createdAt', 'settledAt'
+        ]) &&
+        data.betId == betId &&
+        isGfValidId(data.betId) &&
+        data.roundId is string && data.roundId.matches('^GF-[0-9]{1,9}$') &&
+        data.uid is string && data.uid == request.auth.uid &&
+        data.username is string && data.username.size() >= 1 && data.username.size() <= 32 &&
+        data.seat is int && data.seat >= 0 && data.seat <= 2 &&
+        data.stake is int && data.stake in [10, 100, 1000, 5000, 50000] &&
+        data.status == 'ACCEPTED' &&
+        data.payout is int && data.payout == 0 &&
+        data.debitRef is string && data.debitRef.size() >= 1 && data.debitRef.size() <= 128 &&
+        (!('creditRef' in data) || (data.creditRef is string && data.creditRef.size() <= 128)) &&
+        data.createdAt == request.time;
+    }
+
+    match /gf_config/{configId} {
+      allow get, list: if isSignedIn();
+      allow create, update: if isAdmin() && configId == 'config';
+      allow delete: if false;
+    }
+
+    match /gf_admin_audit/{auditId} {
+      allow get, list: if isAdmin();
+      allow create: if isAdmin() &&
+        incoming().uid == request.auth.uid &&
+        incoming().summary is string && incoming().summary.size() <= 240 &&
+        incoming().createdAt == request.time;
+      allow update, delete: if false;
+    }
+
+    // Shared round board: one document, leader-lease phase clock.
+    match /gf_board/{boardId} {
+      allow get, list: if isSignedIn();
+      allow create: if isVerifiedUser() &&
+        boardId == 'board' &&
+        isValidGfBoard(incoming()) &&
+        incoming().leaderUid == request.auth.uid &&
+        incoming().phase == 'OPEN' &&
+        incoming().seatCards == null && incoming().seatCats == null && incoming().winnerSeat == null &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isVerifiedUser() &&
+        boardId == 'board' &&
+        isValidGfBoard(incoming()) &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          (incoming().leaderUid == existing().leaderUid && existing().leaderUid == request.auth.uid) ||
+          (incoming().leaderUid == request.auth.uid && existing().leaderLeaseUntil <= request.time)
+        );
+      allow delete: if false;
+    }
+
+    // Public seat bet slips — everyone sees each seat's Pot; each player
+    // settles only their own slips.
+    match /gf_bets/{betId} {
+      allow get, list: if isSignedIn();
+      allow create: if isVerifiedUser() &&
+        isValidGfBet(incoming(), betId) &&
+        exists(/databases/$(database)/documents/gf_board/board) &&
+        get(/databases/$(database)/documents/gf_board/board).data.roundId == incoming().roundId &&
+        get(/databases/$(database)/documents/gf_board/board).data.phase == 'OPEN';
+      allow update: if isVerifiedUser() &&
+        isGfValidId(betId) &&
+        existing().uid == request.auth.uid &&
+        incoming().betId == existing().betId &&
+        incoming().roundId == existing().roundId &&
+        incoming().uid == existing().uid &&
+        incoming().seat == existing().seat &&
+        incoming().stake == existing().stake &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'payout', 'creditRef', 'settledAt']) &&
+        incoming().status in ['WON', 'LOST', 'REFUNDED'] &&
+        incoming().payout is int && incoming().payout >= 0 && incoming().payout <= 149000 &&
+        incoming().settledAt == request.time;
+      allow delete: if false;
+    }
+
     // Wallets (Coins & Diamonds — No Top-Up, No Client Inflation)
     match /wallets/{uid} {
       allow get: if isValidId(uid) && (isOwner(uid) || isAdmin() || isSuperAgent());
@@ -801,6 +940,20 @@ service cloud.firestore {
               (
                 (isGameWinKey(incoming().idempotencyKey) && incoming().amount <= 1900000) ||
                 (isGameRefundKey(incoming().idempotencyKey) && incoming().amount <= 100000)
+              ) &&
+              incoming().amount ==
+                getAfter(/databases/$(database)/documents/wallets/$(uid)).data.coinBalance -
+                get(/databases/$(database)/documents/wallets/$(uid)).data.coinBalance
+            ) ||
+            (
+              // Golden Flower seat payouts / refunds. Max win = 50,000 chip
+              // x 2.98 = 149,000; a refund never exceeds the 50,000 chip.
+              isOwner(uid) &&
+              incoming().direction == 'CREDIT' &&
+              incoming().currency == 'COIN' &&
+              (
+                (incoming().idempotencyKey.matches('^gf-w-.*$') && incoming().amount <= 149000) ||
+                (incoming().idempotencyKey.matches('^gf-r-.*$') && incoming().amount <= 50000)
               ) &&
               incoming().amount ==
                 getAfter(/databases/$(database)/documents/wallets/$(uid)).data.coinBalance -

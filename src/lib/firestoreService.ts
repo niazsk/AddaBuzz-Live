@@ -1337,6 +1337,302 @@ export async function resolveFruitManorBet(
   }
 }
 
+// ---------------------------------------------------------------------------
+// Golden Flower — Poppo-style shared seat-betting board. One round document,
+// a leader lease advances the phase clock, bets are public seat slips and each
+// player settles only their own bets (same trust model as Fruit Manor).
+// ---------------------------------------------------------------------------
+
+export type GfBoardPhase = 'OPEN' | 'LOCKED' | 'DRAWN' | 'SETTLED' | 'VOIDED';
+
+export interface GfBoardCard {
+  id: string;
+  suit: string;
+  rank: number;
+}
+
+export interface GfBoard {
+  roundId: string;
+  seq: number;
+  configVersion: string;
+  phase: GfBoardPhase;
+  phaseEndsAt: number;
+  seatCards: Record<string, GfBoardCard[]> | null;
+  seatCats: Record<string, string> | null;
+  winnerSeat: number | null;
+  recentResults: { roundId: string; seq: number; seat: number }[];
+  leaderUid: string;
+  leaderLeaseUntil: number;
+}
+
+export interface GfBet {
+  betId: string;
+  roundId: string;
+  uid: string;
+  username: string;
+  seat: number;
+  stake: number;
+  status: 'ACCEPTED' | 'WON' | 'LOST' | 'REFUNDED';
+  payout: number;
+  debitRef: string;
+  creditRef?: string;
+  createdAt: number;
+}
+
+export interface GfBoardPatch {
+  roundId?: string;
+  seq?: number;
+  phase?: GfBoardPhase;
+  phaseEndsAt?: number;
+  seatCards?: Record<string, GfBoardCard[]> | null;
+  seatCats?: Record<string, string> | null;
+  winnerSeat?: number | null;
+  recentResults?: { roundId: string; seq: number; seat: number }[];
+}
+
+export interface GfRemoteConfig {
+  enabled: boolean;
+  openMs: number;
+}
+
+export const GF_DEFAULT_CONFIG: GfRemoteConfig = { enabled: true, openMs: 20000 };
+
+const GF_BOARD_PATH = ['gf_board', 'board'] as const;
+export const GF_LEADER_LEASE_MS = 12000;
+
+function mapGfBoard(d: Record<string, unknown>): GfBoard {
+  const cards = d.seatCards;
+  const cats = d.seatCats;
+  return {
+    roundId: String(d.roundId ?? ''),
+    seq: Number(d.seq ?? 0),
+    configVersion: String(d.configVersion ?? ''),
+    phase: String(d.phase ?? 'OPEN') as GfBoardPhase,
+    phaseEndsAt: toMillis(d.phaseEndsAt),
+    seatCards:
+      cards && typeof cards === 'object'
+        ? (cards as Record<string, GfBoardCard[]>)
+        : null,
+    seatCats: cats && typeof cats === 'object' ? (cats as Record<string, string>) : null,
+    winnerSeat: typeof d.winnerSeat === 'number' ? d.winnerSeat : null,
+    recentResults: Array.isArray(d.recentResults)
+      ? (d.recentResults as { roundId: string; seq: number; seat: number }[]).map((r) => ({
+          roundId: String(r.roundId),
+          seq: Number(r.seq),
+          seat: Number(r.seat),
+        }))
+      : [],
+    leaderUid: String(d.leaderUid ?? ''),
+    leaderLeaseUntil: toMillis(d.leaderLeaseUntil),
+  };
+}
+
+export function subscribeGfBoard(
+  onBoard: (board: GfBoard | null) => void,
+  onError?: (message: string) => void
+): Unsubscribe {
+  return onSnapshot(
+    doc(db, GF_BOARD_PATH[0], GF_BOARD_PATH[1]),
+    (snap) => onBoard(snap.exists() ? mapGfBoard(snap.data() as Record<string, unknown>) : null),
+    (error) => {
+      onError?.(error instanceof Error ? error.message : String(error));
+      handleFirestoreError(error, OperationType.GET, 'gf_board/board');
+    }
+  );
+}
+
+export function subscribeGfBets(
+  roundId: string,
+  onBets: (bets: GfBet[]) => void,
+  onError?: (message: string) => void
+): Unsubscribe {
+  return onSnapshot(
+    query(collection(db, 'gf_bets'), where('roundId', '==', roundId)),
+    (snap) => {
+      const list = snap.docs.map((docSnap) => {
+        const d = docSnap.data();
+        return {
+          betId: String(d.betId ?? docSnap.id),
+          roundId: String(d.roundId ?? ''),
+          uid: String(d.uid ?? ''),
+          username: String(d.username ?? ''),
+          seat: Number(d.seat ?? 0),
+          stake: Number(d.stake ?? 0),
+          status: String(d.status ?? 'ACCEPTED') as GfBet['status'],
+          payout: Number(d.payout ?? 0),
+          debitRef: String(d.debitRef ?? ''),
+          creditRef: d.creditRef ? String(d.creditRef) : undefined,
+          createdAt: toMillis(d.createdAt),
+        };
+      });
+      list.sort((a, b) => a.createdAt - b.createdAt);
+      onBets(list);
+    },
+    (error) => {
+      onError?.(error instanceof Error ? error.message : String(error));
+      handleFirestoreError(error, OperationType.LIST, 'gf_bets');
+    }
+  );
+}
+
+export function subscribeGfConfig(
+  onConfig: (config: GfRemoteConfig) => void,
+  onError?: (message: string) => void
+): Unsubscribe {
+  return onSnapshot(
+    doc(db, 'gf_config', 'config'),
+    (snap) => {
+      if (!snap.exists()) {
+        onConfig(GF_DEFAULT_CONFIG);
+        return;
+      }
+      const d = snap.data();
+      onConfig({
+        enabled: d.enabled !== false,
+        openMs: Number(d.openMs ?? GF_DEFAULT_CONFIG.openMs),
+      });
+    },
+    (error) => {
+      onError?.(error instanceof Error ? error.message : String(error));
+    }
+  );
+}
+
+export async function claimGfLeadership(
+  uid: string,
+  initial: { roundId: string; seq: number; configVersion: string; phaseEndsAtMs: number }
+): Promise<boolean> {
+  const boardRef = doc(db, GF_BOARD_PATH[0], GF_BOARD_PATH[1]);
+  try {
+    return await runTransaction(db, async (tx) => {
+      const snap = await tx.get(boardRef);
+      const now = Date.now();
+      if (!snap.exists()) {
+        tx.set(boardRef, {
+          roundId: initial.roundId,
+          seq: initial.seq,
+          configVersion: initial.configVersion,
+          phase: 'OPEN',
+          phaseEndsAt: Timestamp.fromMillis(initial.phaseEndsAtMs),
+          seatCards: null,
+          seatCats: null,
+          winnerSeat: null,
+          recentResults: [],
+          leaderUid: uid,
+          leaderLeaseUntil: Timestamp.fromMillis(now + GF_LEADER_LEASE_MS),
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+        return true;
+      }
+      const d = snap.data();
+      const leaseUntil = toMillis(d.leaderLeaseUntil);
+      if (String(d.leaderUid) !== uid && leaseUntil > now) return false;
+      tx.update(boardRef, {
+        leaderUid: uid,
+        leaderLeaseUntil: Timestamp.fromMillis(now + GF_LEADER_LEASE_MS),
+        updatedAt: serverTimestamp(),
+      });
+      return true;
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, 'gf_board/board');
+  }
+}
+
+export async function advanceGfBoard(
+  uid: string,
+  expectedRoundId: string,
+  expectedPhase: GfBoardPhase,
+  patch: GfBoardPatch
+): Promise<boolean> {
+  const boardRef = doc(db, GF_BOARD_PATH[0], GF_BOARD_PATH[1]);
+  try {
+    return await runTransaction(db, async (tx) => {
+      const snap = await tx.get(boardRef);
+      if (!snap.exists()) return false;
+      const d = snap.data();
+      if (String(d.leaderUid) !== uid) return false;
+      if (String(d.roundId) !== expectedRoundId) return false;
+      if (String(d.phase) !== expectedPhase) return false;
+      const next: Record<string, unknown> = { updatedAt: serverTimestamp() };
+      if (patch.roundId !== undefined) next.roundId = patch.roundId;
+      if (patch.seq !== undefined) next.seq = patch.seq;
+      if (patch.phase !== undefined) next.phase = patch.phase;
+      if (patch.phaseEndsAt !== undefined) next.phaseEndsAt = Timestamp.fromMillis(patch.phaseEndsAt);
+      if (patch.seatCards !== undefined) next.seatCards = patch.seatCards;
+      if (patch.seatCats !== undefined) next.seatCats = patch.seatCats;
+      if (patch.winnerSeat !== undefined) next.winnerSeat = patch.winnerSeat;
+      if (patch.recentResults !== undefined) next.recentResults = patch.recentResults;
+      tx.update(boardRef, next);
+      return true;
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, 'gf_board/board');
+  }
+}
+
+export async function createGfBet(bet: {
+  betId: string;
+  roundId: string;
+  uid: string;
+  username: string;
+  seat: number;
+  stake: number;
+  debitRef: string;
+}): Promise<void> {
+  try {
+    await setDoc(doc(db, 'gf_bets', bet.betId), {
+      ...bet,
+      status: 'ACCEPTED',
+      payout: 0,
+      createdAt: serverTimestamp(),
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, `gf_bets/${bet.betId}`);
+  }
+}
+
+export async function resolveGfBet(
+  betId: string,
+  status: 'WON' | 'LOST' | 'REFUNDED',
+  payout: number,
+  creditRef?: string
+): Promise<void> {
+  try {
+    await updateDoc(doc(db, 'gf_bets', betId), {
+      status,
+      payout,
+      ...(creditRef ? { creditRef } : {}),
+      settledAt: serverTimestamp(),
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, `gf_bets/${betId}`);
+  }
+}
+
+export async function saveGfConfig(
+  uid: string,
+  config: GfRemoteConfig,
+  summary: string
+): Promise<void> {
+  try {
+    await setDoc(doc(db, 'gf_config', 'config'), {
+      enabled: config.enabled,
+      openMs: config.openMs,
+      updatedBy: uid,
+      updatedAt: serverTimestamp(),
+    });
+    await setDoc(doc(collection(db, 'gf_admin_audit')), {
+      uid,
+      summary: clampStr(summary, 240),
+      createdAt: serverTimestamp(),
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, 'gf_config/config');
+  }
+}
+
 export async function transferCoins(
   sender: UserProfile,
   recipient: UserProfile,

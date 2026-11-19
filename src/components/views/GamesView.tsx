@@ -2,11 +2,14 @@ import React from 'react';
 import { ArrowLeft, ChevronRight, Coins, Gamepad2, Sparkles, Users } from 'lucide-react';
 import { FRUIT_BY_ID, formatCoins } from '../../games/fruitManor/config';
 import { FruitIcon } from '../games/FruitIcon';
+import { GF_CHIPS } from '../../games/goldenFlower/config';
+import { GoldenFlowerIcon } from '../games/GoldenFlowerIcon';
 
 interface GamesViewProps {
   coinBalance: number;
   onBack: () => void;
   onOpenFruitManor: () => void;
+  onOpenGoldenFlower: () => void;
 }
 
 const SOON_GAMES: { name: string; tagline: string }[] = [
@@ -19,6 +22,7 @@ export const GamesView: React.FC<GamesViewProps> = ({
   coinBalance,
   onBack,
   onOpenFruitManor,
+  onOpenGoldenFlower,
 }) => {
   return (
     <div className="space-y-5 pb-10">
@@ -83,6 +87,41 @@ export const GamesView: React.FC<GamesViewProps> = ({
             </div>
           </div>
           <ChevronRight className="mt-1 h-5 w-5 shrink-0 text-emerald-200/70 transition-transform group-hover:translate-x-0.5" />
+        </div>
+      </button>
+
+      {/* Golden Flower — 3-player card game */}
+      <button
+        type="button"
+        onClick={onOpenGoldenFlower}
+        className="group relative w-full overflow-hidden rounded-2xl border border-violet-300/25 bg-[linear-gradient(150deg,rgba(76,29,149,0.85),rgba(20,11,34,0.95))] p-4 text-left transition-all hover:border-violet-300/50 hover:shadow-[0_12px_40px_-12px_rgba(139,92,246,0.45)] active:scale-[0.995]"
+      >
+        <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-[radial-gradient(closest-side,rgba(189,146,252,0.2),transparent)] blur-xl" aria-hidden="true" />
+        <div className="relative flex items-start gap-3">
+          <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl border border-violet-300/30 bg-violet-400/10 text-violet-300">
+            <GoldenFlowerIcon className="h-9 w-9" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <h2 className="font-display text-lg font-extrabold text-[#F7F3E8]">Golden Flower</h2>
+              <span className="rounded-full border border-violet-300/30 bg-violet-400/10 px-1.5 py-0.5 text-[9px] font-bold text-violet-200">
+                Win ×2.98
+              </span>
+            </div>
+            <p className="mt-1 text-[11px] leading-relaxed text-violet-100/70">
+              Pick a chip and tap dealer seat A, B or C. One shared round for every
+              player — the seat with the best three-card hand pays ×2.98.
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <span className="flex items-center gap-1 rounded-full bg-white/[0.06] px-2 py-0.5 text-[9px] font-semibold text-slate-300">
+                <Users className="h-3 w-3" /> 3 dealer seats
+              </span>
+              <span className="flex items-center gap-1 rounded-full bg-white/[0.06] px-2 py-0.5 text-[9px] font-semibold text-slate-300">
+                <Coins className="h-3 w-3 text-amber-300" /> Chips from {formatCoins(GF_CHIPS[0])}
+              </span>
+            </div>
+          </div>
+          <ChevronRight className="mt-1 h-5 w-5 shrink-0 text-violet-200/70 transition-transform group-hover:translate-x-0.5" />
         </div>
       </button>
 

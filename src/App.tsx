@@ -78,6 +78,8 @@ import { MessagesView } from './components/views/MessagesView';
 import { FruitManorView } from './components/views/FruitManorView';
 import { GamesView } from './components/views/GamesView';
 import { GameHistoryView } from './components/views/GameHistoryView';
+import { GoldenFlowerView } from './components/views/GoldenFlowerView';
+import { GfHistoryView } from './components/views/GfHistoryView';
 import { ProfileView } from './components/views/ProfileView';
 import { AdminRolesView } from './components/views/AdminRolesView';
 import { SignInView } from './components/views/SignInView';
@@ -1160,6 +1162,7 @@ export default function App() {
               coinBalance={coinBalance}
               onBack={() => setActiveSection('profile')}
               onOpenFruitManor={() => setActiveSection('fruit-manor')}
+              onOpenGoldenFlower={() => setActiveSection('golden-flower')}
             />
           )}
 
@@ -1177,6 +1180,24 @@ export default function App() {
             <GameHistoryView
               currentUser={currentUser}
               onBack={() => setActiveSection('fruit-manor')}
+            />
+          )}
+
+          {activeSection === 'golden-flower' && (
+            <GoldenFlowerView
+              currentUser={currentUser}
+              coinBalance={coinBalance}
+              isOffline={isOffline}
+              isAdminUser={isAdminUser}
+              onBack={() => setActiveSection('games')}
+              onOpenHistory={() => setActiveSection('gf-history')}
+            />
+          )}
+
+          {activeSection === 'gf-history' && (
+            <GfHistoryView
+              uid={currentUser.uid}
+              onBack={() => setActiveSection('golden-flower')}
             />
           )}
 

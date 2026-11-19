@@ -26,6 +26,8 @@ export type AppSection =
   | 'games'
   | 'fruit-manor'
   | 'game-history'
+  | 'golden-flower'
+  | 'gf-history'
   | 'wallet'
   | 'coins-trading'
   | 'super-agent-list'
