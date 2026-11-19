@@ -2065,6 +2065,69 @@ export async function exchangeTradingCoinsToMainBalance(
   }
 }
 
+/**
+ * Move All Main Coins to Trading Coins Balance for BD Agent
+ */
+export async function moveMainCoinsToTradingBalance(
+  uid: string
+): Promise<{ movedAmount: number }> {
+  const walletRef = doc(db, 'wallets', uid);
+  const stamp = Date.now();
+  const rand = Math.random().toString(36).slice(2, 6);
+  const txDebitId = `tx_m2t_d_${stamp}_${rand}`;
+  const txCreditId = `tx_m2t_c_${stamp}_${rand}`;
+
+  try {
+    let movedAmount = 0;
+    await runTransaction(db, async (tx) => {
+      const snap = await tx.get(walletRef);
+      if (!snap.exists()) throw new Error('Wallet not initialized.');
+
+      const curMain = Number(snap.data().coinBalance ?? 0);
+      const curTrading = Number(snap.data().tradingCoinBalance ?? 0);
+
+      if (curMain <= 0) {
+        throw new Error('No coins in Main Balance to move.');
+      }
+      movedAmount = curMain;
+
+      tx.update(walletRef, {
+        coinBalance: 0,
+        tradingCoinBalance: curTrading + curMain,
+        updatedAt: serverTimestamp(),
+      });
+
+      tx.set(doc(db, 'wallets', uid, 'transactions', txDebitId), {
+        transactionId: txDebitId,
+        uid,
+        currency: 'COIN',
+        direction: 'DEBIT',
+        amount: curMain,
+        reason: 'Transferred all Main Coins to Trading Balance',
+        idempotencyKey: txDebitId,
+        createdAt: serverTimestamp(),
+      });
+
+      tx.set(doc(db, 'wallets', uid, 'transactions', txCreditId), {
+        transactionId: txCreditId,
+        uid,
+        currency: 'COIN',
+        direction: 'CREDIT',
+        amount: curMain,
+        reason: 'Received from Main Balance to Trading Balance',
+        idempotencyKey: txCreditId,
+        createdAt: serverTimestamp(),
+      });
+    });
+
+    return { movedAmount };
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith('No coins')) throw error;
+    handleFirestoreError(error, OperationType.WRITE, `wallets/${uid}`);
+    return { movedAmount: 0 };
+  }
+}
+
 export function subscribeFollowsAndBlocks(
   uid: string,
   onFollows: (uids: string[]) => void,

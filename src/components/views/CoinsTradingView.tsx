@@ -11,7 +11,11 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { UserProfile, WalletTransaction } from '../../types/app';
-import { isBdAgentProfile, exchangeTradingCoinsToMainBalance } from '../../lib/firestoreService';
+import {
+  isBdAgentProfile,
+  exchangeTradingCoinsToMainBalance,
+  moveMainCoinsToTradingBalance,
+} from '../../lib/firestoreService';
 
 interface CoinsTradingViewProps {
   coinBalance: number;
@@ -222,9 +226,36 @@ export const CoinsTradingView: React.FC<CoinsTradingViewProps> = ({
             {coinBalance.toLocaleString()}{' '}
             <span className="text-xs font-sans font-normal text-amber-300">Coins</span>
           </p>
-          <p className="text-[11px] text-slate-400">
-            Used for gifts, games, deposits and all in-app activities.
-          </p>
+          <div className="flex items-center justify-between gap-2 pt-1">
+            <p className="text-[11px] text-slate-400">
+              Used for gifts, games, deposits and in-app activities.
+            </p>
+            {isBdAgent && coinBalance > 0 && (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={async () => {
+                  if (!currentUser) return;
+                  setBusy(true);
+                  try {
+                    const res = await moveMainCoinsToTradingBalance(currentUser.uid);
+                    onToast?.(
+                      'All Coins Moved!',
+                      `${res.movedAmount.toLocaleString()} Coins moved from Main Balance to Coins Trading Balance.`,
+                      'success'
+                    );
+                  } catch (e: any) {
+                    onToast?.('Transfer Failed', e?.message || 'Failed to move coins.', 'error');
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+                className="px-3 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-[11px] font-semibold text-white shrink-0 shadow transition-colors"
+              >
+                Move to Trading
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
