@@ -833,14 +833,14 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
           <button
             type="button"
             onClick={() => {
-              if (isSolo && isOwnerHost) {
+              if (isOwnerHost) {
                 setConfirmEndOpen(true);
                 return;
               }
               stopLocalMedia();
               onLeaveRoom();
             }}
-            aria-label="Leave live room"
+            aria-label={isOwnerHost ? 'End live room' : 'Leave live room'}
             className={`rounded-full flex items-center justify-center transition-colors ${
               isSolo
                 ? 'w-11 h-11 bg-black/70 hover:bg-black/90'
