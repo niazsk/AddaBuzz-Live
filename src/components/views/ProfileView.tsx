@@ -370,20 +370,20 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               <p className="font-mono text-base sm:text-lg font-bold text-amber-300 tabular-nums">
                 {coinBalance.toLocaleString()}
               </p>
-              <p className="text-[11px] text-slate-400">Coins</p>
+              <p className="text-[11px] text-slate-400">Coins Balance</p>
             </button>
             <button type="button" onClick={() => onOpenSection('wallet')} className="hover:opacity-80 transition-opacity">
               <p className="font-mono text-base sm:text-lg font-bold text-sky-300 tabular-nums">
                 {diamondBalance.toLocaleString()}
               </p>
-              <p className="text-[11px] text-slate-400">Diamonds</p>
+              <p className="text-[11px] text-slate-400">Diamonds Balance</p>
             </button>
             {(tradingCoinBalance > 0 || isAgentUser) && (
               <button type="button" onClick={() => onOpenSection('coins-trading')} className="hover:opacity-80 transition-opacity">
                 <p className="font-mono text-base sm:text-lg font-bold text-violet-300 tabular-nums">
                   {tradingCoinBalance.toLocaleString()}
                 </p>
-                <p className="text-[11px] text-slate-400">Trading Coins</p>
+                <p className="text-[11px] text-slate-400">Trading Coins Balance</p>
               </button>
             )}
           </div>

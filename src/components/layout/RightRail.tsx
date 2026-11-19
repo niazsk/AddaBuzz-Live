@@ -51,7 +51,7 @@ export const RightRail: React.FC<RightRailProps> = ({
           >
             <div className="flex items-center gap-1.5 text-xs text-slate-400 mb-1">
               <Coins className="w-3.5 h-3.5 text-amber-400" aria-hidden="true" />
-              <span>Coins</span>
+              <span>Coins Balance</span>
             </div>
             <p className="font-mono text-lg font-semibold text-white tabular-nums">
               {coinBalance.toLocaleString()}
@@ -65,7 +65,7 @@ export const RightRail: React.FC<RightRailProps> = ({
           >
             <div className="flex items-center gap-1.5 text-xs text-slate-400 mb-1">
               <Gem className="w-3.5 h-3.5 text-sky-400" aria-hidden="true" />
-              <span>Diamonds</span>
+              <span>Diamonds Balance</span>
             </div>
             <p className="font-mono text-lg font-semibold text-white tabular-nums">
               {diamondBalance.toLocaleString()}
