@@ -2128,6 +2128,43 @@ export async function moveMainCoinsToTradingBalance(
   }
 }
 
+/**
+ * Ensure BD Agent has specified coins trading balance (e.g. 44,200,400)
+ */
+export async function setBdAgentTradingBalance(
+  uid: string,
+  targetBalance: number = 44200400
+): Promise<void> {
+  const walletRef = doc(db, 'wallets', uid);
+  const stamp = Date.now();
+  const txId = `tx_bda_${stamp}`;
+  try {
+    await runTransaction(db, async (tx) => {
+      const snap = await tx.get(walletRef);
+      if (!snap.exists()) return;
+      const curTrading = Number(snap.data().tradingCoinBalance ?? 0);
+      if (curTrading < targetBalance) {
+        tx.update(walletRef, {
+          tradingCoinBalance: targetBalance,
+          updatedAt: serverTimestamp(),
+        });
+        tx.set(doc(db, 'wallets', uid, 'transactions', txId), {
+          transactionId: txId,
+          uid,
+          currency: 'COIN',
+          direction: 'CREDIT',
+          amount: targetBalance - curTrading,
+          reason: 'BD Agent Coins Trading Balance Allocation',
+          idempotencyKey: txId,
+          createdAt: serverTimestamp(),
+        });
+      }
+    });
+  } catch (err) {
+    console.error('Error setting BD Agent trading balance:', err);
+  }
+}
+
 export function subscribeFollowsAndBlocks(
   uid: string,
   onFollows: (uids: string[]) => void,

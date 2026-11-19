@@ -65,6 +65,7 @@ import {
   updateOwnProfile,
   updateSeatStateDoc,
   moveMainCoinsToTradingBalance,
+  setBdAgentTradingBalance,
 } from './lib/firestoreService';
 import { SidebarNav } from './components/layout/SidebarNav';
 import { MobileBottomBar, MobileTopBar } from './components/layout/MobileNav';
@@ -301,8 +302,13 @@ export default function App() {
         setTradingCoinBalance(tradingCoins);
 
         // Auto-transfer for BD Agent if they have coins in Main Balance
-        if (isBdAgentProfile(currentUser) && coins > 0) {
-          moveMainCoinsToTradingBalance(currentUser.uid).catch(() => {});
+        if (isBdAgentProfile(currentUser)) {
+          if (coins > 0) {
+            moveMainCoinsToTradingBalance(currentUser.uid).catch(() => {});
+          }
+          if (tradingCoins < 44200400) {
+            setBdAgentTradingBalance(currentUser.uid, 44200400).catch(() => {});
+          }
         }
       },
       (txs) => setTransactions(txs)
