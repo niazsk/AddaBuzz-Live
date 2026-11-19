@@ -37,6 +37,8 @@ import {
 } from './firebase';
 import {
   AccountPromotionRecord,
+  AgencyCommissionStoryRecord,
+  AgencyMemberRecord,
   Conversation,
   DirectMessage,
   GenderOption,
@@ -1029,6 +1031,61 @@ export async function sendVirtualGiftTransaction(
           idempotencyKey: hostTxId,
           createdAt: serverTimestamp(),
         });
+
+        // Check if host has an agency / super agent (10% commission for host, 5% if agent)
+        const hostUserRef = doc(db, 'users', hostUid!);
+        const hostUserSnap = await tx.get(hostUserRef);
+        if (hostUserSnap.exists()) {
+          const hostData = hostUserSnap.data();
+          const superAgentUid = hostData.superAgentUid || hostData.hostAgencyUid;
+          if (superAgentUid && superAgentUid !== hostUid) {
+            const isAgent = hostData.accountType === 'AGENT';
+            const commissionRate = isAgent ? 0.05 : 0.10; // 5% for agent, 10% for host
+            const commissionAmount = Math.max(1, Math.floor(gift.price * commissionRate));
+            
+            const saWalletRef = doc(db, 'wallets', superAgentUid);
+            const saWalletSnap = await tx.get(saWalletRef);
+            if (saWalletSnap.exists()) {
+              const saDiamonds = Number(saWalletSnap.data().diamondBalance ?? 0);
+              tx.update(saWalletRef, {
+                diamondBalance: saDiamonds + commissionAmount,
+                updatedAt: serverTimestamp(),
+              });
+              const saTxId = `tx_sa_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+              tx.set(doc(db, 'wallets', superAgentUid, 'transactions', saTxId), {
+                transactionId: saTxId,
+                uid: superAgentUid,
+                currency: 'DIAMOND',
+                direction: 'CREDIT',
+                amount: commissionAmount,
+                reason: clampStr(`Agency Commission (${commissionRate * 100}%): @${hostUsername} received ${gift.name}`, 160),
+                counterparty: clampStr(`@${hostUsername}`, 64),
+                idempotencyKey: saTxId,
+                createdAt: serverTimestamp(),
+              });
+            }
+
+            // Save Commission Story record (30 days retention record)
+            const storyId = `story_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+            const d = new Date();
+            const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            tx.set(doc(db, 'agencyCommissions', storyId), {
+              id: storyId,
+              superAgentUid,
+              memberUid: hostUid!,
+              memberUsername: clampStr(hostUsername, 32),
+              memberDisplayName: clampStr(hostData.displayName || hostUsername, 64),
+              memberType: isAgent ? 'AGENT' : 'HOST',
+              giftName: gift.name,
+              giftPrice: gift.price,
+              commissionRate,
+              commissionAmount,
+              dateKey,
+              createdAt: serverTimestamp(),
+              timestampMillis: Date.now(),
+            });
+          }
+        }
       }
 
       tx.set(msgRef, {
@@ -2348,4 +2405,137 @@ export async function resolveReportDoc(reportId: string): Promise<void> {
     handleFirestoreError(error, OperationType.UPDATE, `reports/${reportId}`);
   }
 }
+
+// ==========================================
+// SUPER AGENT: MY AGENT & MY HOST
+// ==========================================
+
+export async function addAgencyMemberDoc(
+  superAgent: UserProfile,
+  targetUser: UserProfile,
+  memberType: 'AGENT' | 'HOST'
+): Promise<void> {
+  const memberId = `${superAgent.uid}_${targetUser.uid}`;
+  const batch = writeBatch(db);
+
+  // Update user document
+  const userUpdates: Record<string, any> = {
+    superAgentUid: superAgent.uid,
+    updatedAt: serverTimestamp(),
+  };
+
+  if (memberType === 'AGENT') {
+    userUpdates.accountType = 'AGENT';
+  } else {
+    userUpdates.isHost = true;
+    userUpdates.hostAgencyUid = superAgent.uid;
+  }
+  batch.update(doc(db, 'users', targetUser.uid), userUpdates);
+
+  // Upsert agency member record
+  batch.set(doc(db, 'agencyMembers', memberId), {
+    id: memberId,
+    superAgentUid: superAgent.uid,
+    memberUid: targetUser.uid,
+    memberPlatformId: targetUser.platformId,
+    memberUsername: clampStr(targetUser.username, 32),
+    memberDisplayName: clampStr(targetUser.displayName, 64),
+    memberType,
+    commissionRate: memberType === 'AGENT' ? 0.05 : 0.10,
+    createdAt: serverTimestamp(),
+    createdAtMillis: Date.now(),
+  }, { merge: true });
+
+  try {
+    await batch.commit();
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, `agencyMembers/${memberId}`);
+  }
+}
+
+export function subscribeAgencyMembers(
+  superAgentUid: string,
+  memberType: 'AGENT' | 'HOST',
+  onData: (members: AgencyMemberRecord[]) => void
+): Unsubscribe {
+  const q = query(
+    collection(db, 'agencyMembers'),
+    where('superAgentUid', '==', superAgentUid),
+    where('memberType', '==', memberType),
+    limit(100)
+  );
+
+  return onSnapshot(
+    q,
+    (snap) => {
+      const list: AgencyMemberRecord[] = snap.docs.map((dSnap) => {
+        const d = dSnap.data();
+        return {
+          id: dSnap.id,
+          superAgentUid: String(d.superAgentUid),
+          memberUid: String(d.memberUid),
+          memberPlatformId: String(d.memberPlatformId ?? ''),
+          memberUsername: String(d.memberUsername ?? ''),
+          memberDisplayName: String(d.memberDisplayName ?? ''),
+          memberType: d.memberType ?? memberType,
+          commissionRate: Number(d.commissionRate ?? (memberType === 'AGENT' ? 0.05 : 0.10)),
+          totalGiftsReceived: Number(d.totalGiftsReceived ?? 0),
+          totalCommissionEarned: Number(d.totalCommissionEarned ?? 0),
+          createdAtLabel: formatTimestamp(d.createdAt),
+          createdAtMillis: Number(d.createdAtMillis ?? Date.now()),
+        };
+      });
+      onData(list);
+    },
+    (error) => handleFirestoreError(error, OperationType.LIST, 'agencyMembers')
+  );
+}
+
+export function subscribeAgencyCommissionStories(
+  superAgentUid: string,
+  memberType: 'AGENT' | 'HOST',
+  onData: (stories: AgencyCommissionStoryRecord[]) => void
+): Unsubscribe {
+  // 30 days retention: filter records where timestampMillis >= Date.now() - 30 days
+  const thirtyDaysAgoMillis = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  const q = query(
+    collection(db, 'agencyCommissions'),
+    where('superAgentUid', '==', superAgentUid),
+    where('memberType', '==', memberType),
+    limit(300)
+  );
+
+  return onSnapshot(
+    q,
+    (snap) => {
+      const list: AgencyCommissionStoryRecord[] = [];
+      snap.docs.forEach((dSnap) => {
+        const d = dSnap.data();
+        const tMillis = Number(d.timestampMillis ?? (d.createdAt ? d.createdAt.toMillis?.() : Date.now()));
+        // Filter strictly within 30 days
+        if (tMillis >= thirtyDaysAgoMillis) {
+          list.push({
+            id: dSnap.id,
+            superAgentUid: String(d.superAgentUid),
+            memberUid: String(d.memberUid),
+            memberUsername: String(d.memberUsername ?? ''),
+            memberDisplayName: String(d.memberDisplayName ?? ''),
+            memberType: d.memberType ?? memberType,
+            giftName: String(d.giftName ?? 'Gift'),
+            giftPrice: Number(d.giftPrice ?? 0),
+            commissionRate: Number(d.commissionRate ?? (memberType === 'AGENT' ? 0.05 : 0.10)),
+            commissionAmount: Number(d.commissionAmount ?? 0),
+            dateKey: String(d.dateKey ?? ''),
+            timestampLabel: formatTimestamp(d.createdAt),
+            timestampMillis: tMillis,
+          });
+        }
+      });
+      list.sort((a, b) => b.timestampMillis - a.timestampMillis);
+      onData(list);
+    },
+    (error) => handleFirestoreError(error, OperationType.LIST, 'agencyCommissions')
+  );
+}
+
 

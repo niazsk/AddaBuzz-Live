@@ -33,6 +33,8 @@ export type AppSection =
   | 'super-agent-list'
   | 'agent-list'
   | 'agent-promote'
+  | 'my-agent'
+  | 'my-host'
   | 'rank'
   | 'agent-ranking'
   | 'invite'
@@ -67,6 +69,9 @@ export interface UserProfile {
   lastActiveLabel: string;
   isNewCreator?: boolean;
   isSuspended?: boolean;
+  isHost?: boolean;
+  superAgentUid?: string;
+  hostAgencyUid?: string;
 }
 
 export interface GuestSeat {
@@ -209,6 +214,41 @@ export interface ReportRecord {
 export interface ToastMessage {
   id: string;
   title: string;
+  body?: string;
+  kind?: 'info' | 'success' | 'error';
+}
+
+export interface AgencyMemberRecord {
+  id: string;
+  superAgentUid: string;
+  memberUid: string;
+  memberPlatformId: string;
+  memberUsername: string;
+  memberDisplayName: string;
+  memberType: 'AGENT' | 'HOST';
+  commissionRate: number; // 0.05 for AGENT, 0.10 for HOST
+  totalGiftsReceived: number; // total diamonds or coins value of gifts
+  totalCommissionEarned: number; // calculated commission
+  createdAtLabel: string;
+  createdAtMillis: number;
+}
+
+export interface AgencyCommissionStoryRecord {
+  id: string;
+  superAgentUid: string;
+  memberUid: string;
+  memberUsername: string;
+  memberDisplayName: string;
+  memberType: 'AGENT' | 'HOST';
+  giftName: string;
+  giftPrice: number;
+  commissionRate: number;
+  commissionAmount: number;
+  dateKey: string; // YYYY-MM-DD
+  timestampLabel: string;
+  timestampMillis: number;
+}
+
   description?: string;
   tone: 'info' | 'success' | 'warning' | 'error';
 }

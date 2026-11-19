@@ -85,6 +85,7 @@ import { AdminRolesView } from './components/views/AdminRolesView';
 import { AgentPromoteView } from './components/views/AgentPromoteView';
 import { RankView } from './components/views/RankView';
 import { AgentRankingView } from './components/views/AgentRankingView';
+import { SuperAgencyManagementView } from './components/views/SuperAgencyManagementView';
 import { InviteView } from './components/views/InviteView';
 import { InviteAgentView } from './components/views/InviteAgentView';
 import { StoreView } from './components/views/StoreView';
@@ -1270,6 +1271,30 @@ export default function App() {
               onPromoteUser={handlePromoteUser}
               onBack={() => setActiveSection('profile')}
               isOffline={isOffline}
+            />
+          )}
+
+          {activeSection === 'my-agent' && (
+            <SuperAgencyManagementView
+              type="AGENT"
+              currentUser={currentUser}
+              users={users}
+              onOpenUserProfile={(u) => setInspectedUser(u)}
+              onBack={() => setActiveSection('profile')}
+              isOffline={isOffline}
+              onShowToast={pushToast}
+            />
+          )}
+
+          {activeSection === 'my-host' && (
+            <SuperAgencyManagementView
+              type="HOST"
+              currentUser={currentUser}
+              users={users}
+              onOpenUserProfile={(u) => setInspectedUser(u)}
+              onBack={() => setActiveSection('profile')}
+              isOffline={isOffline}
+              onShowToast={pushToast}
             />
           )}
 

@@ -85,9 +85,18 @@ const AGENT_TILES: Tile[] = [
   { id: 'agent-ranking', label: 'Agent Ranking', icon: TrendingUp, wide: true },
 ];
 
+const SUPER_AGENT_TILES: Tile[] = [
+  { id: 'my-agent', label: 'My Agent', icon: Users },
+  { id: 'my-host', label: 'My Host', icon: Mic },
+  { id: 'coins-trading', label: 'Coins Trading', icon: Coins },
+  { id: 'agent-ranking', label: 'Agent Ranking', icon: TrendingUp },
+];
+
 const BD_AGENT_TILES: Tile[] = [
   { id: 'super-agent-list', label: 'Super Agent List', icon: BadgeCheck },
   { id: 'agent-list', label: 'Agent List', icon: Users },
+  { id: 'my-agent', label: 'My Agent', icon: Users },
+  { id: 'my-host', label: 'My Host', icon: Mic },
   { id: 'agent-promote', label: 'Agent Promote', icon: TrendingUp },
   { id: 'coins-trading', label: 'Coins Trading', icon: Coins },
   { id: 'agent-rewards', label: 'Agent Promote', icon: Wallet, wide: true },
@@ -226,6 +235,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           else if (tile.id === 'games') onOpenSection('games');
           else if (tile.id === 'super-agent-list') onOpenSection('super-agent-list');
           else if (tile.id === 'agent-list') onOpenSection('agent-list');
+          else if (tile.id === 'my-agent') onOpenSection('my-agent');
+          else if (tile.id === 'my-host') onOpenSection('my-host');
           else if (tile.id === 'agent-rewards') onOpenSection('admin');
           else if (tile.id === 'agent-promote') onOpenSection('agent-promote');
           else if (tile.id === 'rank') onOpenSection('rank');
@@ -424,7 +435,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             Agent Management
           </h2>
           <div className="grid grid-cols-4 gap-2.5">
-            {(isBdAgent ? BD_AGENT_TILES : AGENT_TILES)
+            {(isBdAgent
+              ? BD_AGENT_TILES
+              : currentUser?.accountType === 'SUPER_AGENT'
+              ? SUPER_AGENT_TILES
+              : AGENT_TILES)
               .filter((tile) => isAdminUser || tile.id !== 'agent-rewards')
               .map(renderTile)}
           </div>
