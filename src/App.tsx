@@ -87,6 +87,7 @@ import { RankView } from './components/views/RankView';
 import { AgentRankingView } from './components/views/AgentRankingView';
 import { InviteView } from './components/views/InviteView';
 import { InviteAgentView } from './components/views/InviteAgentView';
+import { StoreView } from './components/views/StoreView';
 import { DepositView } from './components/views/DepositView';
 import { CoinsConvertView } from './components/views/CoinsConvertView';
 import { SalaryView } from './components/views/SalaryView';
@@ -1297,6 +1298,15 @@ export default function App() {
             <InviteAgentView
               currentUser={currentUser}
               onBack={() => setActiveSection('profile')}
+            />
+          )}
+
+          {activeSection === 'store' && (
+            <StoreView
+              coinBalance={coinBalance}
+              diamondBalance={diamondBalance}
+              onBack={() => setActiveSection('profile')}
+              onToast={pushToast}
             />
           )}
 

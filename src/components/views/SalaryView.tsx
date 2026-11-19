@@ -131,7 +131,7 @@ export const SalaryView: React.FC<SalaryViewProps> = ({
         </button>
         <div className="flex items-center gap-2">
           <Gem className="w-5 h-5 text-sky-400" />
-          <h1 className="font-display text-lg font-bold text-white">Diamonds Withdraw</h1>
+          <h1 className="font-display text-lg font-bold text-white">Salary & Diamonds Withdraw</h1>
         </div>
       </div>
 

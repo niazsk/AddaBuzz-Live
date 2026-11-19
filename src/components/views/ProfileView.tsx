@@ -73,7 +73,7 @@ const FEATURE_TILES: Tile[] = [
   { id: 'invite', label: 'Invite', icon: Users },
   { id: 'honor', label: 'Honor Level', icon: ShieldCheck },
   { id: 'deposit', label: 'Deposit', icon: CreditCard },
-  { id: 'salary', label: 'Withdraw', icon: Gem },
+  { id: 'salary', label: 'Salary', icon: Gem },
 ];
 
 const AGENT_TILES: Tile[] = [
@@ -232,6 +232,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           else if (tile.id === 'agent-ranking') onOpenSection('agent-ranking');
           else if (tile.id === 'invite') onOpenSection('invite');
           else if (tile.id === 'invite-agent') onOpenSection('invite-agent');
+          else if (tile.id === 'store') onOpenSection('store');
           else if (tile.id === 'deposit') onOpenSection('deposit');
           else if (tile.id === 'salary') onOpenSection('salary');
           else setComingSoon(tile.label);

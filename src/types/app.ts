@@ -37,6 +37,7 @@ export type AppSection =
   | 'agent-ranking'
   | 'invite'
   | 'invite-agent'
+  | 'store'
   | 'deposit'
   | 'coins-convert'
   | 'salary'
