@@ -1,7 +1,7 @@
 # AddaBuzz Live — Development Status
 
 **Product:** AddaBuzz Live (`Connect • Stream • Chat • Enjoy`)  
-**Firebase Project:** `addabuzz-live-usa` (Project Number `593716749745`)  
+**Firebase Project:** `addabuzzlive` (Project Number `1002525460523`)  
 **Current Milestone:** Phases 1–4 + Web Stage Preview & PWA Connected
 
 ---
@@ -12,8 +12,8 @@
 - Custom AddaBuzz Live SVG emblem and brand PNG/SVG icons, dark obsidian/charcoal palette, violet–electric-blue action hierarchy, `Plus Jakarta Sans` / `DM Sans` / `JetBrains Mono` typography.
 - Responsive Desktop 3-column layout, Tablet layout, and Mobile thumb-zone navigation.
 
-### Phase 2 — Firebase Authentication & User Onboarding (`addabuzz-live-usa`)
-- Provisioned Firebase project `addabuzz-live-usa` with `firebase-applet-config.json` and `getDocFromServer` boot connectivity verification.
+### Phase 2 — Firebase Authentication & User Onboarding (`addabuzzlive`)
+- Provisioned Firebase project `addabuzzlive` with `firebase-applet-config.json` and `getDocFromServer` boot connectivity verification.
 - Google Sign-In (`signInWithPopup`), dedicated Email/Password Sign-In & Account Creation page, verification flow, and App Admin bootstrap (`niazskapp@gmail.com`, `fayselsk@gmail.com`).
 - Unique username reservation (`/usernames/{username}`) with live availability check and split PII isolation (`/users/{uid}` public + `/userPrivate/{uid}` owner-only).
 
@@ -32,7 +32,7 @@
 - Configured installable PWA (`vite-plugin-pwa`) with Workbox service worker, complete Web App Manifest, 192px/512px/maskable/Apple touch PNG icons, and in-app `PWAInstallButton` (Chromium prompt + iOS Safari guide).
 
 ### Phase 9 — Native Android Project (`android/`)
-- Scaffolded Kotlin + Jetpack Compose + Material 3 Android application (`com.addabuzz.live`) connected to Firebase project `addabuzz-live-usa` and the named Firestore database (`ai-studio-addabuzzlive-ecc1d7d4-659c-4060-9ada-c9001252a23f`), covering Discover, 8-seat Live Room + gift debit transactions (no top-up), Wallet, Roles/Promotions, and Email/Password Sign-In + Onboarding. Requires `google-services.json` from Firebase Console and Android Studio / Gradle to compile the `.apk`.
+- Scaffolded Kotlin + Jetpack Compose + Material 3 Android application (`com.addabuzz.live`) connected to Firebase project `addabuzzlive` and the Firestore database (`(default)`), covering Discover, 8-seat Live Room + gift debit transactions (no top-up), Wallet, Roles/Promotions, and Email/Password Sign-In + Onboarding. Requires `google-services.json` from Firebase Console and Android Studio / Gradle to compile the `.apk`.
 
 ---
 

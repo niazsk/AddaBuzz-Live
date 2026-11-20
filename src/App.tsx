@@ -895,7 +895,7 @@ export default function App() {
       <div className="min-h-screen bg-[#08090E] text-white flex items-center justify-center">
         <div className="flex items-center gap-3 text-sm text-slate-300">
           <Loader2 className="w-5 h-5 animate-spin text-sky-400" />
-          <span>Connecting to AddaBuzz Live USA...</span>
+          <span>Connecting to AddaBuzz Live...</span>
         </div>
       </div>
     );
@@ -903,7 +903,7 @@ export default function App() {
 
   // Signed in but profile not loaded yet (e.g. server quota pause): never
   // bounce the user back to the sign-in form — hold a restore screen instead.
-  if (!currentUser && firebaseUser && !needsOnboarding) {
+  if (!currentUser && firebaseUser && !needsOnboarding && isEmailVerified) {
     return (
       <div className="min-h-screen bg-[#08090E] text-[#F4F6FB] flex items-center justify-center px-4 py-8">
         <div className="w-full max-w-sm rounded-2xl border border-slate-700/60 bg-[#0D1017] p-6 text-center space-y-4">
@@ -1479,7 +1479,7 @@ export default function App() {
               currentUser={currentUser}
               userEmail={firebaseUser?.email}
               needsEmailVerification={needsEmailVerification}
-              needsOnboarding={needsOnboarding}
+              needsOnboarding={needsOnboarding && !currentUser}
               defaultDisplayName={firebaseUser?.displayName ?? ''}
               onBackToDiscover={() => setActiveSection('discover')}
               onGoogleSignIn={async () => {
@@ -1552,7 +1552,7 @@ export default function App() {
         needsEmailVerification={
           activeSection === 'signin' ? false : needsEmailVerification
         }
-        needsOnboarding={activeSection === 'signin' ? false : needsOnboarding}
+        needsOnboarding={activeSection === 'signin' ? false : needsOnboarding && !currentUser}
         defaultDisplayName={firebaseUser?.displayName ?? ''}
         userEmail={firebaseUser?.email}
         onClose={() => setAuthOpen(false)}

@@ -1,6 +1,6 @@
 # AddaBuzz Live — Native Android App (Kotlin + Jetpack Compose + Firebase)
 
-This directory contains the Native Android (Kotlin + Jetpack Compose + Material 3) client for **AddaBuzz Live**, configured to share the exact same Firebase project (`addabuzz-live-usa`) and named Cloud Firestore database (`ai-studio-addabuzzlive-ecc1d7d4-659c-4060-9ada-c9001252a23f`) as the Web/PWA client.
+This directory contains the Native Android (Kotlin + Jetpack Compose + Material 3) client for **AddaBuzz Live**, configured to share the exact same Firebase project (`addabuzzlive`) and Cloud Firestore database (`(default)`) as the Web/PWA client.
 
 > **Important Environment Note:** The AI Studio Web workspace runs in a Node.js + Vite container without a JDK, Gradle, or Android SDK installed, so `.apk` binary compilation cannot be run inside this container. Use either **Option A (Cloud APK Build via GitHub Actions)** without installing Android Studio, or **Option B (Local Android Studio)**.
 
@@ -8,7 +8,7 @@ This directory contains the Native Android (Kotlin + Jetpack Compose + Material 
 
 ## Step 1: Download `google-services.json` from Firebase
 
-1. Open **Firebase Console** → Project **`addabuzz-live-usa`** (`593716749745`).
+1. Open **Firebase Console** → Project **`addabuzzlive`** (`1002525460523`).
 2. Go to **Project Settings → Your apps → Add app → Android**.
 3. Register Android package name: `com.addabuzz.live`.
 4. Download `google-services.json`.

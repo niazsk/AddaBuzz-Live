@@ -32,7 +32,7 @@ jobs:
             echo "$GOOGLE_SERVICES_JSON_BASE64" | base64 --decode > app/google-services.json
             echo "Decoded google-services.json from repository secret."
           elif [ ! -f app/google-services.json ]; then
-            echo "::error::Missing android/app/google-services.json. Download it from Firebase Console (project addabuzz-live-usa, package com.addabuzz.live) and either commit it or set the GOOGLE_SERVICES_JSON_BASE64 GitHub secret."
+            echo "::error::Missing android/app/google-services.json. Download it from Firebase Console (project addabuzzlive, package com.addabuzz.live) and either commit it or set the GOOGLE_SERVICES_JSON_BASE64 GitHub secret."
             exit 1
           fi
 

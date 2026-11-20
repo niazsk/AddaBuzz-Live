@@ -10,7 +10,7 @@ import kotlinx.coroutines.tasks.await
 import kotlin.random.Random
 
 class AddaBuzzRepository(
-    databaseId: String = "ai-studio-addabuzzlive-ecc1d7d4-659c-4060-9ada-c9001252a23f"
+    databaseId: String = "(default)"
 ) {
     val auth: FirebaseAuth = FirebaseAuth.getInstance()
     val db: FirebaseFirestore =

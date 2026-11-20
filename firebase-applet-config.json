@@ -1,12 +1,12 @@
 {
-  "projectId": "addabuzz-live-usa",
-  "appId": "1:593716749745:web:ce60ac4d6dc68f41c94990",
-  "apiKey": "AIzaSyBmWLc8FNgmieCVgRFKf3T-JjImhp7Ex2I",
-  "authDomain": "addabuzz-live-usa.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-addabuzzlive-ecc1d7d4-659c-4060-9ada-c9001252a23f",
-  "storageBucket": "addabuzz-live-usa.firebasestorage.app",
-  "messagingSenderId": "593716749745",
-  "measurementId": "",
-  "oAuthClientId": "593716749745-mogoo66b4neop35nhesro1vk87vb7gpa.apps.googleusercontent.com",
+  "projectId": "addabuzzlive",
+  "appId": "1:1002525460523:web:ca1313bee838d3799dc26e",
+  "apiKey": "AIzaSyBzTMucFHSRE7wXm6CXuBD-YuBR9sKOaXY",
+  "authDomain": "addabuzzlive.firebaseapp.com",
+  "firestoreDatabaseId": "(default)",
+  "storageBucket": "addabuzzlive.firebasestorage.app",
+  "messagingSenderId": "1002525460523",
+  "measurementId": "G-HRELT35N81",
+  "oAuthClientId": "1002525460523-9i6ibg4r4pana8ioi1tcqcr93jenlupt.apps.googleusercontent.com",
   "recaptchaSiteKey": ""
 }

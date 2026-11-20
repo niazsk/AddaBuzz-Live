@@ -380,7 +380,7 @@ export async function completeUserOnboarding(
   batch.set(doc(db, 'wallets', firebaseUser.uid), {
     uid: firebaseUser.uid,
     coinBalance: 500,
-    diamondBalance: 0,
+    diamondBalance: 120,
     tradingCoinBalance: 0,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -398,6 +398,22 @@ export async function completeUserOnboarding(
       reason: 'Welcome Community Grant (Coins)',
       counterparty: 'AddaBuzz Platform',
       idempotencyKey: `welcome_grant_coin_${firebaseUser.uid}`,
+      createdAt: serverTimestamp(),
+    }
+  );
+
+  const welcomeDiamondTxId = `tx_welcome_d_${firebaseUser.uid.slice(0, 16)}`;
+  batch.set(
+    doc(db, 'wallets', firebaseUser.uid, 'transactions', welcomeDiamondTxId),
+    {
+      transactionId: welcomeDiamondTxId,
+      uid: firebaseUser.uid,
+      currency: 'DIAMOND',
+      direction: 'CREDIT',
+      amount: 120,
+      reason: 'Welcome Community Grant (Diamonds)',
+      counterparty: 'AddaBuzz Platform',
+      idempotencyKey: `welcome_grant_diamond_${firebaseUser.uid}`,
       createdAt: serverTimestamp(),
     }
   );

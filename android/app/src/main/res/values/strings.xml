@@ -1,4 +1,4 @@
 <resources>
     <string name="app_name">AddaBuzz Live</string>
-    <string name="firestore_database_id">ai-studio-addabuzzlive-ecc1d7d4-659c-4060-9ada-c9001252a23f</string>
+    <string name="firestore_database_id">(default)</string>
 </resources>
