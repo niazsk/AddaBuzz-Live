@@ -14,6 +14,7 @@ import {
   HandEval,
   payoutFor,
 } from './config';
+import { classifySyncError } from '../../lib/sync';
 import {
   advanceGfBoard,
   claimGfLeadership,
@@ -180,6 +181,8 @@ export class GfBoardEngine {
   private lastAttempt = 0;
   private lastClaimAttempt = 0;
   private lastAdvanceAttempt = 0;
+  private syncFailures = 0;
+  private syncBackoffUntil = 0;
 
   private prevPhase: GfBoardPhase | null = null;
   private prevWinner: number | null = null;
@@ -349,10 +352,23 @@ export class GfBoardEngine {
     }
   }
 
+  private noteSyncResult(error?: unknown) {
+    if (error === undefined) {
+      this.syncFailures = 0;
+      this.syncBackoffUntil = 0;
+      return;
+    }
+    if (classifySyncError(error) === 'fatal') return;
+    this.syncFailures += 1;
+    this.syncBackoffUntil =
+      Date.now() + Math.min(10000 * 2 ** (this.syncFailures - 1), 120000);
+  }
+
   private async tick() {
     if (this.destroyed) return;
     const now = Date.now();
     this.emit();
+    if (now < this.syncBackoffUntil) return;
 
     if (!this.board) {
       if (this.config.enabled && now - this.lastAttempt > 1500) {
@@ -398,8 +414,10 @@ export class GfBoardEngine {
         phaseEndsAtMs: Date.now() + this.config.openMs,
       });
       this.lastError = null;
+      this.noteSyncResult();
     } catch (error) {
       this.lastError = this.describeError(error);
+      this.noteSyncResult(error);
       this.emit();
     } finally {
       this.leaderBusy = false;
@@ -469,8 +487,10 @@ export class GfBoardEngine {
     try {
       await advanceGfBoard(this.uid, board.roundId, phase, patch);
       this.lastError = null;
+      this.noteSyncResult();
     } catch (error) {
       this.lastError = this.describeError(error);
+      this.noteSyncResult(error);
       this.emit();
     } finally {
       this.leaderBusy = false;

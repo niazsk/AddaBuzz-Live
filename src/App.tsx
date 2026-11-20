@@ -65,6 +65,7 @@ import {
   updateOwnProfile,
   updateSeatStateDoc,
 } from './lib/firestoreService';
+import { classifySyncError, subscribeSyncStatus, type SyncStatus } from './lib/sync';
 import { SidebarNav } from './components/layout/SidebarNav';
 import { MobileBottomBar, MobileTopBar } from './components/layout/MobileNav';
 import { RightRail } from './components/layout/RightRail';
@@ -238,17 +239,35 @@ export default function App() {
       try {
         await syncSignedInProfile(fbUser);
       } catch (error) {
-        pushToast(
-          'Profile lookup error',
-          error instanceof Error ? error.message : 'Unable to load profile.',
-          'error'
-        );
+        if (classifySyncError(error) === 'fatal') {
+          pushToast(
+            'Profile lookup error',
+            error instanceof Error ? error.message : 'Unable to load profile.',
+            'error'
+          );
+        }
       } finally {
         setAuthReady(true);
       }
     });
     return () => unsub();
   }, []);
+
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>({
+    paused: false,
+    reason: null,
+    retryAt: 0,
+  });
+  useEffect(() => subscribeSyncStatus(setSyncStatus), []);
+
+  const prevSyncPausedRef = useRef(false);
+  useEffect(() => {
+    const wasPaused = prevSyncPausedRef.current;
+    prevSyncPausedRef.current = syncStatus.paused;
+    if (wasPaused && !syncStatus.paused && firebaseUser && !currentUser) {
+      void syncSignedInProfile(firebaseUser).catch(() => undefined);
+    }
+  }, [syncStatus.paused, firebaseUser?.uid, currentUser?.uid]);
 
   const handleRefreshVerification = async () => {
     const refreshed = await reloadCurrentAuthUser();
@@ -868,6 +887,34 @@ export default function App() {
     );
   }
 
+  // Signed in but profile not loaded yet (e.g. server quota pause): never
+  // bounce the user back to the sign-in form — hold a restore screen instead.
+  if (!currentUser && firebaseUser && !needsOnboarding) {
+    return (
+      <div className="min-h-screen bg-[#08090E] text-[#F4F6FB] flex items-center justify-center px-4 py-8">
+        <div className="w-full max-w-sm rounded-2xl border border-slate-700/60 bg-[#0D1017] p-6 text-center space-y-4">
+          <Loader2 className="w-6 h-6 animate-spin text-sky-400 mx-auto" />
+          <div className="text-sm font-semibold">Restoring your profile…</div>
+          <p className="text-xs text-slate-400">
+            {syncStatus.paused
+              ? 'Server sync is paused (daily read limit). Retrying automatically — you stay signed in.'
+              : 'Loading your account details.'}
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              void syncSignedInProfile(firebaseUser).catch(() => undefined);
+            }}
+            className="px-4 py-2 rounded-xl bg-sky-500 text-black text-xs font-semibold inline-flex items-center gap-2"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>Retry now</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // Auth gate: nothing in the app is accessible until sign-in + onboarding complete
   if (!currentUser) {
     return (
@@ -1088,6 +1135,17 @@ export default function App() {
               <span>Reconnect</span>
             </button>
           )}
+        </div>
+      )}
+
+      {syncStatus.paused && !isOffline && (
+        <div className="bg-sky-950/90 border-b border-sky-500/40 px-4 py-2 text-xs text-sky-100 flex items-center gap-2">
+          <RefreshCw className="w-3.5 h-3.5 text-sky-300 shrink-0 animate-spin" />
+          <span>
+            {syncStatus.reason === 'quota'
+              ? 'Server daily read limit reached — sync paused. Retrying automatically; your balances and data are safe.'
+              : 'Connection unstable — sync paused. Retrying automatically.'}
+          </span>
         </div>
       )}
 

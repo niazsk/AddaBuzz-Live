@@ -3,8 +3,8 @@ import {
   deleteDoc,
   doc,
   getDoc,
+  getDocFromCache,
   limit,
-  onSnapshot,
   orderBy,
   query,
   runTransaction,
@@ -35,6 +35,7 @@ import {
   handleFirestoreError,
   OperationType,
 } from './firebase';
+import { classifySyncError, listenWithRetry } from './sync';
 import {
   AccountPromotionRecord,
   AgencyCommissionStoryRecord,
@@ -208,7 +209,16 @@ export async function signOutFirebase(): Promise<void> {
 export async function fetchUserProfile(uid: string): Promise<UserProfile | null> {
   const path = `users/${uid}`;
   try {
-    const snap = await getDoc(doc(db, 'users', uid));
+    const ref = doc(db, 'users', uid);
+    let snap;
+    try {
+      snap = await getDoc(ref);
+    } catch (error) {
+      // Quota / network outages must not look like "profile missing":
+      // fall back to the persisted cache so a refresh keeps the session.
+      if (classifySyncError(error) === 'fatal') throw error;
+      snap = await getDocFromCache(ref);
+    }
     if (!snap.exists()) return null;
     const d = snap.data();
     return {
@@ -404,7 +414,7 @@ export function subscribeFollowerUids(
   uid: string,
   onUids: (uids: string[]) => void
 ): Unsubscribe {
-  return onSnapshot(
+  return listenWithRetry(
     query(collection(db, 'follows'), where('targetUid', '==', uid), limit(100)),
     (snap) => onUids(snap.docs.map((d) => String(d.data().followerUid))),
     (error) => handleFirestoreError(error, OperationType.LIST, 'follows')
@@ -431,7 +441,7 @@ export function subscribePublicUsers(
     where('isSuspended', '==', false),
     limit(60)
   );
-  return onSnapshot(
+  return listenWithRetry(
     q,
     (snapshot) => {
       const list: UserProfile[] = snapshot.docs.map((docSnap) => {
@@ -483,7 +493,7 @@ export function subscribeLiveRooms(
     where('isPrivateFollowersOnly', '==', false),
     limit(40)
   );
-  return onSnapshot(
+  return listenWithRetry(
     q,
     (snapshot) => {
       const list: LiveRoom[] = snapshot.docs.map((docSnap) => {
@@ -550,7 +560,7 @@ export function subscribeRoomDetails(
     where('seatNumber', '>=', 1),
     where('seatNumber', '<=', 8)
   );
-  const unsubSeats = onSnapshot(
+  const unsubSeats = listenWithRetry(
     seatsQ,
     (snap) => {
       const seatMap = new Map<number, GuestSeat>();
@@ -583,7 +593,7 @@ export function subscribeRoomDetails(
     limit(30)
   );
   const unsubRequests = auth.currentUser
-    ? onSnapshot(
+    ? listenWithRetry(
         reqQ,
         (snap) => {
           const reqs: JoinRequest[] = snap.docs.map((docSnap) => {
@@ -613,7 +623,7 @@ export function subscribeRoomDetails(
     where('roomId', '==', roomId),
     limit(100)
   );
-  const unsubMessages = onSnapshot(
+  const unsubMessages = listenWithRetry(
     msgQ,
     (snap) => {
       const msgs = snap.docs
@@ -941,7 +951,7 @@ export function subscribeWalletData(
   onWallet: (coins: number, diamonds: number, tradingCoins: number) => void,
   onTransactions: (txs: WalletTransaction[]) => void
 ): () => void {
-  const unsubWallet = onSnapshot(
+  const unsubWallet = listenWithRetry(
     doc(db, 'wallets', uid),
     (snap) => {
       if (snap.exists()) {
@@ -956,7 +966,7 @@ export function subscribeWalletData(
     (error) => handleFirestoreError(error, OperationType.GET, `wallets/${uid}`)
   );
 
-  const unsubTxs = onSnapshot(
+  const unsubTxs = listenWithRetry(
     query(collection(db, 'wallets', uid, 'transactions'), orderBy('createdAt', 'desc'), limit(60)),
     (snap) => {
       const list = snap.docs
@@ -1314,7 +1324,7 @@ export function subscribeFruitManorBoard(
   onBoard: (board: SharedBoard | null) => void,
   onError?: (message: string) => void
 ): Unsubscribe {
-  return onSnapshot(
+  return listenWithRetry(
     doc(db, BOARD_PATH[0], BOARD_PATH[1]),
     (snap) => onBoard(snap.exists() ? mapBoard(snap.data() as Record<string, unknown>) : null),
     (error) => {
@@ -1329,7 +1339,7 @@ export function subscribeFruitManorBets(
   onBets: (bets: SharedBet[]) => void,
   onError?: (message: string) => void
 ): Unsubscribe {
-  return onSnapshot(
+  return listenWithRetry(
     query(collection(db, 'fruitManorBets'), where('roundId', '==', roundId)),
     (snap) => {
       const list = snap.docs.map((docSnap) => {
@@ -1568,7 +1578,7 @@ export function subscribeGfBoard(
   onBoard: (board: GfBoard | null) => void,
   onError?: (message: string) => void
 ): Unsubscribe {
-  return onSnapshot(
+  return listenWithRetry(
     doc(db, GF_BOARD_PATH[0], GF_BOARD_PATH[1]),
     (snap) => onBoard(snap.exists() ? mapGfBoard(snap.data() as Record<string, unknown>) : null),
     (error) => {
@@ -1583,7 +1593,7 @@ export function subscribeGfBets(
   onBets: (bets: GfBet[]) => void,
   onError?: (message: string) => void
 ): Unsubscribe {
-  return onSnapshot(
+  return listenWithRetry(
     query(collection(db, 'gf_bets'), where('roundId', '==', roundId)),
     (snap) => {
       const list = snap.docs.map((docSnap) => {
@@ -1616,7 +1626,7 @@ export function subscribeGfConfig(
   onConfig: (config: GfRemoteConfig) => void,
   onError?: (message: string) => void
 ): Unsubscribe {
-  return onSnapshot(
+  return listenWithRetry(
     doc(db, 'gf_config', 'config'),
     (snap) => {
       if (!snap.exists()) {
@@ -2241,7 +2251,7 @@ export function subscribeFollowsAndBlocks(
   onFollows: (uids: string[]) => void,
   onBlocks: (uids: string[]) => void
 ): () => void {
-  const unsubFollows = onSnapshot(
+  const unsubFollows = listenWithRetry(
     query(collection(db, 'follows'), where('followerUid', '==', uid), limit(100)),
     (snap) => {
       onFollows(snap.docs.map((d) => String(d.data().targetUid)));
@@ -2249,7 +2259,7 @@ export function subscribeFollowsAndBlocks(
     (error) => handleFirestoreError(error, OperationType.LIST, 'follows')
   );
 
-  const unsubBlocks = onSnapshot(
+  const unsubBlocks = listenWithRetry(
     query(collection(db, 'blocks'), where('blockerUid', '==', uid), limit(100)),
     (snap) => {
       onBlocks(snap.docs.map((d) => String(d.data().blockedUid)));
@@ -2329,7 +2339,7 @@ export function subscribeConversationsList(
     where('memberUids', 'array-contains', uid),
     limit(40)
   );
-  return onSnapshot(
+  return listenWithRetry(
     q,
     (snap) => {
       const list: Conversation[] = snap.docs.map((docSnap) => {
@@ -2370,7 +2380,7 @@ export function subscribeConversationMessages(
     where('memberUids', 'array-contains', uid),
     limit(100)
   );
-  return onSnapshot(
+  return listenWithRetry(
     q,
     (snap) => {
       const msgs = snap.docs
@@ -2457,7 +2467,7 @@ export async function sendDirectMessageDoc(
 export function subscribePromotions(
   onData: (records: AccountPromotionRecord[]) => void
 ): Unsubscribe {
-  return onSnapshot(
+  return listenWithRetry(
     query(collection(db, 'accountPromotions'), limit(40)),
     (snap) => {
       const list = snap.docs.map((docSnap) => {
@@ -2518,7 +2528,7 @@ export function subscribeReports(
   const q = canModerate
     ? query(collection(db, 'reports'), limit(50))
     : query(collection(db, 'reports'), where('reporterUid', '==', uid), limit(30));
-  return onSnapshot(
+  return listenWithRetry(
     q,
     (snap) => {
       const list: ReportRecord[] = snap.docs.map((docSnap) => {
@@ -2636,7 +2646,7 @@ export function subscribeAgencyMembers(
     limit(100)
   );
 
-  return onSnapshot(
+  return listenWithRetry(
     q,
     (snap) => {
       const list: AgencyMemberRecord[] = snap.docs.map((dSnap) => {
@@ -2676,7 +2686,7 @@ export function subscribeAgencyCommissionStories(
     limit(300)
   );
 
-  return onSnapshot(
+  return listenWithRetry(
     q,
     (snap) => {
       const list: AgencyCommissionStoryRecord[] = [];

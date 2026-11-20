@@ -1,12 +1,29 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
-import { doc, getDocFromServer, getFirestore } from 'firebase/firestore';
+import {
+  doc,
+  getDocFromServer,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+} from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import firebaseConfig from '../../firebase-applet-config.json';
+import { classifySyncError } from './sync';
 
 const app = initializeApp(firebaseConfig);
 
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+// Persisted cache keeps the last-known rooms/profile/wallet on screen across
+// refreshes and server quota pauses instead of dropping to empty/sign-in UI.
+export const db = initializeFirestore(
+  app,
+  {
+    localCache: persistentLocalCache({
+      tabManager: persistentMultipleTabManager(),
+    }),
+  },
+  firebaseConfig.firestoreDatabaseId
+);
 export const auth = getAuth(app);
 export const storage = getStorage(app);
 export const googleProvider = new GoogleAuthProvider();
@@ -62,7 +79,14 @@ export function handleFirestoreError(
     path,
   };
   console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
+  const kind = classifySyncError(error);
+  const friendly =
+    kind === 'quota'
+      ? 'Server daily limit reached. Sync retries automatically.'
+      : kind === 'network'
+        ? 'Connection problem. Retrying automatically.'
+        : errInfo.error;
+  throw new Error(friendly);
 }
 
 export async function testConnection(): Promise<boolean> {
