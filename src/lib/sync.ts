@@ -63,11 +63,16 @@ function resumeListener(id: symbol) {
 export function classifySyncError(error: unknown): SyncPauseReason | 'fatal' {
   const code = (error as FirestoreError | null)?.code ?? '';
   const msg = error instanceof Error ? error.message : String(error);
-  if (code === 'resource-exhausted' || /quota limit exceeded/i.test(msg)) return 'quota';
+  if (
+    code === 'resource-exhausted' ||
+    /quota limit exceeded|daily read limit|server daily limit/i.test(msg)
+  ) {
+    return 'quota';
+  }
   if (
     code === 'unavailable' ||
     code === 'deadline-exceeded' ||
-    /client is offline|network error/i.test(msg)
+    /client is offline|network error|connection problem/i.test(msg)
   ) {
     return 'network';
   }
@@ -100,8 +105,12 @@ export function listenWithRetry(
     unsub = onSnapshot(
       target as Query<unknown>,
       (snap: QuerySnapshot<unknown>) => {
-        attempt = 0;
-        if (!snap.metadata.fromCache) resumeListener(id);
+        // Only a server snapshot proves recovery; cache emits on every
+        // re-attach and must not reset the retry backoff.
+        if (!snap.metadata.fromCache) {
+          attempt = 0;
+          resumeListener(id);
+        }
         onNext(snap as never);
       },
       (error: FirestoreError) => {

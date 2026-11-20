@@ -16,6 +16,8 @@ import {
   writeBatch,
   increment,
   Unsubscribe,
+  DocumentSnapshot,
+  DocumentData,
 } from 'firebase/firestore';
 import {
   createUserWithEmailAndPassword,
@@ -206,46 +208,79 @@ export async function signOutFirebase(): Promise<void> {
   await signOut(auth);
 }
 
+function profileFromData(d: { [key: string]: any }): UserProfile {
+  return {
+    uid: String(d.uid),
+    platformId: String(d.platformId),
+    username: String(d.username),
+    displayName: String(d.displayName),
+    bio: String(d.bio ?? ''),
+    country: String(d.country ?? 'United States'),
+    gender: (d.gender as GenderOption) ?? 'Prefer not to say',
+    accountType: d.accountType,
+    avatarColor: String(d.avatarColor ?? '#6366F1'),
+    coverGradient: String(
+      d.coverGradient ??
+        'linear-gradient(135deg, #3B0764 0%, #1E3A8A 60%, #09090E 100%)'
+    ),
+    avatarUrl: d.avatarUrl ? String(d.avatarUrl) : undefined,
+    coverUrl: d.coverUrl ? String(d.coverUrl) : undefined,
+    followersCount: Number(d.followersCount ?? 0),
+    followingCount: Number(d.followingCount ?? 0),
+    visitorsCount: Number(d.visitorsCount ?? 0),
+    isOnline: Boolean(d.isOnline ?? true),
+    showPresence: Boolean(d.showPresence ?? true),
+    lastActiveLabel: String(d.lastActiveLabel ?? 'Online'),
+    isNewCreator: Boolean(d.isNewCreator ?? false),
+    isSuspended: Boolean(d.isSuspended ?? false),
+  };
+}
+
+// One-shot Listen attach: the Listen channel often still delivers while
+// getDoc/runQuery are quota-blocked, so it is the last resort before giving up.
+function listenDocOnce(
+  ref: ReturnType<typeof doc>,
+  timeoutMs: number
+): Promise<DocumentSnapshot<DocumentData> | null> {
+  return new Promise((resolve) => {
+    let settled = false;
+    let unsub: Unsubscribe = () => undefined;
+    const finish = (snap: DocumentSnapshot<DocumentData> | null) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timer);
+      unsub();
+      resolve(snap);
+    };
+    const timer = window.setTimeout(() => finish(null), timeoutMs);
+    unsub = listenWithRetry(
+      ref,
+      (snap) => {
+        if (!snap.metadata.fromCache) finish(snap);
+      },
+      () => finish(null)
+    );
+  });
+}
+
 export async function fetchUserProfile(uid: string): Promise<UserProfile | null> {
   const path = `users/${uid}`;
   try {
     const ref = doc(db, 'users', uid);
+    // Cache-first: a refresh must boot instantly from the persisted cache even
+    // while the server read quota is paused; live listeners correct it later.
+    const cached = await getDocFromCache(ref).catch(() => null);
+    if (cached && cached.exists()) return profileFromData(cached.data());
     let snap;
     try {
       snap = await getDoc(ref);
     } catch (error) {
-      // Quota / network outages must not look like "profile missing":
-      // fall back to the persisted cache so a refresh keeps the session.
       if (classifySyncError(error) === 'fatal') throw error;
-      snap = await getDocFromCache(ref);
+      snap = await listenDocOnce(ref, 12000);
+      if (!snap) throw error;
     }
     if (!snap.exists()) return null;
-    const d = snap.data();
-    return {
-      uid: String(d.uid),
-      platformId: String(d.platformId),
-      username: String(d.username),
-      displayName: String(d.displayName),
-      bio: String(d.bio ?? ''),
-      country: String(d.country ?? 'United States'),
-      gender: (d.gender as GenderOption) ?? 'Prefer not to say',
-      accountType: d.accountType,
-      avatarColor: String(d.avatarColor ?? '#6366F1'),
-      coverGradient: String(
-        d.coverGradient ??
-          'linear-gradient(135deg, #3B0764 0%, #1E3A8A 60%, #09090E 100%)'
-      ),
-      avatarUrl: d.avatarUrl ? String(d.avatarUrl) : undefined,
-      coverUrl: d.coverUrl ? String(d.coverUrl) : undefined,
-      followersCount: Number(d.followersCount ?? 0),
-      followingCount: Number(d.followingCount ?? 0),
-      visitorsCount: Number(d.visitorsCount ?? 0),
-      isOnline: Boolean(d.isOnline ?? true),
-      showPresence: Boolean(d.showPresence ?? true),
-      lastActiveLabel: String(d.lastActiveLabel ?? 'Online'),
-      isNewCreator: Boolean(d.isNewCreator ?? false),
-      isSuspended: Boolean(d.isSuspended ?? false),
-    };
+    return profileFromData(snap.data());
   } catch (error) {
     handleFirestoreError(error, OperationType.GET, path);
   }
@@ -621,7 +656,7 @@ export function subscribeRoomDetails(
   const msgQ = query(
     collection(db, 'liveRooms', roomId, 'messages'),
     where('roomId', '==', roomId),
-    limit(100)
+    limit(50)
   );
   const unsubMessages = listenWithRetry(
     msgQ,
@@ -946,12 +981,11 @@ export async function updateSeatStateDoc(
   }
 }
 
-export function subscribeWalletData(
+export function subscribeWalletBalance(
   uid: string,
-  onWallet: (coins: number, diamonds: number, tradingCoins: number) => void,
-  onTransactions: (txs: WalletTransaction[]) => void
+  onWallet: (coins: number, diamonds: number, tradingCoins: number) => void
 ): () => void {
-  const unsubWallet = listenWithRetry(
+  return listenWithRetry(
     doc(db, 'wallets', uid),
     (snap) => {
       if (snap.exists()) {
@@ -965,9 +999,16 @@ export function subscribeWalletData(
     },
     (error) => handleFirestoreError(error, OperationType.GET, `wallets/${uid}`)
   );
+}
 
-  const unsubTxs = listenWithRetry(
-    query(collection(db, 'wallets', uid, 'transactions'), orderBy('createdAt', 'desc'), limit(60)),
+// Ledger window re-reads on every new transaction, so it is only attached
+// while a money view is open and kept small to protect the daily read quota.
+export function subscribeWalletTransactions(
+  uid: string,
+  onTransactions: (txs: WalletTransaction[]) => void
+): () => void {
+  return listenWithRetry(
+    query(collection(db, 'wallets', uid, 'transactions'), orderBy('createdAt', 'desc'), limit(25)),
     (snap) => {
       const list = snap.docs
         .map((docSnap) => {
@@ -995,11 +1036,6 @@ export function subscribeWalletData(
     (error) =>
       handleFirestoreError(error, OperationType.LIST, `wallets/${uid}/transactions`)
   );
-
-  return () => {
-    unsubWallet();
-    unsubTxs();
-  };
 }
 
 export async function sendVirtualGiftTransaction(
@@ -2378,7 +2414,7 @@ export function subscribeConversationMessages(
   const q = query(
     collection(db, 'conversations', conversationId, 'messages'),
     where('memberUids', 'array-contains', uid),
-    limit(100)
+    limit(50)
   );
   return listenWithRetry(
     q,

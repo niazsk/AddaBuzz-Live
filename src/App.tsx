@@ -59,7 +59,8 @@ import {
   subscribePublicUsers,
   subscribeReports,
   subscribeRoomDetails,
-  subscribeWalletData,
+  subscribeWalletBalance,
+  subscribeWalletTransactions,
   toggleBlockDoc,
   toggleFollowDoc,
   updateOwnProfile,
@@ -311,14 +312,13 @@ export default function App() {
   useEffect(() => {
     if (!authReady || !firebaseUser || !currentUser) return;
 
-    const unsubWallet = subscribeWalletData(
+    const unsubWallet = subscribeWalletBalance(
       currentUser.uid,
       (coins, diamonds, tradingCoins) => {
         setCoinBalance(coins);
         setDiamondBalance(diamonds);
         setTradingCoinBalance(tradingCoins);
-      },
-      (txs) => setTransactions(txs)
+      }
     );
 
     const unsubSocial = subscribeFollowsAndBlocks(
@@ -336,27 +336,41 @@ export default function App() {
       }
     });
 
-    const isSuperAgentUser = currentUser.accountType === 'SUPER_AGENT';
-
-    const unsubPromos = isSuperAgentUser
-      ? subscribePromotions((recs) => setPromotions(recs))
-      : () => {};
-
-    const unsubReports = subscribeReports(
-      currentUser.uid,
-      isSuperAgentUser || isAdminUser,
-      (reps) => setReports(reps)
-    );
-
     return () => {
       unsubWallet();
       unsubSocial();
       unsubFollowers();
       unsubConvs();
+    };
+  }, [authReady, firebaseUser?.uid, currentUser?.uid, currentUser?.accountType, isAdminUser]);
+
+  // Ledger window re-reads on every transaction, so attach it only while a
+  // money view is open instead of for the whole signed-in session.
+  useEffect(() => {
+    if (!currentUser) return;
+    if (!['wallet', 'coins-trading', 'salary', 'withdraw'].includes(activeSection)) {
+      return;
+    }
+    return subscribeWalletTransactions(currentUser.uid, setTransactions);
+  }, [currentUser?.uid, activeSection]);
+
+  // Admin-only directories stay detached until Roles & Safety is opened.
+  useEffect(() => {
+    if (!currentUser || activeSection !== 'admin') return;
+    const isSuperAgentUser = currentUser.accountType === 'SUPER_AGENT';
+    const unsubPromos = isSuperAgentUser
+      ? subscribePromotions((recs) => setPromotions(recs))
+      : () => {};
+    const unsubReports = subscribeReports(
+      currentUser.uid,
+      isSuperAgentUser || isAdminUser,
+      (reps) => setReports(reps)
+    );
+    return () => {
       unsubPromos();
       unsubReports();
     };
-  }, [authReady, firebaseUser?.uid, currentUser?.uid, currentUser?.accountType, isAdminUser]);
+  }, [currentUser?.uid, currentUser?.accountType, activeSection, isAdminUser]);
 
   useEffect(() => {
     const target = inspectedUser;
