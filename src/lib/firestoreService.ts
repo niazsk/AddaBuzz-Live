@@ -1858,6 +1858,64 @@ export async function transferCoins(
   const debitId = `tx_${stamp}_${rand}`;
   const creditId = `tx_${stamp}_${rand}c`;
   const idempotencyKey = `transfer_${sender.uid}_${recipient.uid}_${stamp.toString(36)}`;
+  const debitField = debitFromMain ? 'coinBalance' : 'tradingCoinBalance';
+  const creditField = recipientGetsTrading ? 'tradingCoinBalance' : 'coinBalance';
+  const destination = recipientGetsTrading ? 'Coins Trading Balance' : 'Main Balance';
+  const source = debitFromMain ? 'Main Balance' : 'Coins Trading Balance';
+  const debitLedger = {
+    transactionId: debitId,
+    uid: sender.uid,
+    currency: 'COIN',
+    direction: 'DEBIT',
+    amount: value,
+    reason: clampStr(`Transfer to @${recipient.username} (${source})`, 160),
+    counterparty: clampStr(`@${recipient.username}`, 64),
+    idempotencyKey,
+    createdAt: serverTimestamp(),
+  };
+  const creditLedger = {
+    transactionId: creditId,
+    uid: recipient.uid,
+    currency: 'COIN',
+    direction: 'CREDIT',
+    amount: value,
+    reason: clampStr(`Transfer from @${sender.username} (${destination})`, 160),
+    counterparty: clampStr(`@${sender.username}`, 64),
+    idempotencyKey,
+    createdAt: serverTimestamp(),
+  };
+
+  // Quota pauses block runTransaction but plain writes still commit. Admin-only
+  // fallback: sequential debit -> credit -> ledgers (rules reject a debit that
+  // would go negative). Not atomic; a mid-sequence failure names the failed step.
+  const adminDirectTransfer = async () => {
+    const step = async (label: string, fn: () => Promise<void>) => {
+      try {
+        await fn();
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        throw new Error(`Transfer failed at ${label}: ${msg}`);
+      }
+    };
+    await step('sender debit', () =>
+      updateDoc(senderRef, {
+        [debitField]: increment(-value),
+        updatedAt: serverTimestamp(),
+      })
+    );
+    await step('recipient credit', () =>
+      updateDoc(recipientRef, {
+        [creditField]: increment(value),
+        updatedAt: serverTimestamp(),
+      })
+    );
+    await step('sender ledger', () =>
+      setDoc(doc(db, 'wallets', sender.uid, 'transactions', debitId), debitLedger)
+    );
+    await step('recipient ledger', () =>
+      setDoc(doc(db, 'wallets', recipient.uid, 'transactions', creditId), creditLedger)
+    );
+  };
 
   try {
     await runTransaction(db, async (tx) => {
@@ -1906,31 +1964,8 @@ export async function transferCoins(
         });
       }
 
-      const destination = recipientGetsTrading ? 'Coins Trading Balance' : 'Main Balance';
-      const source = debitFromMain ? 'Main Balance' : 'Coins Trading Balance';
-
-      tx.set(doc(db, 'wallets', sender.uid, 'transactions', debitId), {
-        transactionId: debitId,
-        uid: sender.uid,
-        currency: 'COIN',
-        direction: 'DEBIT',
-        amount: value,
-        reason: clampStr(`Transfer to @${recipient.username} (${source})`, 160),
-        counterparty: clampStr(`@${recipient.username}`, 64),
-        idempotencyKey,
-        createdAt: serverTimestamp(),
-      });
-      tx.set(doc(db, 'wallets', recipient.uid, 'transactions', creditId), {
-        transactionId: creditId,
-        uid: recipient.uid,
-        currency: 'COIN',
-        direction: 'CREDIT',
-        amount: value,
-        reason: clampStr(`Transfer from @${sender.username} (${destination})`, 160),
-        counterparty: clampStr(`@${sender.username}`, 64),
-        idempotencyKey,
-        createdAt: serverTimestamp(),
-      });
+      tx.set(doc(db, 'wallets', sender.uid, 'transactions', debitId), debitLedger);
+      tx.set(doc(db, 'wallets', recipient.uid, 'transactions', creditId), creditLedger);
     });
   } catch (error) {
     if (error instanceof Error && error.message.startsWith('Insufficient')) {
@@ -1941,6 +1976,13 @@ export async function transferCoins(
     }
     if (error instanceof Error && error.message.startsWith('Enter a valid')) {
       throw error;
+    }
+    if (error instanceof Error && error.message.startsWith('Wallet not')) {
+      throw error;
+    }
+    if (senderRole === 'ADMIN' && classifySyncError(error) !== 'fatal') {
+      await adminDirectTransfer();
+      return;
     }
     handleFirestoreError(error, OperationType.WRITE, `wallets/${sender.uid}`);
   }
