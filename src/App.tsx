@@ -911,7 +911,7 @@ export default function App() {
           <div className="text-sm font-semibold">Restoring your profile…</div>
           <p className="text-xs text-slate-400">
             {syncStatus.paused
-              ? 'Server sync is paused (daily read limit). Retrying automatically — you stay signed in.'
+              ? 'Retrying automatically — you stay signed in.'
               : 'Loading your account details.'}
           </p>
           <button
@@ -1149,17 +1149,6 @@ export default function App() {
               <span>Reconnect</span>
             </button>
           )}
-        </div>
-      )}
-
-      {syncStatus.paused && !isOffline && (
-        <div className="bg-sky-950/90 border-b border-sky-500/40 px-4 py-2 text-xs text-sky-100 flex items-center gap-2">
-          <RefreshCw className="w-3.5 h-3.5 text-sky-300 shrink-0 animate-spin" />
-          <span>
-            {syncStatus.reason === 'quota'
-              ? 'Server daily read limit reached — sync paused. Retrying automatically; your balances and data are safe.'
-              : 'Connection unstable — sync paused. Retrying automatically.'}
-          </span>
         </div>
       )}
 
