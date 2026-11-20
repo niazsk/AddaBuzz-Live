@@ -12,9 +12,10 @@ import {
 } from 'lucide-react';
 import { UserProfile, WalletTransaction } from '../../types/app';
 import {
+  canTransferCoinsTo,
   isBdAgentProfile,
+  resolveCoinTransferRole,
   exchangeTradingCoinsToMainBalance,
-  moveMainCoinsToTradingBalance,
 } from '../../lib/firestoreService';
 
 interface CoinsTradingViewProps {
@@ -48,21 +49,14 @@ export const CoinsTradingView: React.FC<CoinsTradingViewProps> = ({
   const [msg, setMsg] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null);
 
   const isBdAgent = isBdAgentProfile(currentUser);
-  const isSuperAgent = currentUser?.accountType === 'SUPER_AGENT';
-  const isAgent = currentUser?.accountType === 'AGENT';
-  const canTrade = isAdminUser || isBdAgent || isSuperAgent || isAgent;
+  const transferRole = resolveCoinTransferRole(currentUser, isAdminUser);
+  const canTrade = transferRole !== 'USER';
 
-  // Transfer flow: BD Agent -> Super Agent -> Agent
-  const eligibleRecipients = !canTrade
-    ? []
-    : isAdminUser || isBdAgent
+  // Transfer hierarchy: Admin -> BD Agent -> Super Agent -> Agent -> User
+  const eligibleRecipients = canTrade
     ? users.filter(
-        (u) =>
-          (u.accountType === 'SUPER_AGENT' || u.accountType === 'AGENT') &&
-          u.uid !== currentUser?.uid
+        (u) => u.uid !== currentUser?.uid && canTransferCoinsTo(transferRole, u)
       )
-    : isSuperAgent
-    ? users.filter((u) => u.accountType === 'AGENT' && u.uid !== currentUser?.uid)
     : [];
 
   const coinActivity = transactions
@@ -96,12 +90,15 @@ export const CoinsTradingView: React.FC<CoinsTradingViewProps> = ({
       return;
     }
 
-    // Trading balance check (or main balance if BD agent / admin)
-    const availableForTransfer = tradingCoinBalance > 0 ? tradingCoinBalance : coinBalance;
+    // Admin transfers from Main Balance; agency roles transfer from Coins Trading Balance.
+    const availableForTransfer =
+      transferRole === 'ADMIN' ? coinBalance : tradingCoinBalance;
     if (value > availableForTransfer) {
       setMsg({
         tone: 'err',
-        text: `Amount exceeds available balance (${availableForTransfer.toLocaleString()}).`,
+        text: `Amount exceeds available ${
+          transferRole === 'ADMIN' ? 'Main Balance' : 'Coins Trading Balance'
+        } (${availableForTransfer.toLocaleString()}).`,
       });
       return;
     }
@@ -110,9 +107,11 @@ export const CoinsTradingView: React.FC<CoinsTradingViewProps> = ({
     setMsg(null);
     try {
       await onTransferCoins(recipient, value);
+      const destination =
+        recipient.accountType === 'USER' ? 'Main Balance' : 'Coins Trading Balance';
       setMsg({
         tone: 'ok',
-        text: `Transferred ${value.toLocaleString()} coins to @${recipient.username}'s Trading Balance.`,
+        text: `Transferred ${value.toLocaleString()} coins to @${recipient.username}'s ${destination}.`,
       });
       onToast?.(
         'Coins Transferred',
@@ -179,7 +178,7 @@ export const CoinsTradingView: React.FC<CoinsTradingViewProps> = ({
               Agency Coins Trading
             </h1>
             <p className="text-xs text-slate-400 mt-0.5">
-              BD Agent → Super Agent → Agent distribution & exchange
+              Admin → BD Agent → Super Agent → Agent → User distribution
             </p>
           </div>
         </div>
@@ -271,7 +270,7 @@ export const CoinsTradingView: React.FC<CoinsTradingViewProps> = ({
               <span>Agency Coins Transfer</span>
             </h2>
             <span className="text-[11px] text-slate-400">
-              Added directly to recipient Trading Balance
+              Agency recipients → Trading Balance · Users → Main Balance
             </span>
           </div>
 
@@ -305,7 +304,8 @@ export const CoinsTradingView: React.FC<CoinsTradingViewProps> = ({
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-medium text-slate-300">Coins Amount</span>
                   <span className="text-[11px] text-slate-500">
-                    Avail: {(tradingCoinBalance > 0 ? tradingCoinBalance : coinBalance).toLocaleString()}
+                    Avail:{' '}
+                    {(transferRole === 'ADMIN' ? coinBalance : tradingCoinBalance).toLocaleString()}
                   </span>
                 </div>
                 <input
@@ -327,7 +327,7 @@ export const CoinsTradingView: React.FC<CoinsTradingViewProps> = ({
                 className="w-full h-11 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 disabled:opacity-50 text-sm font-semibold text-white inline-flex items-center justify-center gap-2 transition-all shadow-md shadow-violet-600/20"
               >
                 <Send className="w-4 h-4" />
-                <span>{busy ? 'Transferring…' : 'Transfer to Recipient Trading Balance'}</span>
+                <span>{busy ? 'Transferring…' : 'Transfer Coins'}</span>
               </button>
 
               {msg && (

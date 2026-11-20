@@ -25,6 +25,7 @@ interface SidebarNavProps {
   unreadMessagesCount: number;
   isOffline: boolean;
   isAdminUser?: boolean;
+  hideWallet?: boolean;
 }
 
 const NAV_ITEMS: { id: AppSection; label: string; icon: React.ComponentType<{ className?: string }> }[] = [

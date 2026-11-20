@@ -20,6 +20,8 @@ interface MobileNavProps {
   unreadMessagesCount: number;
   isOfflineSimulated: boolean;
   isSignedIn?: boolean;
+  onToggleWallet?: () => void;
+  hideWallet?: boolean;
 }
 
 export const MobileTopBar: React.FC<MobileNavProps> = ({

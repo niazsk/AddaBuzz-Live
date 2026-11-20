@@ -216,6 +216,8 @@ export interface ToastMessage {
   title: string;
   body?: string;
   kind?: 'info' | 'success' | 'error';
+  description?: string;
+  tone?: 'info' | 'success' | 'warning' | 'error';
 }
 
 export interface AgencyMemberRecord {
@@ -247,8 +249,4 @@ export interface AgencyCommissionStoryRecord {
   dateKey: string; // YYYY-MM-DD
   timestampLabel: string;
   timestampMillis: number;
-}
-
-  description?: string;
-  tone: 'info' | 'success' | 'warning' | 'error';
 }

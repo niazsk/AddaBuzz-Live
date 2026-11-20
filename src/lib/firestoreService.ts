@@ -84,6 +84,47 @@ export function isBdAgentProfile(user: UserProfile | null | undefined): boolean 
   );
 }
 
+export type CoinTransferRole = 'ADMIN' | 'BD_AGENT' | 'SUPER_AGENT' | 'AGENT' | 'USER';
+
+export function resolveCoinTransferRole(
+  user: UserProfile | null | undefined,
+  isAdminUser = false
+): CoinTransferRole {
+  if (isAdminUser) return 'ADMIN';
+  if (isBdAgentProfile(user)) return 'BD_AGENT';
+  if (user?.accountType === 'SUPER_AGENT') return 'SUPER_AGENT';
+  if (user?.accountType === 'AGENT') return 'AGENT';
+  return 'USER';
+}
+
+/**
+ * Allowed coin transfer hierarchy:
+ *   Admin      -> BD Agent / Super Agent / Agent  (recipient Trading Balance)
+ *   BD Agent   -> Super Agent / Agent             (recipient Trading Balance)
+ *   Super Agent-> Agent / User                    (Agent Trading Balance, User Main Balance)
+ *   Agent      -> User                            (User Main Balance)
+ */
+export function canTransferCoinsTo(
+  senderRole: CoinTransferRole,
+  recipient: UserProfile
+): boolean {
+  switch (senderRole) {
+    case 'ADMIN':
+      return recipient.accountType === 'SUPER_AGENT' || recipient.accountType === 'AGENT';
+    case 'BD_AGENT':
+      return (
+        !isBdAgentProfile(recipient) &&
+        (recipient.accountType === 'SUPER_AGENT' || recipient.accountType === 'AGENT')
+      );
+    case 'SUPER_AGENT':
+      return recipient.accountType === 'AGENT' || recipient.accountType === 'USER';
+    case 'AGENT':
+      return recipient.accountType === 'USER';
+    default:
+      return false;
+  }
+}
+
 async function nextUserPlatformId(): Promise<string> {
   const ref = doc(db, 'counters', 'platformIds');
   return runTransaction(db, async (tx) => {
@@ -1732,7 +1773,8 @@ export async function saveGfConfig(
 export async function transferCoins(
   sender: UserProfile,
   recipient: UserProfile,
-  amount: number
+  amount: number,
+  options?: { isAdmin?: boolean }
 ): Promise<void> {
   const value = Math.floor(amount);
   if (!Number.isFinite(value) || value <= 0) {
@@ -1741,6 +1783,28 @@ export async function transferCoins(
   if (sender.uid === recipient.uid) {
     throw new Error('Cannot transfer to yourself.');
   }
+
+  const senderRole = resolveCoinTransferRole(sender, options?.isAdmin);
+  if (senderRole === 'USER') {
+    throw new Error('Only Admin, BD Agent, Super Agent or Agent can transfer coins.');
+  }
+  if (!canTransferCoinsTo(senderRole, recipient)) {
+    throw new Error(
+      senderRole === 'AGENT'
+        ? 'Agents can only transfer coins to Users.'
+        : senderRole === 'SUPER_AGENT'
+        ? 'Super Agents can only transfer coins to Agents or Users.'
+        : senderRole === 'BD_AGENT'
+        ? 'BD Agent can only transfer coins to Super Agents or Agents.'
+        : 'This recipient is not allowed for your role.'
+    );
+  }
+
+  // Agency roles spend from their Coins Trading Balance; Admin spends from Main Balance.
+  const debitFromMain = senderRole === 'ADMIN';
+  // Agency recipients always receive into Trading Balance; Users receive into Main Balance.
+  const recipientGetsTrading = recipient.accountType !== 'USER';
+
   const senderRef = doc(db, 'wallets', sender.uid);
   const recipientRef = doc(db, 'wallets', recipient.uid);
   const stamp = Date.now();
@@ -1764,31 +1828,27 @@ export async function transferCoins(
       const recipientMainCoins = Number(recipientSnap.data().coinBalance ?? 0);
       const recipientTradingCoins = Number(recipientSnap.data().tradingCoinBalance ?? 0);
 
-      // Prefer deducting from trading balance if available (e.g. for Agents / Super Agents)
-      const useTradingDebit = senderTradingCoins >= value;
-      if (!useTradingDebit && senderMainCoins < value) {
-        throw new Error(`Insufficient Coins (need ${value.toLocaleString()}).`);
-      }
-
-      if (useTradingDebit) {
-        tx.update(senderRef, {
-          tradingCoinBalance: senderTradingCoins - value,
-          updatedAt: serverTimestamp(),
-        });
-      } else {
+      if (debitFromMain) {
+        if (senderMainCoins < value) {
+          throw new Error(`Insufficient Main Balance (need ${value.toLocaleString()}).`);
+        }
         tx.update(senderRef, {
           coinBalance: senderMainCoins - value,
           updatedAt: serverTimestamp(),
         });
+      } else {
+        if (senderTradingCoins < value) {
+          throw new Error(
+            `Insufficient Coins Trading Balance (need ${value.toLocaleString()}).`
+          );
+        }
+        tx.update(senderRef, {
+          tradingCoinBalance: senderTradingCoins - value,
+          updatedAt: serverTimestamp(),
+        });
       }
 
-      // BD Agent -> Super Agent -> Agent: Coins transfer adds to recipient Trading Balance!
-      const isAgencyRecipient =
-        recipient.accountType === 'SUPER_AGENT' ||
-        recipient.accountType === 'AGENT' ||
-        isBdAgentProfile(recipient);
-
-      if (isAgencyRecipient) {
+      if (recipientGetsTrading) {
         tx.update(recipientRef, {
           tradingCoinBalance: recipientTradingCoins + value,
           updatedAt: serverTimestamp(),
@@ -1800,13 +1860,16 @@ export async function transferCoins(
         });
       }
 
+      const destination = recipientGetsTrading ? 'Coins Trading Balance' : 'Main Balance';
+      const source = debitFromMain ? 'Main Balance' : 'Coins Trading Balance';
+
       tx.set(doc(db, 'wallets', sender.uid, 'transactions', debitId), {
         transactionId: debitId,
         uid: sender.uid,
         currency: 'COIN',
         direction: 'DEBIT',
         amount: value,
-        reason: clampStr(`Transfer to @${recipient.username}`, 160),
+        reason: clampStr(`Transfer to @${recipient.username} (${source})`, 160),
         counterparty: clampStr(`@${recipient.username}`, 64),
         idempotencyKey,
         createdAt: serverTimestamp(),
@@ -1817,7 +1880,7 @@ export async function transferCoins(
         currency: 'COIN',
         direction: 'CREDIT',
         amount: value,
-        reason: clampStr(`Transfer from @${sender.username} (${isAgencyRecipient ? 'Trading Balance' : 'Main Balance'})`, 160),
+        reason: clampStr(`Transfer from @${sender.username} (${destination})`, 160),
         counterparty: clampStr(`@${sender.username}`, 64),
         idempotencyKey,
         createdAt: serverTimestamp(),

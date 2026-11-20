@@ -64,8 +64,6 @@ import {
   toggleFollowDoc,
   updateOwnProfile,
   updateSeatStateDoc,
-  moveMainCoinsToTradingBalance,
-  setBdAgentTradingBalance,
 } from './lib/firestoreService';
 import { SidebarNav } from './components/layout/SidebarNav';
 import { MobileBottomBar, MobileTopBar } from './components/layout/MobileNav';
@@ -300,16 +298,6 @@ export default function App() {
         setCoinBalance(coins);
         setDiamondBalance(diamonds);
         setTradingCoinBalance(tradingCoins);
-
-        // Auto-transfer for BD Agent if they have coins in Main Balance
-        if (isBdAgentProfile(currentUser)) {
-          if (coins > 0) {
-            moveMainCoinsToTradingBalance(currentUser.uid).catch(() => {});
-          }
-          if (tradingCoins < 44200400) {
-            setBdAgentTradingBalance(currentUser.uid, 44200400).catch(() => {});
-          }
-        }
       },
       (txs) => setTransactions(txs)
     );
@@ -651,7 +639,7 @@ export default function App() {
   const handleTransferCoins = async (recipient: UserProfile, amount: number) => {
     const me = requireSignedIn();
     if (!me) return;
-    await transferCoins(me, recipient, amount);
+    await transferCoins(me, recipient, amount, { isAdmin: isAdminUser });
     pushToast(
       'Coins transferred',
       `Sent ${amount.toLocaleString()} coins to @${recipient.username}.`,

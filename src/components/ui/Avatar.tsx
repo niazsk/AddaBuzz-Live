@@ -4,6 +4,7 @@ interface AvatarProps {
   name: string;
   color?: string;
   src?: string;
+  avatarUrl?: string;
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
   isLiveRing?: boolean;
   isSpeaking?: boolean;
@@ -22,6 +23,7 @@ export const Avatar: React.FC<AvatarProps> = ({
   name,
   color = '#6366F1',
   src,
+  avatarUrl,
   size = 'md',
   isLiveRing = false,
   isSpeaking = false,
@@ -50,8 +52,8 @@ export const Avatar: React.FC<AvatarProps> = ({
       }}
       aria-label={name}
     >
-      {src ? (
-        <img src={src} alt={name} className="w-full h-full object-cover" />
+      {src || avatarUrl ? (
+        <img src={src ?? avatarUrl} alt={name} className="w-full h-full object-cover" />
       ) : (
         <span>{initials || 'AB'}</span>
       )}

@@ -44,14 +44,34 @@ service cloud.firestore {
 
     function isSuperAgent() {
       return isVerifiedUser() &&
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.accountType == 'SUPER_AGENT';
     }
 
-    // BD Agent: the provisioned SUPER_AGENT account (ID 111112) — may also promote to SUPER_AGENT.
+    // BD Agent: the provisioned SUPER_AGENT account (ID 112200 or 111112) — may also promote to SUPER_AGENT.
     function isBdAgent() {
-      return isSuperAgent() &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.platformId == '111112';
+      return isVerifiedUser() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.accountType == 'SUPER_AGENT' &&
+        (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.platformId == '112200' ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.platformId == '111112'
+        );
+    }
+
+    function isAgent() {
+      return isVerifiedUser() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.accountType == 'AGENT';
+    }
+
+    function isAgencyWallet(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data.accountType in ['AGENT', 'SUPER_AGENT'];
+    }
+
+    function isAgentWallet(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data.accountType == 'AGENT';
+    }
+
+    function isUserWallet(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data.accountType == 'USER';
     }
 
     function isRoomHost(roomId) {
@@ -247,11 +267,12 @@ service cloud.firestore {
 
     function isValidWallet(data, uid) {
       return data.keys().hasAll(['uid', 'coinBalance', 'diamondBalance', 'createdAt', 'updatedAt']) &&
-        data.keys().hasOnly(['uid', 'coinBalance', 'diamondBalance', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['uid', 'coinBalance', 'diamondBalance', 'tradingCoinBalance', 'createdAt', 'updatedAt']) &&
         data.uid == uid &&
         isValidId(data.uid) &&
         data.coinBalance is int && data.coinBalance >= 0 &&
         data.diamondBalance is int && data.diamondBalance >= 0 &&
+        (!('tradingCoinBalance' in data) || (data.tradingCoinBalance is int && data.tradingCoinBalance >= 0)) &&
         data.createdAt is timestamp &&
         data.updatedAt is timestamp;
     }
@@ -869,7 +890,12 @@ service cloud.firestore {
 
     // Wallets (Coins & Diamonds — No Top-Up, No Client Inflation)
     match /wallets/{uid} {
-      allow get: if isValidId(uid) && (isOwner(uid) || isAdmin() || isSuperAgent());
+      allow get: if isValidId(uid) && (
+        isOwner(uid) ||
+        isAdmin() ||
+        isSuperAgent() ||
+        (isAgent() && isUserWallet(uid))
+      );
       allow create: if isVerifiedUser() &&
         isOwner(uid) &&
         isValidWallet(incoming(), uid) &&
@@ -885,10 +911,30 @@ service cloud.firestore {
         incoming().updatedAt == request.time && (
           isAdmin() ||
           (
-            isSuperAgent() &&
+            // Agency sender debits their own Coins Trading Balance.
+            isOwner(uid) &&
+            (isBdAgent() || isSuperAgent() || isAgent()) &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['tradingCoinBalance', 'updatedAt']) &&
+            incoming().tradingCoinBalance < existing().tradingCoinBalance
+          ) ||
+          (
+            // Admin / BD Agent / Super Agent credits an agency recipient's Trading Balance.
             uid != request.auth.uid &&
+            isAgencyWallet(uid) &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['tradingCoinBalance', 'updatedAt']) &&
+            incoming().tradingCoinBalance > existing().tradingCoinBalance &&
+            (
+              isBdAgent() ||
+              (isSuperAgent() && isBdAgent() == false && isAgentWallet(uid))
+            )
+          ) ||
+          (
+            // Super Agent / Agent credits a User's Main Balance.
+            uid != request.auth.uid &&
+            isUserWallet(uid) &&
             incoming().diff(existing()).affectedKeys().hasOnly(['coinBalance', 'updatedAt']) &&
-            incoming().coinBalance > existing().coinBalance
+            incoming().coinBalance > existing().coinBalance &&
+            (isAgent() || (isSuperAgent() && isBdAgent() == false))
           ) ||
           (
             // Fruit Manor pays winnings / refunds back into the owner's own
@@ -917,9 +963,15 @@ service cloud.firestore {
           isValidWalletTransaction(incoming(), transactionId, uid) && (
             isAdmin() ||
             (
-              isSuperAgent() &&
+              // Agency transfer credit: recipient must match the sender hierarchy
+              // (BD Agent -> agency, Super Agent -> Agent/User, Agent -> User).
               uid != request.auth.uid &&
-              incoming().direction == 'CREDIT'
+              incoming().direction == 'CREDIT' &&
+              (
+                (isBdAgent() && isAgencyWallet(uid)) ||
+                (isSuperAgent() && isBdAgent() == false && (isAgentWallet(uid) || isUserWallet(uid))) ||
+                (isAgent() && isUserWallet(uid))
+              )
             ) ||
             (
               isOwner(uid) &&

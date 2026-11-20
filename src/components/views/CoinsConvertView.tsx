@@ -55,7 +55,7 @@ export const CoinsConvertView: React.FC<CoinsConvertViewProps> = ({
       const result = await convertCoinsToDiamonds(currentUser.uid, parsedAmount);
       setSuccessMsg({
         coins: result.convertedCoins,
-        diamonds: result.creditedDiamonds,
+        diamonds: result.diamondsReceived,
       });
       onToast?.(
         'Converted to Diamonds!',
