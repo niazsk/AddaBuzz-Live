@@ -33,6 +33,7 @@ interface MahjongWaysViewProps {
   coinBalance: number;
   isOffline?: boolean;
   onBack: () => void;
+  onUpdateCoinBalance?: (updater: (prev: number) => number) => void;
 }
 
 interface LocalHistoryItem {
@@ -48,6 +49,7 @@ export const MahjongWaysView: React.FC<MahjongWaysViewProps> = ({
   coinBalance,
   isOffline = false,
   onBack,
+  onUpdateCoinBalance,
 }) => {
   // Game states: 4-5-5-5-4 reel grid
   const [grid, setGrid] = useState<TileState[][]>(() => generateInitialGrid());
@@ -116,6 +118,11 @@ export const MahjongWaysView: React.FC<MahjongWaysViewProps> = ({
     const idempotencyKey = `phx_spin_${currentUser?.uid || 'guest'}_${Date.now()}`;
     const isDevMockUser = currentUser?.uid === 'dev-player-test';
 
+    // Optimistically deduct bet so UI reflects it immediately
+    if (actualStake > 0 && onUpdateCoinBalance) {
+      onUpdateCoinBalance((prev) => Math.max(0, prev - actualStake));
+    }
+
     if (actualStake > 0 && currentUser?.uid && !isOffline && !isDevMockUser) {
       try {
         await gameCoinDebit(
@@ -126,6 +133,10 @@ export const MahjongWaysView: React.FC<MahjongWaysViewProps> = ({
         );
       } catch (err) {
         console.error('Spin debit failed:', err);
+        // Rollback bet deduction on failure
+        if (onUpdateCoinBalance) {
+          onUpdateCoinBalance((prev) => prev + actualStake);
+        }
         setErrorMessage('Failed to place bet. Please check connection and try again.');
         setIsSpinning(false);
         setIsAutoSpin(false);
@@ -184,6 +195,11 @@ export const MahjongWaysView: React.FC<MahjongWaysViewProps> = ({
     // Clear banner after small delay if win sequence ended
     if (spinRes.totalWin === 0) {
       setActiveWinBanner(null);
+    }
+
+    // Add win coins to client balance immediately so user sees their balance increase!
+    if (spinRes.totalWin > 0 && onUpdateCoinBalance) {
+      onUpdateCoinBalance((prev) => prev + spinRes.totalWin);
     }
 
     if (spinRes.totalWin > 0 && currentUser?.uid && !isOffline && !isDevMockUser) {

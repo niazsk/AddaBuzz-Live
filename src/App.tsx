@@ -1357,6 +1357,7 @@ export default function App() {
               coinBalance={coinBalance}
               isOffline={isOffline}
               onBack={() => setActiveSection('games')}
+              onUpdateCoinBalance={(updater) => setCoinBalance(updater)}
             />
           )}
 
