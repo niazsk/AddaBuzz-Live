@@ -95,7 +95,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Search live rooms, creators, or categories..."
             aria-label="Search live rooms and creators"
-            className="w-full h-11 pl-10 pr-10 rounded-xl bg-[#111420] border border-white/[0.08] focus:border-sky-500/60 focus:outline-none text-sm text-white placeholder:text-slate-500 transition-colors"
+            className="w-full h-11 pl-10 pr-10 rounded-xl bg-[#111420]/90 border border-white/[0.08] focus:border-sky-400/60 focus:ring-2 focus:ring-sky-500/15 focus:outline-none text-sm text-white placeholder:text-slate-500 transition-all"
           />
           {searchQuery && (
             <button
@@ -140,7 +140,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
             <button
               type="button"
               onClick={onOpenGoLive}
-              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-500 hover:to-blue-500 text-white text-sm font-medium inline-flex items-center gap-2"
+              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 via-indigo-600 to-sky-500 hover:from-violet-500 hover:via-indigo-500 hover:to-sky-400 text-white text-sm font-medium inline-flex items-center gap-2 shadow-[0_16px_34px_-20px_rgba(99,102,241,0.95)]"
             >
               <Radio className="w-4 h-4" />
               <span>Start First Live Room</span>
@@ -152,7 +152,8 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
       {/* Hero Featured Live Spotlight */}
       {featuredRoom && featuredHost && !normalizedQuery && selectedCategory === 'All' && (
         <section aria-label="Featured live broadcast">
-          <div className="rounded-2xl bg-[#111420] border border-white/[0.08] overflow-hidden grid grid-cols-1 lg:grid-cols-12 items-stretch">
+          <div className="relative rounded-3xl bg-gradient-to-br from-[#151A2B] via-[#111420] to-[#0D101A] border border-white/10 overflow-hidden grid grid-cols-1 lg:grid-cols-12 items-stretch shadow-[0_36px_80px_-52px_rgba(56,189,248,0.55)]">
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/50 to-transparent" />
             <div className="lg:col-span-7 relative min-h-[240px] sm:min-h-[300px] lg:min-h-[340px]">
               <MediaImage
                 src={featuredRoom.thumbnailUrl}
@@ -163,8 +164,8 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
               />
               <div className="absolute inset-0 bg-gradient-to-t from-[#0B0D14] via-black/30 to-transparent" />
               <div className="absolute top-4 left-4 flex items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-2.5 py-1 text-xs font-semibold text-white">
-                  <Radio className="w-3.5 h-3.5" aria-hidden="true" />
+                <span className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-rose-600 to-violet-600 px-2.5 py-1 text-xs font-semibold text-white ring-1 ring-white/20 shadow-[0_8px_20px_-10px_rgba(244,63,94,0.9)]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-white live-dot" aria-hidden="true" />
                   <span>Featured Live</span>
                 </span>
                 <span className="inline-flex items-center gap-1.5 rounded-lg bg-black/65 backdrop-blur-sm px-2.5 py-1 text-xs font-mono tabular-nums text-slate-100">
@@ -190,7 +191,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
                   <span className="font-mono tabular-nums">{featuredRoom.startedAtLabel}</span>
                 </div>
 
-                <h1 className="font-display text-2xl sm:text-3xl font-bold text-white leading-tight">
+                <h1 className="font-display text-2xl sm:text-3xl font-bold text-gradient leading-tight">
                   {featuredRoom.title}
                 </h1>
 
@@ -229,7 +230,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
                 <button
                   type="button"
                   onClick={() => onJoinRoom(featuredRoom)}
-                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-500 hover:to-blue-500 text-white text-sm font-medium inline-flex items-center gap-2 transition-all active:scale-[0.98] whitespace-nowrap shrink-0"
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 via-indigo-600 to-sky-500 hover:from-violet-500 hover:via-indigo-500 hover:to-sky-400 text-white text-sm font-semibold inline-flex items-center gap-2 shadow-[0_16px_34px_-20px_rgba(99,102,241,0.95)] ring-1 ring-white/15 transition-all active:scale-[0.98] whitespace-nowrap shrink-0"
                 >
                   <Play className="w-4 h-4 fill-current" aria-hidden="true" />
                   <span>Watch Live</span>
@@ -245,7 +246,8 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
         <>
           <section aria-label="Room filters" className="space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <h2 className="font-display text-lg font-semibold text-white">
+              <h2 className="font-display text-lg font-semibold text-white flex items-center gap-2.5">
+                <span className="h-4 w-1 rounded-full bg-gradient-to-b from-sky-400 to-violet-500" />
                 Live Rooms
               </h2>
 
@@ -264,7 +266,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
                     onClick={() => onSelectMode(modeTab.id)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap shrink-0 ${
                       selectedMode === modeTab.id
-                        ? 'bg-violet-600 text-white'
+                        ? 'bg-gradient-to-r from-violet-600 to-sky-500 text-white shadow-[0_8px_20px_-12px_rgba(99,102,241,0.9)]'
                         : 'text-slate-400 hover:text-white'
                     }`}
                   >

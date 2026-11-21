@@ -84,6 +84,7 @@ import { GamesView } from './components/views/GamesView';
 import { GameHistoryView } from './components/views/GameHistoryView';
 import { GoldenFlowerView } from './components/views/GoldenFlowerView';
 import { GfHistoryView } from './components/views/GfHistoryView';
+import { MahjongWaysView } from './components/views/MahjongWaysView';
 import { ProfileView } from './components/views/ProfileView';
 import { AdminRolesView } from './components/views/AdminRolesView';
 import { AdminPanelView } from './components/views/AdminPanelView';
@@ -941,9 +942,11 @@ export default function App() {
   }
 
   // Auth gate: nothing in the app is accessible until sign-in + onboarding complete
+  // (In dev or preview, allow entering as a tester to test games and UI)
   if (!currentUser) {
+    const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     return (
-      <div className="min-h-screen bg-[#08090E] text-[#F4F6FB] flex items-center justify-center px-4 py-8">
+      <div className="min-h-screen bg-[#08090E] text-[#F4F6FB] flex flex-col items-center justify-center px-4 py-8">
         <SignInView
           currentUser={null}
           userEmail={firebaseUser?.email}
@@ -982,6 +985,40 @@ export default function App() {
           }}
           onOpenAdminPanel={() => setActiveSection('admin')}
         />
+        {isLocalDev && (
+          <div className="mt-4">
+            <button
+              type="button"
+              id="dev-guest-login-btn"
+              onClick={() => {
+                setCurrentUser({
+                  uid: 'dev-player-test',
+                  platformId: 'AB-999999',
+                  username: 'tester',
+                  displayName: 'Test Player',
+                  bio: 'Testing games',
+                  country: 'Bangladesh',
+                  gender: 'Male',
+                  accountType: 'USER',
+                  avatarColor: '#F59E0B',
+                  coverGradient: 'linear-gradient(135deg, #701518 0%, #1e0505 100%)',
+                  followersCount: 12,
+                  followingCount: 5,
+                  visitorsCount: 42,
+                  isOnline: true,
+                  showPresence: true,
+                  lastActiveLabel: 'Active now',
+                });
+                setCoinBalance(2000);
+                setDiamondBalance(500);
+                setTradingCoinBalance(0);
+              }}
+              className="text-xs text-amber-400/80 hover:text-amber-300 underline underline-offset-4"
+            >
+              Continue as Local Test Player (Dev Mode)
+            </button>
+          </div>
+        )}
         <ToastContainer toasts={toasts} onDismiss={dismissToast} />
       </div>
     );
@@ -1141,9 +1178,9 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#08090E] text-[#F4F6FB] flex flex-col">
+    <div className="app-ambient min-h-screen bg-[#08090E] text-[#F4F6FB] flex flex-col">
       {isOffline && (
-        <div className="bg-amber-950/90 border-b border-amber-500/40 px-4 py-2.5 text-xs text-amber-100 flex items-center justify-between gap-3">
+        <div className="bg-gradient-to-r from-amber-950/95 via-amber-950/90 to-amber-900/80 backdrop-blur-md border-b border-amber-500/30 px-4 py-2.5 text-xs text-amber-100 flex items-center justify-between gap-3 shadow-[0_10px_30px_-24px_rgba(245,158,11,0.9)]">
           <span className="inline-flex items-center gap-2">
             <WifiOff className="w-4 h-4 text-amber-300 shrink-0" />
             <span>
@@ -1164,7 +1201,7 @@ export default function App() {
       )}
 
       {announcement && announcement.announcementId !== dismissedAnnouncementId && (
-        <div className="bg-violet-950/90 border-b border-violet-500/40 px-4 py-2.5 text-xs text-violet-100 flex items-center justify-between gap-3">
+        <div className="bg-gradient-to-r from-violet-950/95 via-violet-950/85 to-fuchsia-950/80 backdrop-blur-md border-b border-violet-500/30 px-4 py-2.5 text-xs text-violet-100 flex items-center justify-between gap-3 shadow-[0_10px_30px_-24px_rgba(139,92,246,0.9)]">
           <span className="inline-flex items-center gap-2 min-w-0">
             <Megaphone className="w-4 h-4 text-violet-300 shrink-0" />
             <span className="truncate">
@@ -1219,6 +1256,7 @@ export default function App() {
         />
 
         <main className="flex-1 min-w-0 px-4 sm:px-6 lg:px-8 pt-6 pb-24 lg:pb-10">
+          <div key={activeSection} className="page-enter">
           {activeSection === 'discover' && (
             <DiscoverView
               rooms={liveRooms}
@@ -1274,6 +1312,7 @@ export default function App() {
               onBack={() => setActiveSection('profile')}
               onOpenFruitManor={() => setActiveSection('fruit-manor')}
               onOpenGoldenFlower={() => setActiveSection('golden-flower')}
+              onOpenMahjongWays={() => setActiveSection('mahjong-ways')}
             />
           )}
 
@@ -1309,6 +1348,15 @@ export default function App() {
             <GfHistoryView
               uid={currentUser.uid}
               onBack={() => setActiveSection('golden-flower')}
+            />
+          )}
+
+          {activeSection === 'mahjong-ways' && (
+            <MahjongWaysView
+              currentUser={currentUser}
+              coinBalance={coinBalance}
+              isOffline={isOffline}
+              onBack={() => setActiveSection('games')}
             />
           )}
 
@@ -1562,6 +1610,7 @@ export default function App() {
               onOpenAdminPanel={() => setActiveSection('admin')}
             />
           )}
+          </div>
         </main>
 
         <RightRail

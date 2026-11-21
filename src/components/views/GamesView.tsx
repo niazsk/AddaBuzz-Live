@@ -10,6 +10,7 @@ interface GamesViewProps {
   onBack: () => void;
   onOpenFruitManor: () => void;
   onOpenGoldenFlower: () => void;
+  onOpenMahjongWays: () => void;
 }
 
 const SOON_GAMES: { name: string; tagline: string }[] = [
@@ -23,6 +24,7 @@ export const GamesView: React.FC<GamesViewProps> = ({
   onBack,
   onOpenFruitManor,
   onOpenGoldenFlower,
+  onOpenMahjongWays,
 }) => {
   return (
     <div className="space-y-5 pb-10">
@@ -128,6 +130,43 @@ export const GamesView: React.FC<GamesViewProps> = ({
             </div>
           </div>
           <ChevronRight className="mt-1 h-5 w-5 shrink-0 text-violet-200/70 transition-transform group-hover:translate-x-0.5" />
+        </div>
+      </button>
+
+      {/* Mahjong Ways — Asian Tile Cascades & Multipliers */}
+      <button
+        type="button"
+        onClick={onOpenMahjongWays}
+        className="group relative w-full overflow-hidden rounded-2xl border border-amber-400/40 bg-[linear-gradient(150deg,rgba(112,21,24,0.9),rgba(40,5,5,0.98))] p-4 text-left transition-all hover:border-amber-400/70 hover:shadow-[0_12px_40px_-12px_rgba(245,158,11,0.5)] active:scale-[0.995]"
+      >
+        <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-[radial-gradient(closest-side,rgba(251,191,36,0.3),transparent)] blur-xl" aria-hidden="true" />
+        <div className="relative flex items-start gap-3">
+          <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl border border-amber-300/40 bg-gradient-to-br from-amber-400/20 to-red-600/20 text-amber-300 font-serif text-2xl font-black">
+            發
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <h2 className="font-display text-lg font-extrabold text-[#F7F3E8]">Mahjong Ways</h2>
+              <span className="flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-amber-200">
+                <Sparkles className="h-2.5 w-2.5" /> 2,000 Ways
+              </span>
+              <span className="rounded-full border border-emerald-300/30 bg-emerald-400/10 px-1.5 py-0.5 text-[9px] font-bold text-emerald-200">
+                Up to ×10
+              </span>
+            </div>
+            <p className="mt-1 text-[11px] leading-relaxed text-amber-100/70">
+              Spin the authentic Chinese Mahjong reels. Cascading tiles, gold tile wild transformation, consecutive win multipliers & Free Spins bonus!
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <span className="flex items-center gap-1 rounded-full bg-white/[0.06] px-2 py-0.5 text-[9px] font-semibold text-slate-300">
+                <Sparkles className="h-3 w-3 text-amber-300" /> Gold Wilds & Cascades
+              </span>
+              <span className="flex items-center gap-1 rounded-full bg-white/[0.06] px-2 py-0.5 text-[9px] font-semibold text-slate-300">
+                <Coins className="h-3 w-3 text-amber-300" /> From 10 Coins
+              </span>
+            </div>
+          </div>
+          <ChevronRight className="mt-1 h-5 w-5 shrink-0 text-amber-200/70 transition-transform group-hover:translate-x-0.5" />
         </div>
       </button>
 

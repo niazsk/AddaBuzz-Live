@@ -52,23 +52,28 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
   isAdminUser = false,
 }) => {
   return (
-    <aside className="hidden lg:flex lg:flex-col lg:w-[248px] lg:shrink-0 lg:sticky lg:top-0 lg:h-screen border-r border-white/[0.07] bg-[#0A0C13] px-4 py-5 justify-between">
+    <aside className="hidden lg:flex lg:flex-col lg:w-[248px] lg:shrink-0 lg:sticky lg:top-0 lg:h-screen border-r border-white/[0.07] bg-gradient-to-b from-[#0B0E17] via-[#090B12] to-[#070810] px-4 py-5 justify-between">
       <div className="space-y-6">
-        <div className="px-2 pt-1">
+        <div className="px-2 pt-1 flex items-center justify-between">
           <BrandLogo />
+          <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/12 border border-rose-500/25 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-rose-200">
+            <span className="w-1.5 h-1.5 rounded-full bg-rose-400 live-dot" />
+            LIVE
+          </span>
         </div>
 
         <button
           type="button"
           onClick={onOpenGoLive}
           disabled={isOffline}
-          className="w-full h-11 rounded-xl bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-500 hover:to-blue-500 disabled:opacity-45 disabled:cursor-not-allowed text-white font-medium text-sm flex items-center justify-center gap-2 shadow-lg shadow-violet-950/50 transition-all active:scale-[0.98] whitespace-nowrap shrink-0"
+          className="shimmer relative overflow-hidden w-full h-11 rounded-xl bg-gradient-to-r from-violet-600 via-indigo-600 to-sky-500 hover:from-violet-500 hover:via-indigo-500 hover:to-sky-400 disabled:opacity-45 disabled:cursor-not-allowed text-white font-semibold text-sm flex items-center justify-center gap-2 shadow-[0_14px_30px_-16px_rgba(99,102,241,0.9)] ring-1 ring-white/15 transition-all active:scale-[0.98] whitespace-nowrap shrink-0"
         >
           <Radio className="w-4 h-4 shrink-0" aria-hidden="true" />
           <span>Go Live</span>
         </button>
 
         <nav className="space-y-1" aria-label="Primary navigation">
+          <p className="section-label px-3 pb-1.5">Menu</p>
           {NAV_ITEMS.filter(
             (item) => !((item.id === 'admin' || item.id === 'admin-panel') && !isAdminUser)
           ).map((item) => {
@@ -79,22 +84,25 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
                 key={item.id}
                 type="button"
                 onClick={() => onSelectSection(item.id)}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-colors whitespace-nowrap shrink-0 ${
+                className={`group relative w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 whitespace-nowrap shrink-0 ${
                   isActive
-                    ? 'bg-white/[0.08] text-white'
-                    : 'text-slate-400 hover:text-slate-100 hover:bg-white/[0.04]'
+                    ? 'bg-gradient-to-r from-sky-500/15 via-violet-500/10 to-transparent text-white shadow-[inset_0_0_0_1px_rgba(56,189,248,0.18)]'
+                    : 'text-slate-400 hover:text-slate-100 hover:bg-white/[0.045]'
                 }`}
               >
+                {isActive && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-full bg-gradient-to-b from-sky-400 to-violet-400" />
+                )}
                 <span className="flex items-center gap-3">
                   <Icon
-                    className={`w-[18px] h-[18px] shrink-0 ${
-                      isActive ? 'text-sky-400' : 'text-slate-400'
+                    className={`w-[18px] h-[18px] shrink-0 transition-colors ${
+                      isActive ? 'text-sky-300' : 'text-slate-400 group-hover:text-slate-200'
                     }`}
                   />
                   <span>{item.label}</span>
                 </span>
                 {item.id === 'messages' && unreadMessagesCount > 0 && (
-                  <span className="text-xs font-mono tabular-nums text-sky-400 font-semibold">
+                  <span className="text-xs font-mono tabular-nums text-sky-300 font-semibold bg-sky-500/10 border border-sky-400/20 rounded-full px-1.5 py-0.5">
                     {unreadMessagesCount}
                   </span>
                 )}
@@ -105,16 +113,16 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
             <button
               type="button"
               onClick={() => onSelectSection('signin')}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-colors whitespace-nowrap shrink-0 ${
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 whitespace-nowrap shrink-0 ${
                 activeSection === 'signin'
-                  ? 'bg-white/[0.08] text-white'
-                  : 'text-slate-400 hover:text-slate-100 hover:bg-white/[0.04]'
+                  ? 'bg-gradient-to-r from-sky-500/15 via-violet-500/10 to-transparent text-white shadow-[inset_0_0_0_1px_rgba(56,189,248,0.18)]'
+                  : 'text-slate-400 hover:text-slate-100 hover:bg-white/[0.045]'
               }`}
             >
               <span className="flex items-center gap-3">
                 <LogIn
                   className={`w-[18px] h-[18px] shrink-0 ${
-                    activeSection === 'signin' ? 'text-sky-400' : 'text-slate-400'
+                    activeSection === 'signin' ? 'text-sky-300' : 'text-slate-400'
                   }`}
                 />
                 <span>Sign In</span>
@@ -127,7 +135,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
       <div className="space-y-3 pt-4 border-t border-white/[0.07]">
         <PWAInstallButton />
         {currentUser ? (
-          <div className="flex items-center justify-between gap-2.5 px-2 py-2 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+          <div className="flex items-center justify-between gap-2.5 px-2 py-2 rounded-xl bg-gradient-to-r from-white/[0.05] to-white/[0.02] border border-white/[0.07] hover:border-white/15 transition-colors">
             <button
               type="button"
               onClick={() => onSelectSection('profile')}
@@ -161,7 +169,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
           <button
             type="button"
             onClick={onOpenAuth}
-            className="w-full h-11 rounded-xl bg-white/[0.07] hover:bg-white/[0.12] border border-white/[0.08] text-sm font-medium text-white inline-flex items-center justify-center gap-2 transition-colors"
+            className="w-full h-11 rounded-xl bg-gradient-to-r from-violet-600/25 to-sky-500/20 hover:from-violet-600/35 hover:to-sky-500/30 border border-white/10 text-sm font-medium text-white inline-flex items-center justify-center gap-2 transition-all shadow-[0_12px_28px_-20px_rgba(56,189,248,0.9)]"
           >
             <LogIn className="w-4 h-4 text-sky-400" />
             <span>Sign In / Register</span>

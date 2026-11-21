@@ -1,5 +1,5 @@
 import React from 'react';
-import { Eye, Radio, Users, Video, Mic } from 'lucide-react';
+import { Eye, Users, Video, Mic } from 'lucide-react';
 import { LiveRoom, UserProfile } from '../../types/app';
 import { MediaImage } from '../ui/MediaImage';
 import { Avatar } from '../ui/Avatar';
@@ -29,7 +29,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
   const ModeIcon = room.mode === 'MULTI_GUEST' ? Users : room.mode === 'AUDIO' ? Mic : Video;
 
   return (
-    <article className="group rounded-2xl bg-[#111420] border border-white/[0.08] hover:border-violet-500/40 overflow-hidden transition-all duration-200 flex flex-col">
+    <article className="card-hover group rounded-2xl bg-gradient-to-b from-[#131726] to-[#0F121C] border border-white/[0.08] overflow-hidden flex flex-col">
       <button
         type="button"
         onClick={() => onJoinRoom(room)}
@@ -43,11 +43,12 @@ export const RoomCard: React.FC<RoomCardProps> = ({
           className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-[#08090E] via-black/25 to-black/30" />
+        <div className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-t from-violet-950/30 via-transparent to-sky-500/10" />
 
         {/* Live Status & Viewer Count */}
         <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2">
-          <span className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600/95 px-2.5 py-1 text-[11px] font-semibold tracking-wide text-white shadow-sm">
-            <Radio className="w-3 h-3" aria-hidden="true" />
+          <span className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-rose-600/95 to-violet-600/95 px-2.5 py-1 text-[11px] font-semibold tracking-wide text-white shadow-[0_6px_18px_-8px_rgba(244,63,94,0.8)] ring-1 ring-white/15">
+            <span className="w-1.5 h-1.5 rounded-full bg-white live-dot" aria-hidden="true" />
             <span>LIVE</span>
           </span>
 

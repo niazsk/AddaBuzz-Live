@@ -363,25 +363,25 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           <div className="mt-5 grid grid-cols-4 divide-x divide-white/[0.07] rounded-2xl bg-white/[0.04] border border-white/[0.06] py-3 text-center">
             <div>
               <p className="font-mono text-lg font-bold text-white tabular-nums">
-                {currentUser.followersCount.toLocaleString()}
+                {(currentUser.followersCount ?? 0).toLocaleString()}
               </p>
               <p className="text-[11px] text-slate-400">Followers</p>
             </div>
             <div>
               <p className="font-mono text-lg font-bold text-white tabular-nums">
-                {followingUids.length.toLocaleString()}
+                {(followingUids?.length ?? 0).toLocaleString()}
               </p>
               <p className="text-[11px] text-slate-400">Following</p>
             </div>
             <div>
               <p className="font-mono text-lg font-bold text-white tabular-nums">
-                {friendsCount.toLocaleString()}
+                {(friendsCount ?? 0).toLocaleString()}
               </p>
               <p className="text-[11px] text-slate-400">Friends</p>
             </div>
             <div>
               <p className="font-mono text-lg font-bold text-white tabular-nums">
-                {currentUser.visitorsCount.toLocaleString()}
+                {(currentUser.visitorsCount ?? 0).toLocaleString()}
               </p>
               <p className="text-[11px] text-slate-400">Visitor</p>
             </div>
@@ -390,13 +390,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           <div className="mt-2.5 grid grid-cols-2 divide-x divide-white/[0.07] rounded-2xl bg-white/[0.04] border border-white/[0.06] py-3 text-center">
             <button type="button" onClick={() => onOpenSection('coins-convert')} className="hover:opacity-80 transition-opacity">
               <p className="font-mono text-base sm:text-lg font-bold text-amber-300 tabular-nums">
-                {coinBalance.toLocaleString()}
+                {(coinBalance ?? 0).toLocaleString()}
               </p>
               <p className="text-[11px] text-slate-400">Coins Balance</p>
             </button>
             <button type="button" onClick={() => onOpenSection('salary')} className="hover:opacity-80 transition-opacity">
               <p className="font-mono text-base sm:text-lg font-bold text-sky-300 tabular-nums">
-                {diamondBalance.toLocaleString()}
+                {(diamondBalance ?? 0).toLocaleString()}
               </p>
               <p className="text-[11px] text-slate-400">Diamonds Balance</p>
             </button>

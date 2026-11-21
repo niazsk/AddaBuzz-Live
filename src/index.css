@@ -12,16 +12,150 @@
     font-family: var(--font-sans);
     background-color: #08090e;
     color: #f4f6fb;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    min-height: 100dvh;
+    background-color: #08090e;
   }
 
   h1, h2, h3, h4, .font-display {
     font-family: var(--font-display);
     text-wrap: balance;
+    letter-spacing: -0.015em;
+  }
+
+  ::selection {
+    background: rgba(56, 189, 248, 0.28);
+    color: #fff;
+  }
+
+  :focus-visible {
+    outline: 2px solid rgba(56, 189, 248, 0.55);
+    outline-offset: 2px;
   }
 }
 
 .tabular-nums {
   font-variant-numeric: tabular-nums;
+}
+
+/* ============ App-wide visual shell ============ */
+/* Soft aurora glow + faint grid behind every page. */
+.app-ambient {
+  position: relative;
+  isolation: isolate;
+}
+
+.app-ambient::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background:
+    radial-gradient(950px 560px at 10% -10%, rgba(124, 58, 237, 0.22), transparent 62%),
+    radial-gradient(820px 520px at 92% -4%, rgba(14, 165, 233, 0.18), transparent 58%),
+    radial-gradient(760px 620px at 50% 118%, rgba(236, 72, 153, 0.1), transparent 62%);
+}
+
+.app-ambient::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.35;
+  background-image:
+    linear-gradient(rgba(148, 163, 184, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.055) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(circle at 50% 0%, #000 0%, transparent 72%);
+  -webkit-mask-image: radial-gradient(circle at 50% 0%, #000 0%, transparent 72%);
+}
+
+/* Page transition — every section mounts with a gentle rise. */
+@keyframes page-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.page-enter > * {
+  animation: page-rise 0.42s cubic-bezier(0.2, 0.9, 0.25, 1) both;
+}
+.page-enter > *:nth-child(2) { animation-delay: 0.045s; }
+.page-enter > *:nth-child(3) { animation-delay: 0.09s; }
+.page-enter > *:nth-child(4) { animation-delay: 0.135s; }
+.page-enter > *:nth-child(5) { animation-delay: 0.18s; }
+.page-enter > *:nth-child(6) { animation-delay: 0.225s; }
+
+/* Reusable card interaction. */
+.card-hover {
+  transition:
+    transform 0.25s cubic-bezier(0.2, 0.9, 0.25, 1),
+    border-color 0.25s ease,
+    box-shadow 0.25s ease,
+    background-color 0.25s ease;
+}
+.card-hover:hover {
+  transform: translateY(-3px);
+  border-color: rgba(148, 163, 184, 0.22);
+  box-shadow:
+    0 22px 44px -26px rgba(2, 6, 23, 0.9),
+    0 0 0 1px rgba(139, 92, 246, 0.16),
+    0 0 34px -14px rgba(56, 189, 248, 0.35);
+}
+
+/* Shared card surface gets a subtle top sheen on every page. */
+main [class*="bg-[#111420]"] {
+  background-image: linear-gradient(155deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0) 52%);
+}
+
+.text-gradient {
+  background: linear-gradient(100deg, #ffffff 0%, #c7d2fe 45%, #7dd3fc 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.section-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(148, 163, 184, 0.75);
+}
+
+@keyframes live-pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgba(248, 113, 113, 0.55); }
+  70% { box-shadow: 0 0 0 7px rgba(248, 113, 113, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(248, 113, 113, 0); }
+}
+.live-dot {
+  animation: live-pulse-ring 1.8s ease-out infinite;
+}
+
+@keyframes shimmer-sweep {
+  0% { transform: translateX(-140%); }
+  100% { transform: translateX(240%); }
+}
+.shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 20%, rgba(255, 255, 255, 0.18) 50%, transparent 80%);
+  transform: translateX(-140%);
+  pointer-events: none;
+}
+.shimmer:hover::after {
+  animation: shimmer-sweep 0.9s ease;
 }
 
 .gift-tabs {

@@ -31,7 +31,7 @@ export const RightRail: React.FC<RightRailProps> = ({
   const recentlyActive = users.filter((u) => !u.isOnline || u.isNewCreator).slice(0, 4);
 
   return (
-    <aside className="hidden xl:flex xl:flex-col xl:w-[300px] xl:shrink-0 xl:sticky xl:top-0 xl:h-screen border-l border-white/[0.07] bg-[#0A0C13] px-5 py-6 space-y-7 overflow-y-auto">
+    <aside className="hidden xl:flex xl:flex-col xl:w-[300px] xl:shrink-0 xl:sticky xl:top-0 xl:h-screen border-l border-white/[0.07] bg-gradient-to-b from-[#0B0E17] via-[#090B12] to-[#070810] px-5 py-6 space-y-7 overflow-y-auto">
       {/* Wallet Snapshot — Strictly Coins & Diamonds, NO top-up or purchase UI */}
       {!hideWallet && (
       <section aria-label="Wallet balances">
@@ -51,7 +51,7 @@ export const RightRail: React.FC<RightRailProps> = ({
           <button
             type="button"
             onClick={onOpenCoinsConvert || onOpenWallet}
-            className="text-left rounded-xl bg-[#111420] border border-white/[0.08] hover:border-white/15 p-3.5 transition-colors"
+            className="card-hover text-left rounded-xl bg-gradient-to-br from-[#131827] to-[#0E111B] border border-white/[0.08] p-3.5"
           >
             <div className="flex items-center gap-1.5 text-xs text-slate-400 mb-1">
               <Coins className="w-3.5 h-3.5 text-amber-400" aria-hidden="true" />
@@ -65,7 +65,7 @@ export const RightRail: React.FC<RightRailProps> = ({
           <button
             type="button"
             onClick={onOpenDiamondsWithdraw || onOpenWallet}
-            className="text-left rounded-xl bg-[#111420] border border-white/[0.08] hover:border-white/15 p-3.5 transition-colors"
+            className="card-hover text-left rounded-xl bg-gradient-to-br from-[#131827] to-[#0E111B] border border-white/[0.08] p-3.5"
           >
             <div className="flex items-center gap-1.5 text-xs text-slate-400 mb-1">
               <Gem className="w-3.5 h-3.5 text-sky-400" aria-hidden="true" />

@@ -9,7 +9,7 @@ import {
   Search,
 } from 'lucide-react';
 import { GiftCatalogItem } from '../../types/app';
-import { GIFT_CATALOG } from '../../data/gifts';
+import { GIFT_CATALOG, giftTier } from '../../data/gifts';
 
 interface StoreViewProps {
   coinBalance: number;
@@ -71,7 +71,8 @@ export const StoreView: React.FC<StoreViewProps> = ({
       </div>
 
       {/* Hero Banner */}
-      <div className="rounded-3xl bg-gradient-to-r from-amber-500/20 via-violet-600/15 to-fuchsia-600/20 border border-amber-500/25 p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-amber-500/20 via-violet-600/15 to-fuchsia-600/20 border border-amber-500/25 p-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-[0_30px_70px_-50px_rgba(245,158,11,0.85)]">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-300/60 to-transparent" />
         <div className="space-y-1 text-center sm:text-left">
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[11px] font-bold">
             <Sparkles className="w-3 h-3" />
@@ -97,7 +98,7 @@ export const StoreView: React.FC<StoreViewProps> = ({
               onClick={() => setSelectedCategory(cat)}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
                 selectedCategory === cat
-                  ? 'bg-amber-500 text-[#0B0D14] font-bold'
+                  ? 'bg-gradient-to-r from-amber-400 to-orange-400 text-[#0B0D14] font-bold shadow-[0_8px_18px_-10px_rgba(245,158,11,0.9)]'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
@@ -122,17 +123,29 @@ export const StoreView: React.FC<StoreViewProps> = ({
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
         {filteredGifts.map((gift) => {
           const isSelected = selectedGift?.giftId === gift.giftId;
+          const tier = giftTier(gift.price);
           return (
             <button
               key={gift.giftId}
               type="button"
               onClick={() => setSelectedGift(gift)}
-              className={`group relative rounded-2xl bg-[#111420] border transition-all text-left p-3.5 flex flex-col items-center gap-2.5 ${
+              className={`group relative rounded-2xl bg-gradient-to-b from-[#141827] to-[#0E111A] border transition-all duration-200 text-left p-3.5 flex flex-col items-center gap-2.5 hover:-translate-y-1 hover:shadow-[0_24px_44px_-30px_rgba(2,6,23,0.95)] ${
                 isSelected
                   ? 'border-amber-400 ring-2 ring-amber-400/30 shadow-lg shadow-amber-950/50'
-                  : 'border-white/[0.08] hover:border-white/20 hover:bg-white/[0.04]'
+                  : 'border-white/[0.08] hover:border-amber-400/35'
               }`}
             >
+              <span
+                className={`absolute top-2 left-2 px-1.5 py-0.5 rounded-md text-[9px] font-bold tracking-wider ${
+                  tier === 'luxury'
+                    ? 'bg-gradient-to-r from-amber-400 to-rose-400 text-[#1A1206]'
+                    : tier === 'premium'
+                    ? 'bg-sky-500/15 border border-sky-400/30 text-sky-300'
+                    : 'bg-white/[0.06] border border-white/10 text-slate-400'
+                }`}
+              >
+                {tier.toUpperCase()}
+              </span>
               {/* Gift Image */}
               <div className="w-16 h-16 rounded-xl bg-white/[0.04] p-1.5 flex items-center justify-center group-hover:scale-110 transition-transform">
                 <img
