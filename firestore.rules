@@ -281,11 +281,11 @@ service cloud.firestore {
     //   fm-w-<betId>  winning payout (max stake x highest multiplier = 1,900,000)
     //   fm-r-<key>    refund of a cancelled / voided / late stake (max 100,000)
     function isGameWinKey(key) {
-      return key is string && key.matches('^fm-w-.*$');
+      return key is string && (key.matches('^fm-w-.*$') || key.matches('^phx-w-.*$') || key.matches('^phx_win_.*$'));
     }
 
     function isGameRefundKey(key) {
-      return key is string && key.matches('^fm-r-.*$');
+      return key is string && (key.matches('^fm-r-.*$') || key.matches('^phx-r-.*$') || key.matches('^phx_refund_.*$'));
     }
 
     function isValidWalletTransaction(data, txId, uid) {

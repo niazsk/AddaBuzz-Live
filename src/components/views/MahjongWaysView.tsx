@@ -115,7 +115,7 @@ export const MahjongWaysView: React.FC<MahjongWaysViewProps> = ({
     setMultiplierIndex(0);
     mahjongAudio.playSpin();
 
-    const idempotencyKey = `phx_spin_${currentUser?.uid || 'guest'}_${Date.now()}`;
+    const idempotencyKey = `phx-s-${currentUser?.uid || 'guest'}-${Date.now()}`;
     const isDevMockUser = currentUser?.uid === 'dev-player-test';
 
     // Optimistically deduct bet so UI reflects it immediately
@@ -203,7 +203,8 @@ export const MahjongWaysView: React.FC<MahjongWaysViewProps> = ({
     }
 
     if (spinRes.totalWin > 0 && currentUser?.uid && !isOffline && !isDevMockUser) {
-      const creditKey = `phx_win_${idempotencyKey}`;
+      // Must match firestore.rules: isGameWinKey allows ^phx-w-.*$ and ^phx_win_.*$
+      const creditKey = `phx-w-${currentUser.uid}-${Date.now()}`;
       try {
         await gameCoinCredit(
           currentUser.uid,
@@ -248,63 +249,71 @@ export const MahjongWaysView: React.FC<MahjongWaysViewProps> = ({
   }, [isAutoSpin, isSpinning, errorMessage]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#100406] overflow-hidden select-none">
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#991b1b]/25 via-[#2b050a]/80 to-[#0c0204] pointer-events-none" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0d0305] overflow-hidden select-none">
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#b91c1c]/20 via-[#1f0307]/80 to-[#070102] pointer-events-none" />
 
       {/* Main compact portrait container matching 4-5-5-5-4 mobile layout */}
-      <div className="relative w-full max-w-[360px] h-full max-h-[760px] flex flex-col justify-between p-2 sm:p-2.5 overflow-hidden">
+      <div className="relative w-full max-w-[380px] h-full max-h-[820px] flex flex-col justify-between p-2 sm:p-3 overflow-hidden">
         
         {/* Top Header */}
         <div className="relative w-full flex flex-col items-center">
-          <div className="w-full flex items-center justify-between px-1.5 z-20">
+          <div className="w-full flex items-center justify-between px-2 z-20 py-1">
             <button
               type="button"
               onClick={onBack}
               aria-label="Back"
-              className="w-7 h-7 rounded-full bg-black/40 border border-amber-400/30 flex items-center justify-center text-amber-200 hover:text-white"
+              className="w-8 h-8 rounded-full bg-black/50 border border-amber-400/40 flex items-center justify-center text-amber-300 hover:text-white hover:scale-105 active:scale-95 transition-all shadow-md"
             >
-              <ArrowLeft className="w-3.5 h-3.5" />
+              <ArrowLeft className="w-4 h-4" />
             </button>
 
-            {/* "MAHJONG PHOENIX • 2,000 WAYS" */}
+            {/* "MAHJONG PHOENIX • 2,000 WAYS" Header Banner */}
             <div className="flex flex-col items-center">
-              <span className="font-serif font-black tracking-widest text-[10px] text-amber-200 flex items-center gap-1">
-                <Flame className="w-3 h-3 text-red-500 fill-current" />
-                <span>PHOENIX • 2,000 WAYS</span>
-              </span>
+              <div className="px-3 py-0.5 rounded-full bg-gradient-to-r from-red-950 via-amber-950 to-red-950 border border-amber-400/50 shadow-md">
+                <span className="font-serif font-black tracking-widest text-[11px] text-amber-200 flex items-center gap-1.5 drop-shadow-sm">
+                  <Flame className="w-3.5 h-3.5 text-amber-400 fill-current animate-pulse" />
+                  <span>MAHJONG PHOENIX</span>
+                  <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-500 text-black font-sans font-bold">2,000 WAYS</span>
+                </span>
+              </div>
               {isFreeSpins && (
-                <span className="text-[9px] font-black text-white bg-red-600 px-2 rounded-full mt-0.5 animate-pulse">
+                <span className="text-[10px] font-black text-white bg-gradient-to-r from-red-600 to-amber-600 px-3 py-0.5 rounded-full mt-1 animate-bounce shadow-lg border border-yellow-300">
                   FREE SPINS: {freeSpinsLeft}
                 </span>
               )}
             </div>
 
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1.5">
               <button
                 type="button"
                 onClick={handleToggleSound}
-                className="w-6 h-6 rounded-full bg-black/40 border border-amber-400/20 flex items-center justify-center text-amber-200"
+                className="w-8 h-8 rounded-full bg-black/50 border border-amber-400/30 flex items-center justify-center text-amber-300 hover:text-white transition-all shadow-md"
               >
-                {soundEnabled ? <Volume2 className="w-3 h-3" /> : <VolumeX className="w-3 h-3 text-slate-400" />}
+                {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4 text-slate-400" />}
               </button>
               <button
                 type="button"
                 onClick={() => setShowRules(true)}
-                className="w-6 h-6 rounded-full bg-black/40 border border-amber-400/20 flex items-center justify-center text-amber-200"
+                className="w-8 h-8 rounded-full bg-black/50 border border-amber-400/30 flex items-center justify-center text-amber-300 hover:text-white transition-all shadow-md"
               >
-                <HelpCircle className="w-3 h-3" />
+                <HelpCircle className="w-4 h-4" />
               </button>
             </div>
           </div>
 
           {/* Turquoise Multiplier Arch (x1 x2 x3 x5 / Free Spins: x2 x4 x6 x10) */}
-          <div className="w-full mt-0.5 px-1">
+          <div className="w-full mt-1 px-1">
             <div
-              className="relative w-full py-0.5 px-3 rounded-t-xl flex items-center justify-around border-t-2 border-x-2 border-amber-300"
+              className="relative w-full py-1.5 px-4 rounded-t-2xl flex items-center justify-around border-t-2 border-x-2 border-amber-400 shadow-md"
               style={{
-                background: 'linear-gradient(180deg, #14837a 0%, #0b534d 100%)',
+                background: 'linear-gradient(180deg, #0d736a 0%, #06403a 100%)',
               }}
             >
+              {/* Gold Temple Roof Wing Accent Left */}
+              <div className="absolute -left-1 top-0 w-2.5 h-2.5 bg-amber-400 rounded-tl-sm rotate-45 pointer-events-none" />
+              {/* Gold Temple Roof Wing Accent Right */}
+              <div className="absolute -right-1 top-0 w-2.5 h-2.5 bg-amber-400 rounded-tr-sm rotate-45 pointer-events-none" />
+
               {multipliers.map((m, idx) => {
                 const isActive = idx === multiplierIndex;
                 return (
@@ -312,8 +321,8 @@ export const MahjongWaysView: React.FC<MahjongWaysViewProps> = ({
                     key={idx}
                     className={`font-serif italic font-black transition-all ${
                       isActive
-                        ? 'text-yellow-300 text-base scale-120 drop-shadow-[0_0_6px_rgba(253,224,71,0.9)]'
-                        : 'text-emerald-200/75 text-xs opacity-75'
+                        ? 'text-yellow-300 text-lg sm:text-xl scale-125 drop-shadow-[0_0_8px_rgba(253,224,71,1)]'
+                        : 'text-emerald-200/60 text-xs sm:text-sm'
                     }`}
                   >
                     x{m}
@@ -325,17 +334,18 @@ export const MahjongWaysView: React.FC<MahjongWaysViewProps> = ({
         </div>
 
         {/* Authentic 4-5-5-5-4 Tile Grid Frame */}
-        <div className="relative w-full flex-1 flex flex-col justify-center px-1 py-1">
+        <div className="relative w-full flex-1 flex flex-col justify-center px-1">
           <div
-            className="relative w-full p-2 rounded-b-xl border-x-3 border-b-3 border-amber-400/90 shadow-md"
+            className="relative w-full p-2.5 rounded-b-2xl border-x-2 border-b-2 border-amber-400/90 shadow-2xl"
             style={{
-              background: 'linear-gradient(180deg, #500d14 0%, #280507 100%)',
+              background: 'linear-gradient(180deg, #430a10 0%, #200406 100%)',
+              boxShadow: 'inset 0 0 16px rgba(0,0,0,0.8), 0 8px 24px rgba(0,0,0,0.5)',
             }}
           >
             {/* 5 columns with [4, 5, 5, 5, 4] row layout */}
-            <div className="grid grid-cols-5 gap-1 items-center">
+            <div className="grid grid-cols-5 gap-1.5 items-center">
               {grid.map((col, colIdx) => (
-                <div key={colIdx} className="flex flex-col gap-1 justify-center">
+                <div key={colIdx} className="flex flex-col gap-1.5 justify-center">
                   {col.map((tile) => (
                     <MahjongTile key={tile.id} tile={tile} isSpinning={isSpinning} />
                   ))}
@@ -345,61 +355,63 @@ export const MahjongWaysView: React.FC<MahjongWaysViewProps> = ({
 
             {/* Clear Match Detail Indicator Banner */}
             {activeWinBanner && (
-              <div className="mt-1 px-2 py-0.5 rounded-lg bg-gradient-to-r from-amber-950 via-yellow-900 to-amber-950 border border-yellow-400/70 text-center shadow-lg animate-pulse">
-                <div className="text-[9.5px] font-black text-yellow-300 tracking-wide truncate flex items-center justify-center gap-1">
-                  <Sparkles className="w-2.5 h-2.5 text-yellow-300" />
+              <div className="mt-2 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-950 via-yellow-900 to-amber-950 border border-yellow-400 text-center shadow-xl animate-pulse">
+                <div className="text-[10px] sm:text-[11px] font-black text-yellow-300 tracking-wide flex items-center justify-center gap-1.5 flex-wrap">
+                  <Sparkles className="w-3.5 h-3.5 text-yellow-300 shrink-0" />
                   <span>{activeWinBanner.text}</span>
-                  <span className="text-white ml-1">➔ +{formatCoins(activeWinBanner.coins)} Coins</span>
+                  <span className="text-white bg-green-700/80 px-1.5 py-0.5 rounded font-mono font-bold ml-1">
+                    +{formatCoins(activeWinBanner.coins)} Coins
+                  </span>
                 </div>
               </div>
             )}
           </div>
         </div>
 
-        {/* Total Win Banner: Cyan & Blue pill matching actual Coins Won */}
-        <div className="w-full px-1.5 py-0.5">
+        {/* Total Win Banner: Cyan & Deep Blue pill */}
+        <div className="w-full px-1.5 py-1">
           <div
-            className="w-full py-1.5 px-3 rounded-lg border border-sky-300 flex items-center justify-between shadow-xs"
+            className="w-full py-1.5 px-3.5 rounded-xl border border-sky-300/80 flex items-center justify-between shadow-md"
             style={{
               background: 'linear-gradient(180deg, #0284c7 0%, #0369a1 100%)',
             }}
           >
             <div className="flex flex-col leading-none">
-              <span className="text-[8px] font-black italic tracking-wider text-sky-200">TOTAL</span>
-              <span className="text-[9px] font-black italic tracking-wider text-white">WIN</span>
+              <span className="text-[8px] font-black italic tracking-widest text-sky-200">TOTAL</span>
+              <span className="text-[10px] font-black italic tracking-widest text-white">WIN</span>
             </div>
-            <div className="font-mono text-lg font-black text-amber-300 tracking-wide">
-              {lastWin > 0 ? `+${formatCoins(lastWin)}` : '0'} Coins
+            <div className="font-mono text-xl font-black text-amber-300 tracking-wider drop-shadow-sm">
+              {lastWin > 0 ? `+${formatCoins(lastWin)}` : '0'} <span className="text-xs text-white/90">Coins</span>
             </div>
           </div>
         </div>
 
         {/* Dual Wallet & Bet Pill */}
         <div className="w-full px-1.5 py-0.5">
-          <div className="grid grid-cols-2 gap-1.5">
+          <div className="grid grid-cols-2 gap-2">
             <div
-              className="py-1.5 px-2.5 rounded-lg border border-amber-300/40 flex items-center justify-between"
+              className="py-1.5 px-3 rounded-xl border border-amber-300/30 flex items-center justify-between shadow-xs"
               style={{
-                background: 'linear-gradient(180deg, #991b1b 0%, #7f1d1d 100%)',
+                background: 'linear-gradient(180deg, #7f1d1d 0%, #5c1414 100%)',
               }}
             >
-              <div className="flex items-center gap-1">
-                <Coins className="w-3.5 h-3.5 text-amber-300" />
-                <span className="text-[9px] font-bold text-amber-200/80">COINS</span>
+              <div className="flex items-center gap-1.5">
+                <Coins className="w-4 h-4 text-amber-300" />
+                <span className="text-[10px] font-bold text-amber-200/90">COINS</span>
               </div>
-              <span className="font-mono text-xs font-black text-white">
+              <span className="font-mono text-xs sm:text-sm font-black text-white">
                 {formatCoins(coinBalance)}
               </span>
             </div>
 
             <div
-              className="py-1.5 px-2.5 rounded-lg border border-amber-300/40 flex items-center justify-between"
+              className="py-1.5 px-3 rounded-xl border border-amber-300/30 flex items-center justify-between shadow-xs"
               style={{
-                background: 'linear-gradient(180deg, #991b1b 0%, #7f1d1d 100%)',
+                background: 'linear-gradient(180deg, #7f1d1d 0%, #5c1414 100%)',
               }}
             >
-              <span className="text-[9px] font-bold text-amber-200">BET</span>
-              <span className="font-mono text-xs font-black text-amber-300">
+              <span className="text-[10px] font-bold text-amber-200">BET</span>
+              <span className="font-mono text-xs sm:text-sm font-black text-amber-300">
                 {formatCoins(bet)}
               </span>
             </div>
@@ -408,20 +420,21 @@ export const MahjongWaysView: React.FC<MahjongWaysViewProps> = ({
 
         {/* Compact Console Deck */}
         <div
-          className="w-full rounded-xl py-2 px-3 border-t border-amber-400/40 flex items-center justify-between shadow-inner"
+          className="w-full rounded-2xl py-2 px-3 border border-amber-400/40 flex items-center justify-between shadow-2xl mt-1"
           style={{
-            background: 'linear-gradient(180deg, #7f1d1d 0%, #450a0a 100%)',
+            background: 'linear-gradient(180deg, #601015 0%, #35080c 100%)',
           }}
         >
           {/* Turbo Toggle */}
           <button
             type="button"
             onClick={() => setIsTurbo(!isTurbo)}
-            className={`w-8 h-8 rounded-full flex items-center justify-center border transition-all ${
-              isTurbo ? 'bg-amber-400 border-white text-black' : 'bg-black/30 border-amber-400/30 text-amber-300'
+            className={`w-9 h-9 rounded-full flex items-center justify-center border transition-all shadow-md active:scale-95 ${
+              isTurbo ? 'bg-amber-400 border-white text-black font-black' : 'bg-black/40 border-amber-400/40 text-amber-300'
             }`}
+            title={isTurbo ? 'Turbo Mode: On' : 'Turbo Mode: Off'}
           >
-            <Zap className="w-3.5 h-3.5 fill-current" />
+            <Zap className="w-4 h-4 fill-current" />
           </button>
 
           {/* Minus Bet */}
@@ -429,26 +442,26 @@ export const MahjongWaysView: React.FC<MahjongWaysViewProps> = ({
             type="button"
             disabled={isSpinning || isFreeSpins}
             onClick={() => handleBetChange(-1)}
-            className="w-7 h-7 rounded-full bg-black/30 border border-amber-400/30 flex items-center justify-center text-amber-200 active:scale-95 disabled:opacity-40"
+            className="w-8 h-8 rounded-full bg-black/40 border border-amber-400/40 flex items-center justify-center text-amber-200 active:scale-95 disabled:opacity-30 shadow-md hover:bg-black/60 transition-all"
           >
-            <Minus className="w-3.5 h-3.5" />
+            <Minus className="w-4 h-4" />
           </button>
 
-          {/* Center Round Spin Button with Cyan Border */}
+          {/* Center Round Spin Button with Cyan/Sky Glowing Outer Ring */}
           <button
             type="button"
             disabled={isSpinning}
             onClick={() => handleSpin()}
             aria-label="Spin"
-            className="relative w-14 h-14 rounded-full flex items-center justify-center shadow-md active:scale-95 disabled:opacity-80"
+            className="relative w-15 h-15 sm:w-16 sm:h-16 rounded-full flex items-center justify-center shadow-[0_0_15px_rgba(56,189,248,0.5)] active:scale-95 disabled:opacity-85 transition-all group"
             style={{
-              background: 'radial-gradient(circle, #0284c7 0%, #0369a1 80%, #075985 100%)',
-              border: '2.5px solid #38bdf8',
+              background: 'radial-gradient(circle, #38bdf8 0%, #0284c7 60%, #0369a1 100%)',
+              border: '3px solid #7dd3fc',
             }}
           >
-            <div className="w-10 h-10 rounded-full bg-[#1e0708] border border-amber-400/40 flex items-center justify-center">
+            <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-gradient-to-b from-[#2a060a] to-[#120204] border-2 border-amber-400/70 flex items-center justify-center shadow-inner group-hover:scale-105 transition-transform">
               <RotateCw
-                className={`w-5 h-5 text-amber-500 drop-shadow-[0_0_6px_rgba(245,158,11,0.9)] ${
+                className={`w-6 h-6 text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.9)] ${
                   isSpinning ? 'animate-spin' : ''
                 }`}
               />
@@ -460,20 +473,21 @@ export const MahjongWaysView: React.FC<MahjongWaysViewProps> = ({
             type="button"
             disabled={isSpinning || isFreeSpins}
             onClick={() => handleBetChange(1)}
-            className="w-7 h-7 rounded-full bg-black/30 border border-amber-400/30 flex items-center justify-center text-amber-200 active:scale-95 disabled:opacity-40"
+            className="w-8 h-8 rounded-full bg-black/40 border border-amber-400/40 flex items-center justify-center text-amber-200 active:scale-95 disabled:opacity-30 shadow-md hover:bg-black/60 transition-all"
           >
-            <Plus className="w-3.5 h-3.5" />
+            <Plus className="w-4 h-4" />
           </button>
 
           {/* Auto Spin Toggle */}
           <button
             type="button"
             onClick={() => setIsAutoSpin(!isAutoSpin)}
-            className={`w-8 h-8 rounded-full flex items-center justify-center border transition-all ${
-              isAutoSpin ? 'bg-amber-400 border-white text-black' : 'bg-black/30 border-amber-400/30 text-amber-300'
+            className={`w-9 h-9 rounded-full flex items-center justify-center border transition-all shadow-md active:scale-95 ${
+              isAutoSpin ? 'bg-amber-400 border-white text-black font-black' : 'bg-black/40 border-amber-400/40 text-amber-300'
             }`}
+            title={isAutoSpin ? 'Auto Spin: On' : 'Auto Spin: Off'}
           >
-            <Play className={`w-3.5 h-3.5 fill-current ${isAutoSpin ? 'animate-pulse' : ''}`} />
+            <Play className={`w-4 h-4 fill-current ${isAutoSpin ? 'animate-pulse' : ''}`} />
           </button>
         </div>
 
