@@ -14,7 +14,6 @@ import {
   X,
   Award,
   Flame,
-  Sparkles,
 } from 'lucide-react';
 import { MAHJONG_CONFIG, formatCoins, TILE_SYMBOLS } from '../../games/mahjongWays/config';
 import {
@@ -60,11 +59,6 @@ export const MahjongWaysView: React.FC<MahjongWaysViewProps> = ({
   const [multiplierIndex, setMultiplierIndex] = useState(0);
   const [totalWin, setTotalWin] = useState(0);
   const [lastWin, setLastWin] = useState(0);
-  const [activeWinBanner, setActiveWinBanner] = useState<{
-    text: string;
-    ways: number;
-    coins: number;
-  } | null>(null);
   const [freeSpinsLeft, setFreeSpinsLeft] = useState(0);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -100,7 +94,6 @@ export const MahjongWaysView: React.FC<MahjongWaysViewProps> = ({
   const handleSpin = async () => {
     if (isSpinning) return;
     setErrorMessage(null);
-    setActiveWinBanner(null);
 
     const actualStake = isFreeSpins ? 0 : bet;
 
@@ -163,22 +156,6 @@ export const MahjongWaysView: React.FC<MahjongWaysViewProps> = ({
       setGrid(step.grid);
       mahjongAudio.playWin(i);
 
-      // 2. Prepare detailed readable banner describing what matched
-      if (step.winningLines && step.winningLines.length > 0) {
-        const lineNames = step.winningLines
-          .map((l) => {
-            const sym = TILE_SYMBOLS[l.symbolId];
-            return `${sym?.chineseChar || ''} ${sym?.name.split(' ')[0] || ''} (${l.count} Reels, ${l.ways} Ways)`;
-          })
-          .join(' + ');
-
-        setActiveWinBanner({
-          text: lineNames,
-          ways: step.winningLines.reduce((acc, l) => acc + l.ways, 0),
-          coins: step.stepWin,
-        });
-      }
-
       accumulatedWin += step.stepWin;
       setLastWin(accumulatedWin);
 
@@ -191,11 +168,6 @@ export const MahjongWaysView: React.FC<MahjongWaysViewProps> = ({
     setGrid(spinRes.finalGrid);
     setTotalWin((prev) => prev + spinRes.totalWin);
     setLastWin(spinRes.totalWin);
-
-    // Clear banner after small delay if win sequence ended
-    if (spinRes.totalWin === 0) {
-      setActiveWinBanner(null);
-    }
 
     // Add win coins to client balance immediately so user sees their balance increase!
     if (spinRes.totalWin > 0 && onUpdateCoinBalance) {
@@ -352,19 +324,6 @@ export const MahjongWaysView: React.FC<MahjongWaysViewProps> = ({
                 </div>
               ))}
             </div>
-
-            {/* Clear Match Detail Indicator Banner */}
-            {activeWinBanner && (
-              <div className="mt-2 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-950 via-yellow-900 to-amber-950 border border-yellow-400 text-center shadow-xl animate-pulse">
-                <div className="text-[10px] sm:text-[11px] font-black text-yellow-300 tracking-wide flex items-center justify-center gap-1.5 flex-wrap">
-                  <Sparkles className="w-3.5 h-3.5 text-yellow-300 shrink-0" />
-                  <span>{activeWinBanner.text}</span>
-                  <span className="text-white bg-green-700/80 px-1.5 py-0.5 rounded font-mono font-bold ml-1">
-                    +{formatCoins(activeWinBanner.coins)} Coins
-                  </span>
-                </div>
-              </div>
-            )}
           </div>
         </div>
 
