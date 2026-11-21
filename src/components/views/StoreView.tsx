@@ -32,8 +32,8 @@ export const StoreView: React.FC<StoreViewProps> = ({
     const matchesSearch = g.name.toLowerCase().includes(searchQuery.toLowerCase());
     if (!matchesSearch) return false;
 
-    if (selectedCategory === 'CLASSIC') return g.price < 500;
-    if (selectedCategory === 'PREMIUM') return g.price >= 500 && g.price < 300000;
+    if (selectedCategory === 'CLASSIC') return g.price < 50000;
+    if (selectedCategory === 'PREMIUM') return g.price >= 50000 && g.price < 300000;
     if (selectedCategory === 'LUXURY') return g.price >= 300000;
     return true;
   });
