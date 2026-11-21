@@ -4,6 +4,7 @@ import {
   doc,
   getDoc,
   getDocFromCache,
+  getDocs,
   limit,
   orderBy,
   query,
@@ -40,8 +41,11 @@ import {
 import { classifySyncError, listenWithRetry } from './sync';
 import {
   AccountPromotionRecord,
+  AdminAuditRecord,
+  AdminWalletSnapshot,
   AgencyCommissionStoryRecord,
   AgencyMemberRecord,
+  AnnouncementRecord,
   Conversation,
   DirectMessage,
   GenderOption,
@@ -2811,6 +2815,412 @@ export function subscribeAgencyCommissionStories(
     },
     (error) => handleFirestoreError(error, OperationType.LIST, 'agencyCommissions')
   );
+}
+
+// ==========================================
+// ADMIN PANEL: platform management
+// ==========================================
+
+function mapUserDoc(d: DocumentData): UserProfile {
+  return {
+    uid: String(d.uid),
+    platformId: String(d.platformId),
+    username: String(d.username),
+    displayName: String(d.displayName),
+    bio: String(d.bio ?? ''),
+    country: String(d.country ?? 'USA'),
+    gender: (d.gender as GenderOption) ?? 'Prefer not to say',
+    accountType: d.accountType,
+    avatarColor: String(d.avatarColor ?? '#6366F1'),
+    coverGradient: String(
+      d.coverGradient ?? 'linear-gradient(135deg, #2E1065 0%, #1E3A8A 100%)'
+    ),
+    avatarUrl: d.avatarUrl ? String(d.avatarUrl) : undefined,
+    coverUrl: d.coverUrl ? String(d.coverUrl) : undefined,
+    followersCount: Number(d.followersCount ?? 0),
+    followingCount: Number(d.followingCount ?? 0),
+    visitorsCount: Number(d.visitorsCount ?? 0),
+    isOnline: Boolean(d.isOnline ?? false),
+    showPresence: Boolean(d.showPresence ?? true),
+    lastActiveLabel: String(d.lastActiveLabel ?? 'Active'),
+    isNewCreator: Boolean(d.isNewCreator ?? false),
+    isSuspended: Boolean(d.isSuspended ?? false),
+  };
+}
+
+export function subscribeAllUsers(
+  onData: (users: UserProfile[]) => void,
+  onError?: (err: Error) => void
+): Unsubscribe {
+  return listenWithRetry(
+    query(collection(db, 'users'), limit(200)),
+    (snapshot) => onData(snapshot.docs.map((s) => mapUserDoc(s.data()))),
+    (error) => {
+      try {
+        handleFirestoreError(error, OperationType.LIST, 'users');
+      } catch (e) {
+        if (onError && e instanceof Error) onError(e);
+      }
+    }
+  );
+}
+
+export function subscribeAllWallets(
+  onData: (wallets: AdminWalletSnapshot[]) => void,
+  onError?: (err: Error) => void
+): Unsubscribe {
+  return listenWithRetry(
+    query(collection(db, 'wallets'), limit(200)),
+    (snapshot) =>
+      onData(
+        snapshot.docs.map((s) => {
+          const d = s.data();
+          return {
+            uid: String(d.uid ?? s.id),
+            coinBalance: Number(d.coinBalance ?? 0),
+            diamondBalance: Number(d.diamondBalance ?? 0),
+            tradingCoinBalance: Number(d.tradingCoinBalance ?? 0),
+          };
+        })
+      ),
+    (error) => {
+      try {
+        handleFirestoreError(error, OperationType.LIST, 'wallets');
+      } catch (e) {
+        if (onError && e instanceof Error) onError(e);
+      }
+    }
+  );
+}
+
+function auditDocId(): string {
+  return `audit_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function auditFields(
+  actor: UserProfile,
+  action: string,
+  targetId: string,
+  detail: string
+) {
+  return {
+    auditId: '',
+    actorUid: actor.uid,
+    actorUsername: clampStr(actor.username, 32),
+    action: clampStr(action, 48),
+    targetId: clampStr(targetId, 128),
+    detail: clampStr(detail, 240),
+    createdAt: serverTimestamp(),
+  };
+}
+
+function addAudit(
+  batch: ReturnType<typeof writeBatch>,
+  actor: UserProfile,
+  action: string,
+  targetId: string,
+  detail: string
+): void {
+  const auditId = auditDocId();
+  batch.set(doc(db, 'adminAudit', auditId), {
+    ...auditFields(actor, action, targetId, detail),
+    auditId,
+  });
+}
+
+async function commitInChunks(
+  ops: ((batch: ReturnType<typeof writeBatch>) => void)[]
+): Promise<void> {
+  for (let i = 0; i < ops.length; i += 450) {
+    const batch = writeBatch(db);
+    ops.slice(i, i + 450).forEach((op) => op(batch));
+    await batch.commit();
+  }
+}
+
+export async function adminSetSuspended(
+  actor: UserProfile,
+  target: UserProfile,
+  suspended: boolean
+): Promise<void> {
+  const batch = writeBatch(db);
+  batch.update(doc(db, 'users', target.uid), {
+    isSuspended: suspended,
+    updatedAt: serverTimestamp(),
+  });
+  addAudit(
+    batch,
+    actor,
+    suspended ? 'SUSPEND_USER' : 'UNSUSPEND_USER',
+    target.uid,
+    `@${target.username} (${target.platformId})`
+  );
+  try {
+    await batch.commit();
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, `users/${target.uid}`);
+  }
+}
+
+export async function adminDemoteToUser(
+  actor: UserProfile,
+  target: UserProfile
+): Promise<void> {
+  const batch = writeBatch(db);
+  batch.update(doc(db, 'users', target.uid), {
+    accountType: 'USER',
+    updatedAt: serverTimestamp(),
+  });
+  addAudit(
+    batch,
+    actor,
+    'DEMOTE_TO_USER',
+    target.uid,
+    `@${target.username} ${target.accountType} → USER`
+  );
+  try {
+    await batch.commit();
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, `users/${target.uid}`);
+  }
+}
+
+export async function adminAdjustWallet(
+  actor: UserProfile,
+  targetUid: string,
+  currency: 'COIN' | 'DIAMOND',
+  direction: 'CREDIT' | 'DEBIT',
+  amount: number,
+  reason: string
+): Promise<void> {
+  const value = Math.floor(amount);
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new Error('Enter a valid amount.');
+  }
+  const field = currency === 'COIN' ? 'coinBalance' : 'diamondBalance';
+  const txId = `tx_admin_${Date.now()}_${targetUid.slice(0, 8)}`;
+  const batch = writeBatch(db);
+  batch.update(doc(db, 'wallets', targetUid), {
+    [field]: increment(direction === 'CREDIT' ? value : -value),
+    updatedAt: serverTimestamp(),
+  });
+  batch.set(doc(db, 'wallets', targetUid, 'transactions', txId), {
+    transactionId: txId,
+    uid: targetUid,
+    currency,
+    direction,
+    amount: value,
+    reason: clampStr(reason || `Admin ${direction.toLowerCase()}`, 160),
+    counterparty: clampStr(`Admin @${actor.username}`, 64),
+    idempotencyKey: clampStr(`admin_adjust_${targetUid}_${Date.now()}`, 128),
+    createdAt: serverTimestamp(),
+  });
+  addAudit(
+    batch,
+    actor,
+    direction === 'CREDIT' ? 'GRANT_BALANCE' : 'DEDUCT_BALANCE',
+    targetUid,
+    `${direction} ${value.toLocaleString()} ${currency} — ${reason}`
+  );
+  try {
+    await batch.commit();
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, `wallets/${targetUid}`);
+  }
+}
+
+export async function adminDeleteUserCascade(
+  actor: UserProfile,
+  target: UserProfile
+): Promise<void> {
+  try {
+    const [txSnap, followsAsFollower, followsAsTarget, blocksAsBlocker, blocksAsBlocked] =
+      await Promise.all([
+        getDocs(collection(db, 'wallets', target.uid, 'transactions')),
+        getDocs(query(collection(db, 'follows'), where('followerUid', '==', target.uid))),
+        getDocs(query(collection(db, 'follows'), where('targetUid', '==', target.uid))),
+        getDocs(query(collection(db, 'blocks'), where('blockerUid', '==', target.uid))),
+        getDocs(query(collection(db, 'blocks'), where('blockedUid', '==', target.uid))),
+      ]);
+
+    const ops: ((batch: ReturnType<typeof writeBatch>) => void)[] = [];
+    const deleteRefs = [
+      ...txSnap.docs.map((s) => s.ref),
+      ...followsAsFollower.docs.map((s) => s.ref),
+      ...followsAsTarget.docs.map((s) => s.ref),
+      ...blocksAsBlocker.docs.map((s) => s.ref),
+      ...blocksAsBlocked.docs.map((s) => s.ref),
+      doc(db, 'wallets', target.uid),
+      doc(db, 'userPrivate', target.uid),
+      doc(db, 'usernames', target.username),
+      doc(db, 'users', target.uid),
+    ];
+    deleteRefs.forEach((ref) => ops.push((batch) => batch.delete(ref)));
+    ops.push((batch) =>
+      addAudit(batch, actor, 'DELETE_USER', target.uid, `@${target.username} (${target.platformId}) + wallet, follows, blocks`)
+    );
+    await commitInChunks(ops);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, `users/${target.uid}`);
+  }
+}
+
+export async function adminForceEndRoom(
+  actor: UserProfile,
+  roomId: string
+): Promise<void> {
+  const batch = writeBatch(db);
+  batch.update(doc(db, 'liveRooms', roomId), {
+    status: 'ENDED',
+    updatedAt: serverTimestamp(),
+  });
+  addAudit(batch, actor, 'FORCE_END_ROOM', roomId, 'Admin ended the live room');
+  try {
+    await batch.commit();
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, `liveRooms/${roomId}`);
+  }
+}
+
+export async function adminDeleteRoom(
+  actor: UserProfile,
+  roomId: string
+): Promise<void> {
+  try {
+    const subcollections = ['seats', 'joinRequests', 'messages', 'rtc', 'guestRtc'];
+    const snaps = await Promise.all(
+      subcollections.map((sub) => getDocs(collection(db, 'liveRooms', roomId, sub)))
+    );
+    const ops: ((batch: ReturnType<typeof writeBatch>) => void)[] = [];
+    snaps.forEach((snap) =>
+      snap.docs.forEach((s) => ops.push((batch) => batch.delete(s.ref)))
+    );
+    ops.push((batch) => batch.delete(doc(db, 'liveRooms', roomId)));
+    ops.push((batch) => addAudit(batch, actor, 'DELETE_ROOM', roomId, 'Room + seats/messages/signaling deleted'));
+    await commitInChunks(ops);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, `liveRooms/${roomId}`);
+  }
+}
+
+export async function adminDeleteReport(
+  actor: UserProfile,
+  reportId: string
+): Promise<void> {
+  const batch = writeBatch(db);
+  batch.delete(doc(db, 'reports', reportId));
+  addAudit(batch, actor, 'DELETE_REPORT', reportId, 'Report removed from queue');
+  try {
+    await batch.commit();
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, `reports/${reportId}`);
+  }
+}
+
+export function subscribeAdminAudit(
+  onData: (records: AdminAuditRecord[]) => void,
+  onError?: (err: Error) => void
+): Unsubscribe {
+  return listenWithRetry(
+    query(collection(db, 'adminAudit'), orderBy('createdAt', 'desc'), limit(60)),
+    (snap) =>
+      onData(
+        snap.docs.map((s) => {
+          const d = s.data();
+          return {
+            auditId: String(d.auditId ?? s.id),
+            actorUid: String(d.actorUid ?? ''),
+            actorUsername: String(d.actorUsername ?? ''),
+            action: String(d.action ?? ''),
+            targetId: String(d.targetId ?? ''),
+            detail: String(d.detail ?? ''),
+            timestampLabel: formatTimestamp(d.createdAt),
+          };
+        })
+      ),
+    (error) => {
+      try {
+        handleFirestoreError(error, OperationType.LIST, 'adminAudit');
+      } catch (e) {
+        if (onError && e instanceof Error) onError(e);
+      }
+    }
+  );
+}
+
+function mapAnnouncement(id: string, d: DocumentData): AnnouncementRecord {
+  return {
+    announcementId: String(d.announcementId ?? id),
+    title: String(d.title ?? ''),
+    message: String(d.message ?? ''),
+    status: d.status === 'ENDED' ? 'ENDED' : 'ACTIVE',
+    createdByUsername: String(d.createdByUsername ?? ''),
+    timestampLabel: formatTimestamp(d.createdAt),
+  };
+}
+
+export function subscribeActiveAnnouncement(
+  onData: (announcement: AnnouncementRecord | null) => void
+): Unsubscribe {
+  return listenWithRetry(
+    query(collection(db, 'announcements'), where('status', '==', 'ACTIVE'), limit(1)),
+    (snap) =>
+      onData(snap.empty ? null : mapAnnouncement(snap.docs[0].id, snap.docs[0].data())),
+    () => onData(null)
+  );
+}
+
+export async function publishAnnouncement(
+  actor: UserProfile,
+  title: string,
+  message: string
+): Promise<void> {
+  const cleanTitle = title.trim();
+  const cleanMessage = message.trim();
+  if (!cleanTitle || !cleanMessage) {
+    throw new Error('Title and message are required.');
+  }
+  try {
+    const active = await getDocs(
+      query(collection(db, 'announcements'), where('status', '==', 'ACTIVE'))
+    );
+    const announcementId = `ann_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    const batch = writeBatch(db);
+    active.docs.forEach((s) =>
+      batch.update(s.ref, { status: 'ENDED', updatedAt: serverTimestamp() })
+    );
+    batch.set(doc(db, 'announcements', announcementId), {
+      announcementId,
+      title: clampStr(cleanTitle, 80),
+      message: clampStr(cleanMessage, 300),
+      status: 'ACTIVE',
+      createdByUid: actor.uid,
+      createdByUsername: clampStr(actor.username, 32),
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    addAudit(batch, actor, 'PUBLISH_ANNOUNCEMENT', announcementId, cleanTitle);
+    await batch.commit();
+  } catch (error) {
+    handleFirestoreError(error, OperationType.CREATE, 'announcements');
+  }
+}
+
+export async function endAnnouncement(
+  actor: UserProfile,
+  announcementId: string
+): Promise<void> {
+  const batch = writeBatch(db);
+  batch.update(doc(db, 'announcements', announcementId), {
+    status: 'ENDED',
+    updatedAt: serverTimestamp(),
+  });
+  addAudit(batch, actor, 'END_ANNOUNCEMENT', announcementId, 'Announcement ended');
+  try {
+    await batch.commit();
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, `announcements/${announcementId}`);
+  }
 }
 
 

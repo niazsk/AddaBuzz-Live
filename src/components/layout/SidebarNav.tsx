@@ -9,6 +9,7 @@ import {
   LogIn,
   LogOut,
   Gamepad2,
+  LayoutDashboard,
 } from 'lucide-react';
 import { AppSection, UserProfile } from '../../types/app';
 import { BrandLogo } from '../ui/BrandLogo';
@@ -34,6 +35,7 @@ const NAV_ITEMS: { id: AppSection; label: string; icon: React.ComponentType<{ cl
   { id: 'messages', label: 'Messages', icon: MessageSquare },
   { id: 'games', label: 'Games', icon: Gamepad2 },
   { id: 'profile', label: 'Profile', icon: User },
+  { id: 'admin-panel', label: 'Admin Panel', icon: LayoutDashboard },
   { id: 'admin', label: 'Roles & Safety', icon: ShieldCheck },
 ];
 
@@ -67,7 +69,9 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
         </button>
 
         <nav className="space-y-1" aria-label="Primary navigation">
-          {NAV_ITEMS.filter((item) => !(item.id === 'admin' && !isAdminUser)).map((item) => {
+          {NAV_ITEMS.filter(
+            (item) => !((item.id === 'admin' || item.id === 'admin-panel') && !isAdminUser)
+          ).map((item) => {
             const Icon = item.icon;
             const isActive = activeSection === item.id;
             return (

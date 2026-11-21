@@ -351,7 +351,7 @@ service cloud.firestore {
 
     match /users/{uid} {
       allow get: if isValidId(uid);
-      allow list: if resource.data.isSuspended == false;
+      allow list: if resource.data.isSuspended == false || isAdmin();
       allow delete: if isAdmin();
       allow create: if isVerifiedUser() &&
         isValidId(uid) &&
@@ -436,7 +436,7 @@ service cloud.firestore {
     // Follows
     match /follows/{followId} {
       allow get: if isValidId(followId) && isSignedIn();
-      allow list: if isSignedIn() && (resource.data.followerUid == request.auth.uid || resource.data.targetUid == request.auth.uid);
+      allow list: if isSignedIn() && (resource.data.followerUid == request.auth.uid || resource.data.targetUid == request.auth.uid || isAdmin());
       allow create: if isVerifiedUser() &&
         isValidId(followId) &&
         incoming().keys().hasAll(['followerUid', 'targetUid', 'createdAt']) &&
@@ -451,7 +451,7 @@ service cloud.firestore {
     // Blocks
     match /blocks/{blockId} {
       allow get: if isValidId(blockId) && isSignedIn() && existing().blockerUid == request.auth.uid;
-      allow list: if isSignedIn() && resource.data.blockerUid == request.auth.uid;
+      allow list: if isSignedIn() && (resource.data.blockerUid == request.auth.uid || isAdmin());
       allow create: if isVerifiedUser() &&
         isValidId(blockId) &&
         incoming().keys().hasAll(['blockerUid', 'blockedUid', 'createdAt']) &&
@@ -483,7 +483,7 @@ service cloud.firestore {
         incoming().hostUid == existing().hostUid &&
         incoming().createdAt == existing().createdAt &&
         incoming().updatedAt == request.time &&
-        (incoming().status == existing().status || existing().hostUid == request.auth.uid) &&
+        (incoming().status == existing().status || existing().hostUid == request.auth.uid || isAdmin()) &&
         (existing().status != 'ENDED' || isAdmin()) && (
           isAdmin() ||
           (
@@ -896,6 +896,8 @@ service cloud.firestore {
         isSuperAgent() ||
         (isAgent() && isUserWallet(uid))
       );
+      allow list: if isAdmin();
+      allow delete: if isAdmin();
       allow create: if isVerifiedUser() &&
         isOwner(uid) &&
         isValidWallet(incoming(), uid) &&
@@ -957,6 +959,7 @@ service cloud.firestore {
       match /transactions/{transactionId} {
         allow get: if isValidId(uid) && isValidId(transactionId) && (isOwner(uid) || isAdmin());
         allow list: if isOwner(uid) || isAdmin();
+        allow delete: if isAdmin();
         allow create: if isVerifiedUser() &&
           isValidId(uid) &&
           isValidId(transactionId) &&
@@ -1017,8 +1020,8 @@ service cloud.firestore {
 
     // Super Agent Promotion Audit Trail (Super Agent only — separate from Admin)
     match /accountPromotions/{promotionId} {
-      allow get: if isValidId(promotionId) && isSuperAgent();
-      allow list: if isSuperAgent();
+      allow get: if isValidId(promotionId) && (isSuperAgent() || isAdmin());
+      allow list: if isSuperAgent() || isAdmin();
       allow create: if isVerifiedUser() &&
         isValidId(promotionId) &&
         isSuperAgent() &&
@@ -1046,6 +1049,53 @@ service cloud.firestore {
         incoming().createdAt == existing().createdAt &&
         incoming().updatedAt == request.time &&
         incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']);
+    }
+
+    // Admin action audit trail (immutable, admin-only)
+    match /adminAudit/{auditId} {
+      allow get: if isValidId(auditId) && isAdmin();
+      allow list: if isAdmin();
+      allow create: if isAdmin() &&
+        isValidId(auditId) &&
+        incoming().keys().hasAll(['auditId', 'actorUid', 'actorUsername', 'action', 'targetId', 'detail', 'createdAt']) &&
+        incoming().keys().hasOnly(['auditId', 'actorUid', 'actorUsername', 'action', 'targetId', 'detail', 'createdAt']) &&
+        incoming().auditId == auditId &&
+        incoming().actorUid == request.auth.uid &&
+        incoming().actorUsername is string && incoming().actorUsername.size() >= 1 && incoming().actorUsername.size() <= 32 &&
+        incoming().action is string && incoming().action.size() >= 1 && incoming().action.size() <= 48 &&
+        incoming().targetId is string && incoming().targetId.size() <= 128 &&
+        incoming().detail is string && incoming().detail.size() <= 240 &&
+        incoming().createdAt == request.time;
+      allow update, delete: if false;
+    }
+
+    // Platform announcements (admin-published, public read)
+    match /announcements/{announcementId} {
+      allow get, list: if true;
+      allow delete: if isAdmin();
+      allow create: if isAdmin() &&
+        isValidId(announcementId) &&
+        incoming().keys().hasAll(['announcementId', 'title', 'message', 'status', 'createdByUid', 'createdByUsername', 'createdAt', 'updatedAt']) &&
+        incoming().keys().hasOnly(['announcementId', 'title', 'message', 'status', 'createdByUid', 'createdByUsername', 'createdAt', 'updatedAt']) &&
+        incoming().announcementId == announcementId &&
+        incoming().title is string && incoming().title.size() >= 1 && incoming().title.size() <= 80 &&
+        incoming().message is string && incoming().message.size() >= 1 && incoming().message.size() <= 300 &&
+        incoming().status == 'ACTIVE' &&
+        incoming().createdByUid == request.auth.uid &&
+        incoming().createdByUsername is string && incoming().createdByUsername.size() >= 1 && incoming().createdByUsername.size() <= 32 &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isAdmin() &&
+        isValidId(announcementId) &&
+        incoming().announcementId == existing().announcementId &&
+        incoming().createdByUid == existing().createdByUid &&
+        incoming().createdByUsername == existing().createdByUsername &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().title is string && incoming().title.size() >= 1 && incoming().title.size() <= 80 &&
+        incoming().message is string && incoming().message.size() >= 1 && incoming().message.size() <= 300 &&
+        incoming().status in ['ACTIVE', 'ENDED'] &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['title', 'message', 'status', 'updatedAt']);
     }
   }
 }

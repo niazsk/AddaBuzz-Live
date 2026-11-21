@@ -13,6 +13,7 @@ import {
   Gift,
   Heart,
   Layers,
+  LayoutDashboard,
   LogIn,
   LogOut,
   MapPin,
@@ -453,6 +454,28 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               .map(renderTile)}
           </div>
         </section>
+      )}
+
+      {/* Admin panel shortcut — admin accounts only */}
+      {isAdminUser && (
+        <button
+          type="button"
+          onClick={() => onOpenSection('admin-panel')}
+          className="w-full rounded-2xl bg-gradient-to-r from-violet-600/25 to-[#111420] border border-violet-500/35 hover:border-violet-400/60 p-4 flex items-center justify-between gap-3 transition-colors"
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="w-10 h-10 rounded-xl bg-violet-500/25 flex items-center justify-center shrink-0">
+              <LayoutDashboard className="w-5 h-5 text-violet-300" />
+            </span>
+            <div className="text-left min-w-0">
+              <p className="text-sm font-semibold text-white">Admin Panel</p>
+              <p className="text-xs text-slate-400 truncate">
+                Users, live rooms, reports, wallets, games & broadcast
+              </p>
+            </div>
+          </div>
+          <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
+        </button>
       )}
 
       {/* Roles & safety shortcut — admin accounts only */}

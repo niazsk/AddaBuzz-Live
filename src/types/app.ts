@@ -46,6 +46,7 @@ export type AppSection =
   | 'withdraw'
   | 'profile'
   | 'admin'
+  | 'admin-panel'
   | 'signin';
 
 export interface UserProfile {
@@ -209,6 +210,32 @@ export interface ReportRecord {
   reporterUsername: string;
   status: 'OPEN' | 'REVIEWED' | 'RESOLVED';
   timestampLabel: string;
+}
+
+export interface AdminAuditRecord {
+  auditId: string;
+  actorUid: string;
+  actorUsername: string;
+  action: string;
+  targetId: string;
+  detail: string;
+  timestampLabel: string;
+}
+
+export interface AnnouncementRecord {
+  announcementId: string;
+  title: string;
+  message: string;
+  status: 'ACTIVE' | 'ENDED';
+  createdByUsername: string;
+  timestampLabel: string;
+}
+
+export interface AdminWalletSnapshot {
+  uid: string;
+  coinBalance: number;
+  diamondBalance: number;
+  tradingCoinBalance: number;
 }
 
 export interface ToastMessage {

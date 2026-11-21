@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { WifiOff, RefreshCw, Loader2 } from 'lucide-react';
+import { WifiOff, RefreshCw, Loader2, Megaphone, X } from 'lucide-react';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import {
   AccountPromotionRecord,
+  AnnouncementRecord,
   AppSection,
   Conversation,
   DirectMessage,
@@ -48,6 +49,7 @@ import {
   signInWithGooglePopup,
   signOutFirebase,
   submitReportDoc,
+  subscribeActiveAnnouncement,
   subscribeConversationMessages,
   subscribeConversationsList,
   subscribeFollowsAndBlocks,
@@ -84,6 +86,7 @@ import { GoldenFlowerView } from './components/views/GoldenFlowerView';
 import { GfHistoryView } from './components/views/GfHistoryView';
 import { ProfileView } from './components/views/ProfileView';
 import { AdminRolesView } from './components/views/AdminRolesView';
+import { AdminPanelView } from './components/views/AdminPanelView';
 import { AgentPromoteView } from './components/views/AgentPromoteView';
 import { RankView } from './components/views/RankView';
 import { AgentRankingView } from './components/views/AgentRankingView';
@@ -144,6 +147,8 @@ export default function App() {
   const [promotions, setPromotions] = useState<AccountPromotionRecord[]>([]);
   const [reports, setReports] = useState<ReportRecord[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [announcement, setAnnouncement] = useState<AnnouncementRecord | null>(null);
+  const [dismissedAnnouncementId, setDismissedAnnouncementId] = useState<string | null>(null);
 
   // Modals & Drawers
   const [goLiveOpen, setGoLiveOpen] = useState(false);
@@ -354,13 +359,14 @@ export default function App() {
     return subscribeWalletTransactions(currentUser.uid, setTransactions);
   }, [currentUser?.uid, activeSection]);
 
-  // Admin-only directories stay detached until Roles & Safety is opened.
+  // Admin-only directories stay detached until Roles & Safety / Admin Panel is opened.
   useEffect(() => {
-    if (!currentUser || activeSection !== 'admin') return;
+    if (!currentUser || (activeSection !== 'admin' && activeSection !== 'admin-panel')) return;
     const isSuperAgentUser = currentUser.accountType === 'SUPER_AGENT';
-    const unsubPromos = isSuperAgentUser
-      ? subscribePromotions((recs) => setPromotions(recs))
-      : () => {};
+    const unsubPromos =
+      isSuperAgentUser || isAdminUser
+        ? subscribePromotions((recs) => setPromotions(recs))
+        : () => {};
     const unsubReports = subscribeReports(
       currentUser.uid,
       isSuperAgentUser || isAdminUser,
@@ -371,6 +377,11 @@ export default function App() {
       unsubReports();
     };
   }, [currentUser?.uid, currentUser?.accountType, activeSection, isAdminUser]);
+
+  // Platform-wide announcement banner (admin-published)
+  useEffect(() => {
+    return subscribeActiveAnnouncement(setAnnouncement);
+  }, []);
 
   useEffect(() => {
     const target = inspectedUser;
@@ -394,11 +405,11 @@ export default function App() {
   const handleSelectSection = (section: AppSection) => {
     if (section === 'wallet') {
       handleToggleWallet();
-    } else if (section === 'admin') {
-      // Roles & Safety is an admin-only area.
+    } else if (section === 'admin' || section === 'admin-panel') {
+      // Roles & Safety and the Admin Panel are admin-only areas.
       if (!isAdminUser) return;
-      if (activeSection !== 'admin') adminReturnRef.current = activeSection;
-      setActiveSection('admin');
+      if (activeSection !== section) adminReturnRef.current = activeSection;
+      setActiveSection(section);
     } else {
       setActiveSection(section);
     }
@@ -1152,6 +1163,27 @@ export default function App() {
         </div>
       )}
 
+      {announcement && announcement.announcementId !== dismissedAnnouncementId && (
+        <div className="bg-violet-950/90 border-b border-violet-500/40 px-4 py-2.5 text-xs text-violet-100 flex items-center justify-between gap-3">
+          <span className="inline-flex items-center gap-2 min-w-0">
+            <Megaphone className="w-4 h-4 text-violet-300 shrink-0" />
+            <span className="truncate">
+              <strong className="font-semibold">{announcement.title}</strong>
+              {' — '}
+              {announcement.message}
+            </span>
+          </span>
+          <button
+            type="button"
+            onClick={() => setDismissedAnnouncementId(announcement.announcementId)}
+            aria-label="Dismiss announcement"
+            className="p-1 rounded-lg hover:bg-white/10 text-violet-200 shrink-0"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       <MobileTopBar
         activeSection={activeSection}
         onSelectSection={setActiveSection}
@@ -1469,6 +1501,23 @@ export default function App() {
                 pushToast('Report marked resolved', undefined, 'success');
               }}
               onOpenAuth={() => setActiveSection('signin')}
+              onClose={handleCloseAdmin}
+              isOffline={isOffline}
+            />
+          )}
+
+          {activeSection === 'admin-panel' && isAdminUser && (
+            <AdminPanelView
+              currentUser={currentUser}
+              rooms={rooms}
+              reports={reports}
+              promotions={promotions}
+              onOpenUserProfile={(u) => setInspectedUser(u)}
+              onWatchRoom={(roomId) => setActiveRoomId(roomId)}
+              onResolveReport={async (reportId) => {
+                await resolveReportDoc(reportId);
+              }}
+              onToast={pushToast}
               onClose={handleCloseAdmin}
               isOffline={isOffline}
             />
