@@ -37,14 +37,14 @@ export const GIFT_CATALOG: GiftCatalogItem[] = [
   { giftId: 'love_drop', name: 'Love Drop', currency: 'COIN', price: 1800, accentHex: '#DA6187', imageUrl: '/gifts/love_drop.png', effect: 'hearts' },
   { giftId: 'mystery_firework', name: 'Mystery Firework', currency: 'COIN', price: 1999, accentHex: '#E25B92', imageUrl: '/gifts/mystery_firework.png', effect: 'fireworks' },
   { giftId: 'royal_crown', name: 'Royal Crown', currency: 'COIN', price: 1999, accentHex: '#D27932', imageUrl: '/gifts/royal_crown.png', effect: 'stars' },
-  { giftId: 'neon_drift', name: 'Neon Drift', currency: 'COIN', price: 2999, accentHex: '#2680F3', imageUrl: '/gifts/neon_drift.png', effect: 'streaks' },
-  { giftId: 'diamond_ring', name: 'Diamond Ring', currency: 'COIN', price: 3500, accentHex: '#9CBACC', imageUrl: '/gifts/diamond_ring.png', effect: 'diamonds' },
-  { giftId: 'phoenix_rise', name: 'Phoenix Rise', currency: 'COIN', price: 4500, accentHex: '#FC6F01', imageUrl: '/gifts/phoenix_rise.png', effect: 'embers' },
-  { giftId: 'galaxy_castle', name: 'Galaxy Castle', currency: 'COIN', price: 5200, accentHex: '#4567F0', imageUrl: '/gifts/galaxy_castle.png', effect: 'aurora' },
-  { giftId: 'golden_lion', name: 'Golden Lion', currency: 'COIN', price: 6999, accentHex: '#F99A05', imageUrl: '/gifts/golden_lion.png', effect: 'stars' },
-  { giftId: 'luxury_yacht', name: 'Luxury Yacht', currency: 'COIN', price: 7777, accentHex: '#13C5C2', imageUrl: '/gifts/luxury_yacht.png', effect: 'glow' },
-  { giftId: 'private_jet', name: 'Private Jet', currency: 'COIN', price: 8888, accentHex: '#D5902D', imageUrl: '/gifts/private_jet.png', effect: 'streaks' },
-  { giftId: 'aurora_dragon', name: 'Aurora Dragon', currency: 'COIN', price: 9999, accentHex: '#30B7E9', imageUrl: '/gifts/aurora_dragon.png', effect: 'aurora' },
+  { giftId: 'neon_drift', name: 'Neon Drift', currency: 'COIN', price: 300000, accentHex: '#2680F3', imageUrl: '/gifts/neon_drift.png', effect: 'streaks' },
+  { giftId: 'diamond_ring', name: 'Diamond Ring', currency: 'COIN', price: 350000, accentHex: '#9CBACC', imageUrl: '/gifts/diamond_ring.png', effect: 'diamonds' },
+  { giftId: 'phoenix_rise', name: 'Phoenix Rise', currency: 'COIN', price: 450000, accentHex: '#FC6F01', imageUrl: '/gifts/phoenix_rise.png', effect: 'embers' },
+  { giftId: 'galaxy_castle', name: 'Galaxy Castle', currency: 'COIN', price: 520000, accentHex: '#4567F0', imageUrl: '/gifts/galaxy_castle.png', effect: 'aurora' },
+  { giftId: 'golden_lion', name: 'Golden Lion', currency: 'COIN', price: 700000, accentHex: '#F99A05', imageUrl: '/gifts/golden_lion.png', effect: 'stars' },
+  { giftId: 'luxury_yacht', name: 'Luxury Yacht', currency: 'COIN', price: 780000, accentHex: '#13C5C2', imageUrl: '/gifts/luxury_yacht.png', effect: 'glow' },
+  { giftId: 'private_jet', name: 'Private Jet', currency: 'COIN', price: 890000, accentHex: '#D5902D', imageUrl: '/gifts/private_jet.png', effect: 'streaks' },
+  { giftId: 'aurora_dragon', name: 'Aurora Dragon', currency: 'COIN', price: 1000000, accentHex: '#30B7E9', imageUrl: '/gifts/aurora_dragon.png', effect: 'aurora' },
 ];
 
 export const GIFT_BY_ID = new Map(GIFT_CATALOG.map((g) => [g.giftId, g]));
@@ -52,7 +52,7 @@ export const GIFT_BY_ID = new Map(GIFT_CATALOG.map((g) => [g.giftId, g]));
 export type GiftTier = 'classic' | 'premium' | 'luxury';
 
 export function giftTier(price: number): GiftTier {
-  if (price >= 2000) return 'luxury';
+  if (price >= 300000) return 'luxury';
   if (price >= 500) return 'premium';
   return 'classic';
 }
