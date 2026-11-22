@@ -145,7 +145,7 @@ export const CoinsTradingView: React.FC<CoinsTradingViewProps> = ({
       const result = await exchangeTradingCoinsToMainBalance(currentUser.uid, value);
       onToast?.(
         'Coins Exchanged Successfully!',
-        `${result.creditedMain.toLocaleString()} coins added to Main Balance (8% fee on ${result.debitedTrading.toLocaleString()}).`,
+        `${result.creditedMain.toLocaleString()} coins added to Main Balance.`,
         'success'
       );
       setExchangeAmount('');
@@ -353,7 +353,7 @@ export const CoinsTradingView: React.FC<CoinsTradingViewProps> = ({
               <span>Exchange Coins to Main Balance</span>
             </h2>
             <p className="text-xs text-slate-400">
-              Transfer coins from your Coins Trading Balance into your Main Balance for gifting, games, and in-app activities. An 8% exchange fee applies.
+              Transfer coins from your Coins Trading Balance into your Main Balance for gifting, games, and in-app activities. Exchange is 1:1 with no fee.
             </p>
           </div>
 
@@ -397,19 +397,14 @@ export const CoinsTradingView: React.FC<CoinsTradingViewProps> = ({
             </div>
 
             {Math.floor(Number(exchangeAmount) || 0) > 0 && (
-              <div className="p-3 rounded-xl bg-amber-500/[0.07] border border-amber-500/20 text-xs space-y-1">
-                <div className="flex items-center justify-between text-slate-400">
-                  <span>Exchange fee (8%)</span>
-                  <span className="font-mono">
-                    −{(Math.floor(Number(exchangeAmount)) - Math.floor(Math.floor(Number(exchangeAmount)) * 0.92)).toLocaleString()}
-                  </span>
-                </div>
+              <div className="p-3 rounded-xl bg-emerald-500/[0.07] border border-emerald-500/20 text-xs space-y-1">
                 <div className="flex items-center justify-between font-semibold text-white">
                   <span>You receive in Main Balance</span>
-                  <span className="font-mono text-amber-400">
-                    {Math.floor(Math.floor(Number(exchangeAmount)) * 0.92).toLocaleString()} coins
+                  <span className="font-mono text-emerald-400">
+                    {Math.floor(Number(exchangeAmount)).toLocaleString()} coins
                   </span>
                 </div>
+                <p className="text-[11px] text-emerald-300/80">No exchange fee — full amount is credited.</p>
               </div>
             )}
 

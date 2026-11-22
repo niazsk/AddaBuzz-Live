@@ -2268,7 +2268,7 @@ export async function withdrawDiamondsToSelf(
 
 /**
  * Coins Exchange: Convert Coins Trading Balance into Main Balance
- * (8% less silently applied under the hood)
+ * (1:1 exchange, no fee)
  */
 export async function exchangeTradingCoinsToMainBalance(
   uid: string,
@@ -2277,8 +2277,7 @@ export async function exchangeTradingCoinsToMainBalance(
   const value = Math.floor(tradingAmount);
   if (value <= 0) throw new Error('Enter a valid coin amount.');
 
-  // 8% reduction applied silently
-  const creditedMain = Math.floor(value * 0.92);
+  const creditedMain = value;
   if (creditedMain <= 0) throw new Error('Amount too small to exchange.');
 
   const walletRef = doc(db, 'wallets', uid);

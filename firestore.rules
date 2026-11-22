@@ -1021,15 +1021,14 @@ service cloud.firestore {
             incoming().tradingCoinBalance < existing().tradingCoinBalance
           ) ||
           (
-            // Coins Exchange: own Trading Balance -> own Main Balance.
-            // Main credit may never exceed 92% of the trading debit (8% fee).
+            // Coins Exchange: own Trading Balance -> own Main Balance (1:1, no fee).
             isOwner(uid) &&
             (isBdAgent() || isSuperAgent() || isAgent()) &&
             incoming().diff(existing()).affectedKeys().hasOnly(['tradingCoinBalance', 'coinBalance', 'updatedAt']) &&
             incoming().tradingCoinBalance < existing().tradingCoinBalance &&
             incoming().coinBalance > existing().coinBalance &&
-            (incoming().coinBalance - existing().coinBalance) * 100 <=
-              (existing().tradingCoinBalance - incoming().tradingCoinBalance) * 92
+            (incoming().coinBalance - existing().coinBalance) <=
+              (existing().tradingCoinBalance - incoming().tradingCoinBalance)
           ) ||
           (
             // Self Diamonds Withdraw: own Diamonds -> own Trading Balance.
