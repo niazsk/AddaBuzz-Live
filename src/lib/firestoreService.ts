@@ -54,12 +54,29 @@ import {
   JoinRequest,
   LiveRoom,
   ReportRecord,
+  RewardProfile,
+  HostRewardProfile,
   RoomCategory,
   RoomComment,
   RoomMode,
   UserProfile,
   WalletTransaction,
 } from '../types/app';
+import {
+  CHECK_IN_REWARDS,
+  REWARD_TASKS,
+  rewardDayKey,
+  RewardTaskId,
+} from '../rewards/config';
+import {
+  HOST_NEWBIE_REWARD,
+  HOST_NEWBIE_SECONDS,
+  HOST_TASKS,
+  HOST_VALID_DAYS_GOAL,
+  HOST_VALID_DAYS_REWARD,
+  HOST_VALID_DAY_SECONDS,
+  HostTaskId,
+} from '../rewards/hostConfig';
 
 export const ADMIN_BOOTSTRAP_EMAIL = 'niazskapp@gmail.com';
 export const ADMIN_BOOTSTRAP_EMAILS = [
@@ -1255,6 +1272,7 @@ export async function gameCoinDebit(
         createdAt: serverTimestamp(),
       });
     });
+    void bumpRewardProgress(uid, 'gamesPlayed', 1);
     return txId;
   } catch (error) {
     if (error instanceof Error && error.message.startsWith('Insufficient')) throw error;
@@ -2087,6 +2105,7 @@ export async function withdrawDiamondsToAgent(
 ): Promise<{ diamondsDebited: number; recipientTradingCoins: number }> {
   const diamonds = Math.floor(diamondAmount);
   if (diamonds <= 0) throw new Error('Enter a valid diamonds amount.');
+  if (diamonds < 100000) throw new Error('Minimum withdrawal is 100,000 Diamonds.');
   if (sender.uid === targetAgent.uid) throw new Error('Cannot withdraw diamonds to yourself.');
 
   const isAgentOrSuper =
@@ -2163,6 +2182,86 @@ export async function withdrawDiamondsToAgent(
   } catch (error) {
     if (error instanceof Error && error.message.startsWith('Insufficient')) throw error;
     if (error instanceof Error && error.message.startsWith('Diamonds can only')) throw error;
+    if (error instanceof Error && error.message.startsWith('Minimum withdrawal')) throw error;
+    handleFirestoreError(error, OperationType.WRITE, `wallets/${sender.uid}`);
+  }
+}
+
+/**
+ * Self Diamonds Withdraw for Super Agents / Agents:
+ * own Diamonds -> own Coins Trading Balance (10% fee).
+ */
+export async function withdrawDiamondsToSelf(
+  sender: UserProfile,
+  diamondAmount: number
+): Promise<{ diamondsDebited: number; tradingCoinsCredited: number }> {
+  const diamonds = Math.floor(diamondAmount);
+  if (diamonds <= 0) throw new Error('Enter a valid diamonds amount.');
+  if (diamonds < 100000) throw new Error('Minimum withdrawal is 100,000 Diamonds.');
+
+  const isAgency =
+    sender.accountType === 'AGENT' ||
+    sender.accountType === 'SUPER_AGENT' ||
+    isBdAgentProfile(sender);
+  if (!isAgency) {
+    throw new Error('Only Super Agents and Agents can withdraw diamonds to their own ID.');
+  }
+
+  const tradingCoinsCredited = Math.floor(diamonds * 0.9);
+  if (tradingCoinsCredited <= 0) throw new Error('Amount too small to withdraw.');
+
+  const walletRef = doc(db, 'wallets', sender.uid);
+  const stamp = Date.now();
+  const rand = Math.random().toString(36).slice(2, 6);
+  const txDebitId = `tx_wself_d_${stamp}_${rand}`;
+  const txCreditId = `tx_wself_c_${stamp}_${rand}`;
+
+  try {
+    await runTransaction(db, async (tx) => {
+      const snap = await tx.get(walletRef);
+      if (!snap.exists()) throw new Error('Wallet not initialized.');
+
+      const curDiamonds = Number(snap.data().diamondBalance ?? 0);
+      if (curDiamonds < diamonds) {
+        throw new Error(`Insufficient diamonds (need ${diamonds.toLocaleString()}).`);
+      }
+      const curTrading = Number(snap.data().tradingCoinBalance ?? 0);
+
+      tx.update(walletRef, {
+        diamondBalance: curDiamonds - diamonds,
+        tradingCoinBalance: curTrading + tradingCoinsCredited,
+        updatedAt: serverTimestamp(),
+      });
+
+      tx.set(doc(db, 'wallets', sender.uid, 'transactions', txDebitId), {
+        transactionId: txDebitId,
+        uid: sender.uid,
+        currency: 'DIAMOND',
+        direction: 'DEBIT',
+        amount: diamonds,
+        reason: 'Diamonds Withdraw to own Trading Balance',
+        idempotencyKey: txDebitId,
+        createdAt: serverTimestamp(),
+      });
+
+      tx.set(doc(db, 'wallets', sender.uid, 'transactions', txCreditId), {
+        transactionId: txCreditId,
+        uid: sender.uid,
+        currency: 'COIN',
+        direction: 'CREDIT',
+        amount: tradingCoinsCredited,
+        reason: 'Diamonds Withdraw: Trading Balance credit (10% fee)',
+        idempotencyKey: txCreditId,
+        createdAt: serverTimestamp(),
+      });
+    });
+
+    return { diamondsDebited: diamonds, tradingCoinsCredited };
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith('Insufficient')) throw error;
+    if (error instanceof Error && error.message.startsWith('Only Super Agents')) throw error;
+    if (error instanceof Error && error.message.startsWith('Amount too small')) throw error;
+    if (error instanceof Error && error.message.startsWith('Minimum withdrawal')) throw error;
     handleFirestoreError(error, OperationType.WRITE, `wallets/${sender.uid}`);
   }
 }
@@ -3220,6 +3319,391 @@ export async function endAnnouncement(
     await batch.commit();
   } catch (error) {
     handleFirestoreError(error, OperationType.UPDATE, `announcements/${announcementId}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// REWARD CENTER: daily check-in + daily tasks (Poppo-style), real coin credits
+// ---------------------------------------------------------------------------
+
+function defaultRewardProfile(uid: string): RewardProfile {
+  return {
+    uid,
+    day: rewardDayKey(),
+    checkInDate: '',
+    streak: 0,
+    watchSeconds: 0,
+    giftsSent: 0,
+    followsMade: 0,
+    gamesPlayed: 0,
+    claimed: [],
+  };
+}
+
+function mapRewardProfile(d: DocumentSnapshot): RewardProfile {
+  const data = d.data() ?? {};
+  return {
+    uid: d.id,
+    day: String(data.day ?? ''),
+    checkInDate: String(data.checkInDate ?? ''),
+    streak: Number(data.streak ?? 0),
+    watchSeconds: Number(data.watchSeconds ?? 0),
+    giftsSent: Number(data.giftsSent ?? 0),
+    followsMade: Number(data.followsMade ?? 0),
+    gamesPlayed: Number(data.gamesPlayed ?? 0),
+    claimed: Array.isArray(data.claimed) ? data.claimed.map(String) : [],
+  };
+}
+
+export async function ensureRewardProfile(uid: string): Promise<void> {
+  const ref = doc(db, 'rewardProfiles', uid);
+  try {
+    await runTransaction(db, async (tx) => {
+      const snap = await tx.get(ref);
+      if (snap.exists()) return;
+      tx.set(ref, { ...defaultRewardProfile(uid), updatedAt: serverTimestamp() });
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, `rewardProfiles/${uid}`);
+  }
+}
+
+export function subscribeRewardProfile(
+  uid: string,
+  onData: (profile: RewardProfile | null) => void
+): Unsubscribe {
+  return listenWithRetry(
+    doc(db, 'rewardProfiles', uid),
+    (snap) => onData(snap.exists() ? mapRewardProfile(snap) : null),
+    () => onData(null)
+  );
+}
+
+// Best-effort progress tracking; never surfaces errors to the user.
+export async function bumpRewardProgress(
+  uid: string,
+  field: 'watchSeconds' | 'giftsSent' | 'followsMade' | 'gamesPlayed',
+  amount: number
+): Promise<void> {
+  if (amount <= 0) return;
+  const ref = doc(db, 'rewardProfiles', uid);
+  const today = rewardDayKey();
+  try {
+    await runTransaction(db, async (tx) => {
+      const snap = await tx.get(ref);
+      const base = snap.exists() ? snap.data() : defaultRewardProfile(uid);
+      const sameDay = base.day === today;
+      const current = sameDay ? Number(base[field] ?? 0) : 0;
+      const patch: DocumentData = {
+        uid,
+        day: today,
+        checkInDate: String(base.checkInDate ?? ''),
+        streak: Number(base.streak ?? 0),
+        watchSeconds: sameDay ? Number(base.watchSeconds ?? 0) : 0,
+        giftsSent: sameDay ? Number(base.giftsSent ?? 0) : 0,
+        followsMade: sameDay ? Number(base.followsMade ?? 0) : 0,
+        gamesPlayed: sameDay ? Number(base.gamesPlayed ?? 0) : 0,
+        claimed: sameDay && Array.isArray(base.claimed) ? base.claimed : [],
+        [field]: current + amount,
+        updatedAt: serverTimestamp(),
+      };
+      tx.set(ref, patch);
+    });
+  } catch {
+    // Progress tracking is best-effort; ignore failures silently.
+  }
+}
+
+export async function claimReward(
+  uid: string,
+  kind: 'checkin' | RewardTaskId
+): Promise<{ amount: number; streak: number }> {
+  const today = rewardDayKey();
+  const key = `reward_${kind}_${today}`;
+  await ensureRewardProfile(uid);
+
+  const rpRef = doc(db, 'rewardProfiles', uid);
+  const walletRef = doc(db, 'wallets', uid);
+  let awarded = 0;
+  let streakOut = 0;
+
+  try {
+    await runTransaction(db, async (tx) => {
+      const [rpSnap, wSnap] = await Promise.all([tx.get(rpRef), tx.get(walletRef)]);
+      if (!rpSnap.exists()) throw new Error('Reward profile not ready.');
+      if (!wSnap.exists()) throw new Error('Wallet not initialized.');
+
+      const rp = rpSnap.data();
+      const sameDay = rp.day === today;
+      const claimed: string[] =
+        sameDay && Array.isArray(rp.claimed) ? rp.claimed.map(String) : [];
+      if (claimed.includes(key)) throw new Error('Already claimed today.');
+
+      const patch: DocumentData = {
+        day: today,
+        claimed: [...claimed, key],
+        updatedAt: serverTimestamp(),
+      };
+      if (!sameDay) {
+        patch.watchSeconds = 0;
+        patch.giftsSent = 0;
+        patch.followsMade = 0;
+        patch.gamesPlayed = 0;
+      }
+
+      let amount = 0;
+      let reason = '';
+      if (kind === 'checkin') {
+        const yesterday = rewardDayKey(new Date(Date.now() - 86400000));
+        const prevStreak = Number(rp.streak ?? 0);
+        const streak =
+          rp.checkInDate === yesterday ? (prevStreak >= 7 ? 1 : prevStreak + 1) : 1;
+        amount = CHECK_IN_REWARDS[streak - 1];
+        reason = `Daily Check-In Reward (Day ${streak})`;
+        patch.checkInDate = today;
+        patch.streak = streak;
+        streakOut = streak;
+      } else {
+        const task = REWARD_TASKS.find((t) => t.id === kind);
+        if (!task) throw new Error('Unknown reward task.');
+        const progress = sameDay ? Number(rp[task.field] ?? 0) : 0;
+        if (progress < task.goal) throw new Error('Task not completed yet.');
+        amount = task.reward;
+        reason = `Daily Task Reward: ${task.title}`;
+        streakOut = Number(rp.streak ?? 0);
+      }
+
+      const coins = Number(wSnap.data().coinBalance ?? 0);
+      tx.update(walletRef, {
+        coinBalance: coins + amount,
+        updatedAt: serverTimestamp(),
+      });
+      tx.update(rpRef, patch);
+
+      const txId = `tx_rw_${kind}_${uid.slice(0, 8)}_${today}`;
+      tx.set(doc(db, 'wallets', uid, 'transactions', txId), {
+        transactionId: txId,
+        uid,
+        currency: 'COIN',
+        direction: 'CREDIT',
+        amount,
+        reason,
+        counterparty: 'AddaBuzz Platform',
+        idempotencyKey: key,
+        createdAt: serverTimestamp(),
+      });
+
+      awarded = amount;
+    });
+
+    return { amount: awarded, streak: streakOut };
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith('Already claimed')) throw error;
+    if (error instanceof Error && error.message.startsWith('Task not completed')) throw error;
+    if (error instanceof Error && error.message.startsWith('Reward profile')) throw error;
+    if (error instanceof Error && error.message.startsWith('Wallet not')) throw error;
+    handleFirestoreError(error, OperationType.WRITE, `rewardProfiles/${uid}`);
+    return { amount: 0, streak: 0 };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// HOST REWARDS: Poppo-style female host rewards, paid in Diamonds
+// ---------------------------------------------------------------------------
+
+function defaultHostRewardProfile(uid: string): HostRewardProfile {
+  return {
+    uid,
+    day: rewardDayKey(),
+    liveSeconds: 0,
+    giftsReceived: 0,
+    newFollowers: 0,
+    firstLiveDone: false,
+    validDays: 0,
+    claimed: [],
+  };
+}
+
+function mapHostRewardProfile(d: DocumentSnapshot): HostRewardProfile {
+  const data = d.data() ?? {};
+  return {
+    uid: d.id,
+    day: String(data.day ?? ''),
+    liveSeconds: Number(data.liveSeconds ?? 0),
+    giftsReceived: Number(data.giftsReceived ?? 0),
+    newFollowers: Number(data.newFollowers ?? 0),
+    firstLiveDone: Boolean(data.firstLiveDone ?? false),
+    validDays: Number(data.validDays ?? 0),
+    claimed: Array.isArray(data.claimed) ? data.claimed.map(String) : [],
+  };
+}
+
+export async function ensureHostRewardProfile(uid: string): Promise<void> {
+  const ref = doc(db, 'hostRewardProfiles', uid);
+  try {
+    await runTransaction(db, async (tx) => {
+      const snap = await tx.get(ref);
+      if (snap.exists()) return;
+      tx.set(ref, { ...defaultHostRewardProfile(uid), updatedAt: serverTimestamp() });
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, `hostRewardProfiles/${uid}`);
+  }
+}
+
+export function subscribeHostRewardProfile(
+  uid: string,
+  onData: (profile: HostRewardProfile | null) => void
+): Unsubscribe {
+  return listenWithRetry(
+    doc(db, 'hostRewardProfiles', uid),
+    (snap) => onData(snap.exists() ? mapHostRewardProfile(snap) : null),
+    () => onData(null)
+  );
+}
+
+// Best-effort progress tracking; never surfaces errors to the user.
+export async function bumpHostRewardProgress(
+  uid: string,
+  field: 'liveSeconds' | 'giftsReceived' | 'newFollowers',
+  amount: number
+): Promise<void> {
+  if (amount <= 0) return;
+  const ref = doc(db, 'hostRewardProfiles', uid);
+  const today = rewardDayKey();
+  try {
+    await runTransaction(db, async (tx) => {
+      const snap = await tx.get(ref);
+      const base = snap.exists() ? snap.data() : defaultHostRewardProfile(uid);
+      const sameDay = base.day === today;
+      const carriedValidDays =
+        Number(base.validDays ?? 0) +
+        (!sameDay && Number(base.liveSeconds ?? 0) >= HOST_VALID_DAY_SECONDS ? 1 : 0);
+      const current = sameDay ? Number(base[field] ?? 0) : 0;
+      tx.set(ref, {
+        uid,
+        day: today,
+        liveSeconds: sameDay ? Number(base.liveSeconds ?? 0) : 0,
+        giftsReceived: sameDay ? Number(base.giftsReceived ?? 0) : 0,
+        newFollowers: sameDay ? Number(base.newFollowers ?? 0) : 0,
+        firstLiveDone: Boolean(base.firstLiveDone ?? false),
+        validDays: carriedValidDays,
+        claimed: sameDay && Array.isArray(base.claimed) ? base.claimed : [],
+        [field]: current + amount,
+        updatedAt: serverTimestamp(),
+      });
+    });
+  } catch {
+    // Progress tracking is best-effort; ignore failures silently.
+  }
+}
+
+export async function claimHostReward(
+  uid: string,
+  kind: 'newbie' | 'valid' | HostTaskId
+): Promise<{ amount: number }> {
+  const today = rewardDayKey();
+  const key = kind === 'newbie' ? 'host_newbie' : `host_${kind}_${today}`;
+  await ensureHostRewardProfile(uid);
+
+  const hpRef = doc(db, 'hostRewardProfiles', uid);
+  const walletRef = doc(db, 'wallets', uid);
+  let awarded = 0;
+
+  try {
+    await runTransaction(db, async (tx) => {
+      const [hpSnap, wSnap] = await Promise.all([tx.get(hpRef), tx.get(walletRef)]);
+      if (!hpSnap.exists()) throw new Error('Host reward profile not ready.');
+      if (!wSnap.exists()) throw new Error('Wallet not initialized.');
+
+      const hp = hpSnap.data();
+      const sameDay = hp.day === today;
+      const claimed: string[] =
+        sameDay && Array.isArray(hp.claimed) ? hp.claimed.map(String) : [];
+      if (claimed.includes(key)) throw new Error('Already claimed today.');
+
+      const liveSeconds = sameDay ? Number(hp.liveSeconds ?? 0) : 0;
+      const validDaysBase =
+        Number(hp.validDays ?? 0) +
+        (!sameDay && Number(hp.liveSeconds ?? 0) >= HOST_VALID_DAY_SECONDS ? 1 : 0);
+
+      const patch: DocumentData = {
+        day: today,
+        claimed: [...claimed, key],
+        updatedAt: serverTimestamp(),
+      };
+      if (!sameDay) {
+        patch.liveSeconds = 0;
+        patch.giftsReceived = 0;
+        patch.newFollowers = 0;
+        patch.validDays = validDaysBase;
+      }
+
+      let amount = 0;
+      let reason = '';
+      if (kind === 'newbie') {
+        if (Boolean(hp.firstLiveDone)) throw new Error('New host bonus already claimed.');
+        if (liveSeconds < HOST_NEWBIE_SECONDS) {
+          throw new Error('Go live for at least 1 minute to unlock this bonus.');
+        }
+        amount = HOST_NEWBIE_REWARD;
+        reason = 'New Host Bonus';
+        patch.firstLiveDone = true;
+      } else if (kind === 'valid') {
+        if (validDaysBase < HOST_VALID_DAYS_GOAL) {
+          throw new Error('Need 5 valid days (60+ min live each) to claim.');
+        }
+        amount = HOST_VALID_DAYS_REWARD;
+        reason = 'Valid Day Bonus (5 valid days)';
+        patch.validDays = validDaysBase - HOST_VALID_DAYS_GOAL;
+      } else {
+        const task = HOST_TASKS.find((t) => t.id === kind);
+        if (!task) throw new Error('Unknown host task.');
+        const progress = sameDay ? Number(hp[task.field] ?? 0) : 0;
+        if (progress < task.goal) throw new Error('Task not completed yet.');
+        amount = task.reward;
+        reason = `Host Task Reward: ${task.title}`;
+      }
+
+      const diamonds = Number(wSnap.data().diamondBalance ?? 0);
+      tx.update(walletRef, {
+        diamondBalance: diamonds + amount,
+        updatedAt: serverTimestamp(),
+      });
+      tx.update(hpRef, patch);
+
+      const txId = `tx_hr_${kind}_${uid.slice(0, 8)}_${today}`;
+      tx.set(doc(db, 'wallets', uid, 'transactions', txId), {
+        transactionId: txId,
+        uid,
+        currency: 'DIAMOND',
+        direction: 'CREDIT',
+        amount,
+        reason,
+        counterparty: 'AddaBuzz Platform',
+        idempotencyKey: key,
+        createdAt: serverTimestamp(),
+      });
+
+      awarded = amount;
+    });
+
+    return { amount: awarded };
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      (error.message.startsWith('Already claimed') ||
+        error.message.startsWith('Task not completed') ||
+        error.message.startsWith('New host bonus') ||
+        error.message.startsWith('Go live for') ||
+        error.message.startsWith('Need 5 valid') ||
+        error.message.startsWith('Host reward profile') ||
+        error.message.startsWith('Wallet not'))
+    ) {
+      throw error;
+    }
+    handleFirestoreError(error, OperationType.WRITE, `hostRewardProfiles/${uid}`);
+    return { amount: 0 };
   }
 }
 

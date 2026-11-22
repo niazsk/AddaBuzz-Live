@@ -11,7 +11,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { UserProfile, WalletTransaction } from '../../types/app';
-import { isBdAgentProfile, withdrawDiamondsToAgent } from '../../lib/firestoreService';
+import { isBdAgentProfile, withdrawDiamondsToAgent, withdrawDiamondsToSelf } from '../../lib/firestoreService';
 import { Avatar } from '../ui/Avatar';
 
 interface SalaryViewProps {
@@ -31,6 +31,14 @@ export const SalaryView: React.FC<SalaryViewProps> = ({
   onBack,
   onToast,
 }) => {
+  const isAgencyUser = Boolean(
+    currentUser &&
+      (currentUser.accountType === 'AGENT' ||
+        currentUser.accountType === 'SUPER_AGENT' ||
+        isBdAgentProfile(currentUser))
+  );
+
+  const [mode, setMode] = useState<'SELF' | 'AGENT'>(isAgencyUser ? 'SELF' : 'AGENT');
   const [selectedAgent, setSelectedAgent] = useState<UserProfile | null>(null);
   const [recipientSearch, setRecipientSearch] = useState('');
   const [amount, setAmount] = useState('');
@@ -39,6 +47,8 @@ export const SalaryView: React.FC<SalaryViewProps> = ({
     diamonds: number;
     agentName: string;
     agentId: string;
+    self: boolean;
+    credited?: number;
   } | null>(null);
 
   // Eligible withdrawal targets: Super Agents and Agents only (excluding self)
@@ -71,13 +81,13 @@ export const SalaryView: React.FC<SalaryViewProps> = ({
       return;
     }
 
-    if (!selectedAgent) {
+    if (mode === 'AGENT' && !selectedAgent) {
       onToast?.('Select Agent', 'Please select a Super Agent or Agent to receive withdrawal.', 'warning');
       return;
     }
 
-    if (parsedAmount < 100) {
-      onToast?.('Minimum Amount', 'Minimum withdrawal is 100 Diamonds.', 'warning');
+    if (parsedAmount < 100000) {
+      onToast?.('Minimum Amount', 'Minimum withdrawal is 100,000 Diamonds.', 'warning');
       return;
     }
 
@@ -88,19 +98,34 @@ export const SalaryView: React.FC<SalaryViewProps> = ({
 
     setIsSubmitting(true);
     try {
-      await withdrawDiamondsToAgent(currentUser, selectedAgent, parsedAmount);
-
-      setSuccessData({
-        diamonds: parsedAmount,
-        agentName: selectedAgent.displayName,
-        agentId: selectedAgent.platformId,
-      });
-
-      onToast?.(
-        'Diamonds Withdrawn Successfully!',
-        `Transferred ${parsedAmount.toLocaleString()} Diamonds to @${selectedAgent.username}.`,
-        'success'
-      );
+      if (mode === 'SELF') {
+        const result = await withdrawDiamondsToSelf(currentUser, parsedAmount);
+        setSuccessData({
+          diamonds: parsedAmount,
+          agentName: 'Your Trading Balance',
+          agentId: currentUser.platformId,
+          self: true,
+          credited: result.tradingCoinsCredited,
+        });
+        onToast?.(
+          'Diamonds Withdrawn Successfully!',
+          `${result.tradingCoinsCredited.toLocaleString()} coins added to your Trading Balance (10% fee).`,
+          'success'
+        );
+      } else {
+        await withdrawDiamondsToAgent(currentUser, selectedAgent!, parsedAmount);
+        setSuccessData({
+          diamonds: parsedAmount,
+          agentName: selectedAgent!.displayName,
+          agentId: selectedAgent!.platformId,
+          self: false,
+        });
+        onToast?.(
+          'Diamonds Withdrawn Successfully!',
+          `Transferred ${parsedAmount.toLocaleString()} Diamonds to @${selectedAgent!.username}.`,
+          'success'
+        );
+      }
       setAmount('');
     } catch (err) {
       onToast?.(
@@ -153,7 +178,7 @@ export const SalaryView: React.FC<SalaryViewProps> = ({
             {diamondBalance.toLocaleString()} <span className="text-sm font-normal text-slate-300 font-sans">Diamonds</span>
           </p>
           <p className="text-xs text-slate-400">
-            Diamonds are withdrawable directly to authorized Super Agents and Agents.
+            Diamonds are withdrawable to authorized Super Agents and Agents. Super Agents & Agents can also withdraw to their own Trading Balance (10% fee).
           </p>
         </div>
       </div>
@@ -166,7 +191,16 @@ export const SalaryView: React.FC<SalaryViewProps> = ({
           </div>
           <h3 className="font-display text-base font-bold text-white">Withdrawal Complete</h3>
           <p className="text-xs text-slate-300">
-            Successfully transferred <span className="font-mono text-sky-400 font-bold">{successData.diamonds.toLocaleString()} Diamonds</span> to {successData.agentName} (ID: {successData.agentId}). Coins have been credited to their agency trading balance.
+            {successData.self ? (
+              <>
+                <span className="font-mono text-sky-400 font-bold">{successData.diamonds.toLocaleString()} Diamonds</span> withdrawn to your own ID (10% fee).{' '}
+                <span className="font-mono text-emerald-400 font-bold">{(successData.credited ?? 0).toLocaleString()} coins</span> added to your Coins Trading Balance.
+              </>
+            ) : (
+              <>
+                Successfully transferred <span className="font-mono text-sky-400 font-bold">{successData.diamonds.toLocaleString()} Diamonds</span> to {successData.agentName} (ID: {successData.agentId}). Coins have been credited to their agency trading balance.
+              </>
+            )}
           </p>
           <button
             type="button"
@@ -181,10 +215,47 @@ export const SalaryView: React.FC<SalaryViewProps> = ({
         <form onSubmit={handleWithdrawSubmit} className="rounded-2xl bg-[#111420] border border-white/[0.08] p-5 space-y-4">
           <h2 className="font-display text-sm font-semibold text-white flex items-center gap-2">
             <Send className="w-4 h-4 text-sky-400" />
-            <span>Select Target Super Agent / Agent</span>
+            <span>{mode === 'SELF' ? 'Withdraw to My Trading Balance' : 'Select Target Super Agent / Agent'}</span>
           </h2>
 
-          {/* Agent Picker / Search */}
+          {isAgencyUser && (
+            <div className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-[#0B0D14] border border-white/[0.06]">
+              <button
+                type="button"
+                onClick={() => setMode('SELF')}
+                className={`py-2 rounded-lg text-xs font-semibold transition-colors ${
+                  mode === 'SELF' ? 'bg-sky-500/20 text-sky-300' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                To My ID (10% fee)
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode('AGENT')}
+                className={`py-2 rounded-lg text-xs font-semibold transition-colors ${
+                  mode === 'AGENT' ? 'bg-sky-500/20 text-sky-300' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                To Another Agent
+              </button>
+            </div>
+          )}
+
+          {mode === 'SELF' ? (
+            <div className="p-3.5 rounded-xl bg-sky-500/[0.07] border border-sky-500/20 text-xs text-slate-300 space-y-1.5">
+              <p className="font-semibold text-white flex items-center gap-1.5">
+                <BadgeCheck className="w-4 h-4 text-sky-400" />
+                <span>Withdraw to your own ID ({currentUser?.platformId})</span>
+              </p>
+              <p>A 10% fee applies — the remaining coins are added to your Coins Trading Balance.</p>
+              {parsedAmount > 0 && (
+                <p className="font-mono text-sky-400 font-bold">
+                  You receive: {Math.floor(parsedAmount * 0.9).toLocaleString()} coins
+                </p>
+              )}
+            </div>
+          ) : (
+          /* Agent Picker / Search */
           <div className="space-y-2">
             <div className="relative">
               <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -253,18 +324,19 @@ export const SalaryView: React.FC<SalaryViewProps> = ({
               </div>
             )}
           </div>
+          )}
 
           {/* Amount input */}
           <div className="space-y-2 pt-2">
             <div className="flex items-center justify-between">
               <label className="text-xs text-slate-400 font-medium">Diamonds Amount</label>
-              <span className="text-[11px] text-slate-500">Min: 100 Diamonds</span>
+              <span className="text-[11px] text-slate-500">Min: 100,000 Diamonds</span>
             </div>
             <div className="relative">
               <Gem className="w-5 h-5 text-sky-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 type="number"
-                min="100"
+                min="100000"
                 max={diamondBalance}
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
@@ -275,7 +347,7 @@ export const SalaryView: React.FC<SalaryViewProps> = ({
 
             {/* Quick Amount Buttons */}
             <div className="flex flex-wrap gap-1.5 pt-1">
-              {[1000, 5000, 10000, 50000].map((amt) => (
+              {[100000, 250000, 500000, 1000000].map((amt) => (
                 <button
                   key={amt}
                   type="button"
@@ -297,7 +369,7 @@ export const SalaryView: React.FC<SalaryViewProps> = ({
 
           <button
             type="submit"
-            disabled={isSubmitting || !selectedAgent || parsedAmount <= 0 || parsedAmount > diamondBalance}
+            disabled={isSubmitting || (mode === 'AGENT' && !selectedAgent) || parsedAmount <= 0 || parsedAmount > diamondBalance}
             className="w-full py-3.5 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 disabled:opacity-50 text-sm font-bold text-white transition-all shadow-lg shadow-sky-500/20 active:scale-[0.99] flex items-center justify-center gap-2"
           >
             <Send className="w-4 h-4" />

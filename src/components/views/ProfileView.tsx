@@ -7,6 +7,7 @@ import {
   ChevronRight,
   Coins,
   CreditCard,
+  Crown,
   Edit3,
   Gamepad2,
   Gem,
@@ -68,6 +69,7 @@ type Tile = {
 
 const FEATURE_TILES: Tile[] = [
   { id: 'reward', label: 'Reward', icon: Gift },
+  { id: 'host-rewards', label: 'Host Reward', icon: Crown },
   { id: 'rank', label: 'Rank', icon: Trophy },
   { id: 'games', label: 'Games', icon: Gamepad2 },
   { id: 'store', label: 'Store', icon: ShoppingBag },
@@ -249,6 +251,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           else if (tile.id === 'store') onOpenSection('store');
           else if (tile.id === 'deposit') onOpenSection('deposit');
           else if (tile.id === 'salary') onOpenSection('salary');
+          else if (tile.id === 'reward') onOpenSection('reward');
+          else if (tile.id === 'host-rewards') onOpenSection('host-rewards');
           else setComingSoon(tile.label);
         }}
         className={`group rounded-2xl bg-white/[0.04] border border-white/[0.06] hover:bg-white/[0.08] hover:border-violet-500/40 p-3.5 flex flex-col items-center gap-2 transition-colors ${
@@ -429,7 +433,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       {/* Feature grid */}
       {!isBdAgent && (
         <section className="rounded-3xl bg-[#111420] border border-white/[0.08] p-4 sm:p-5 space-y-3">
-          <div className="grid grid-cols-4 gap-2.5">{FEATURE_TILES.map(renderTile)}</div>
+          <div className="grid grid-cols-4 gap-2.5">
+            {FEATURE_TILES.filter(
+              (t) => t.id !== 'host-rewards' || currentUser?.gender === 'Female'
+            ).map(renderTile)}
+          </div>
           {comingSoon && (
             <p className="rounded-xl bg-violet-500/10 border border-violet-500/30 px-4 py-2 text-xs text-violet-200 text-center">
               {comingSoon} — coming soon

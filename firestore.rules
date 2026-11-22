@@ -145,6 +145,48 @@ service cloud.firestore {
         data.updatedAt is timestamp;
     }
 
+    function todayUtc() {
+      let m = request.time.month();
+      let d = request.time.day();
+      return string(request.time.year()) + '-' +
+        (m < 10 ? '0' + string(m) : string(m)) + '-' +
+        (d < 10 ? '0' + string(d) : string(d));
+    }
+
+    function isValidRewardProfile(data, uid) {
+      return data.keys().hasAll(['uid', 'day', 'checkInDate', 'streak', 'watchSeconds', 'giftsSent', 'followsMade', 'gamesPlayed', 'claimed', 'updatedAt']) &&
+        data.keys().hasOnly(['uid', 'day', 'checkInDate', 'streak', 'watchSeconds', 'giftsSent', 'followsMade', 'gamesPlayed', 'claimed', 'updatedAt']) &&
+        data.uid == uid &&
+        isValidId(data.uid) &&
+        data.day is string && data.day.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
+        data.checkInDate is string &&
+        (data.checkInDate == '' || data.checkInDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')) &&
+        data.streak is int && data.streak >= 0 && data.streak <= 7 &&
+        data.watchSeconds is int && data.watchSeconds >= 0 && data.watchSeconds <= 1000000 &&
+        data.giftsSent is int && data.giftsSent >= 0 && data.giftsSent <= 100000 &&
+        data.followsMade is int && data.followsMade >= 0 && data.followsMade <= 100000 &&
+        data.gamesPlayed is int && data.gamesPlayed >= 0 && data.gamesPlayed <= 100000 &&
+        data.claimed is list && data.claimed.size() <= 6 &&
+        data.claimed.hasOnly(['reward_checkin_' + data.day, 'reward_watch_' + data.day, 'reward_gift_' + data.day, 'reward_follow_' + data.day, 'reward_game_' + data.day].toSet()) &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidHostRewardProfile(data, uid) {
+      return data.keys().hasAll(['uid', 'day', 'liveSeconds', 'giftsReceived', 'newFollowers', 'firstLiveDone', 'validDays', 'claimed', 'updatedAt']) &&
+        data.keys().hasOnly(['uid', 'day', 'liveSeconds', 'giftsReceived', 'newFollowers', 'firstLiveDone', 'validDays', 'claimed', 'updatedAt']) &&
+        data.uid == uid &&
+        isValidId(data.uid) &&
+        data.day is string && data.day.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
+        data.liveSeconds is int && data.liveSeconds >= 0 && data.liveSeconds <= 1000000 &&
+        data.giftsReceived is int && data.giftsReceived >= 0 && data.giftsReceived <= 100000 &&
+        data.newFollowers is int && data.newFollowers >= 0 && data.newFollowers <= 100000 &&
+        data.firstLiveDone is bool &&
+        data.validDays is int && data.validDays >= 0 && data.validDays <= 1000 &&
+        data.claimed is list && data.claimed.size() <= 6 &&
+        data.claimed.hasOnly(['host_live30_' + data.day, 'host_live60_' + data.day, 'host_gift_' + data.day, 'host_follow_' + data.day, 'host_valid_' + data.day, 'host_newbie'].toSet()) &&
+        data.updatedAt is timestamp;
+    }
+
     function isValidUsernameDoc(data, username) {
       return data.keys().hasAll(['uid', 'username', 'createdAt']) &&
         data.keys().hasOnly(['uid', 'username', 'createdAt']) &&
@@ -281,11 +323,11 @@ service cloud.firestore {
     //   fm-w-<betId>  winning payout (max stake x highest multiplier = 1,900,000)
     //   fm-r-<key>    refund of a cancelled / voided / late stake (max 100,000)
     function isGameWinKey(key) {
-      return key is string && (key.matches('^fm-w-.*$') || key.matches('^phx-w-.*$') || key.matches('^phx_win_.*$'));
+      return key is string && key.matches('^fm-w-.*$');
     }
 
     function isGameRefundKey(key) {
-      return key is string && (key.matches('^fm-r-.*$') || key.matches('^phx-r-.*$') || key.matches('^phx_refund_.*$'));
+      return key is string && key.matches('^fm-r-.*$');
     }
 
     function isValidWalletTransaction(data, txId, uid) {
@@ -422,6 +464,65 @@ service cloud.firestore {
         incoming().createdAt == existing().createdAt &&
         incoming().updatedAt == request.time &&
         incoming().diff(existing()).affectedKeys().hasOnly(['email', 'updatedAt']);
+    }
+
+    // Reward Center: daily check-in + task progress (owner-managed, bounded)
+    match /rewardProfiles/{uid} {
+      allow get: if isValidId(uid) && (isOwner(uid) || isAdmin());
+      allow delete: if isAdmin();
+      allow create: if isVerifiedUser() &&
+        isOwner(uid) &&
+        isValidRewardProfile(incoming(), uid) &&
+        incoming().updatedAt == request.time;
+      allow update: if isVerifiedUser() &&
+        isOwner(uid) &&
+        isValidRewardProfile(incoming(), uid) &&
+        incoming().uid == existing().uid &&
+        incoming().updatedAt == request.time &&
+        (
+          incoming().day != existing().day ||
+          incoming().claimed.hasAll(existing().claimed)
+        );
+    }
+
+    // Host Rewards (Poppo-style female host rewards, paid in Diamonds)
+    match /hostRewardProfiles/{uid} {
+      allow get: if isValidId(uid) && (isOwner(uid) || isAdmin());
+      allow delete: if isAdmin();
+      allow create: if isVerifiedUser() &&
+        isOwner(uid) &&
+        isValidHostRewardProfile(incoming(), uid) &&
+        get(/databases/$(database)/documents/users/$(uid)).data.gender == 'Female' &&
+        incoming().updatedAt == request.time;
+      allow update: if isVerifiedUser() &&
+        isValidId(uid) &&
+        isOwner(uid) &&
+        isValidHostRewardProfile(incoming(), uid) &&
+        incoming().uid == existing().uid &&
+        incoming().updatedAt == request.time &&
+        get(/databases/$(database)/documents/users/$(uid)).data.gender == 'Female' &&
+        (existing().firstLiveDone == false || incoming().firstLiveDone == true) &&
+        (
+          (
+            incoming().day == existing().day &&
+            incoming().claimed.hasAll(existing().claimed) &&
+            incoming().liveSeconds >= existing().liveSeconds &&
+            incoming().giftsReceived >= existing().giftsReceived &&
+            incoming().newFollowers >= existing().newFollowers &&
+            (
+              (
+                incoming().claimed.hasAny(['host_valid_' + incoming().day]) &&
+                !existing().claimed.hasAny(['host_valid_' + incoming().day]) &&
+                incoming().validDays == existing().validDays - 5
+              ) ||
+              incoming().validDays == existing().validDays
+            )
+          ) ||
+          (
+            incoming().day != existing().day &&
+            incoming().validDays == existing().validDays + (existing().liveSeconds >= 3600 ? 1 : 0)
+          )
+        );
     }
 
     // Username uniqueness index
@@ -920,6 +1021,30 @@ service cloud.firestore {
             incoming().tradingCoinBalance < existing().tradingCoinBalance
           ) ||
           (
+            // Coins Exchange: own Trading Balance -> own Main Balance.
+            // Main credit may never exceed 92% of the trading debit (8% fee).
+            isOwner(uid) &&
+            (isBdAgent() || isSuperAgent() || isAgent()) &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['tradingCoinBalance', 'coinBalance', 'updatedAt']) &&
+            incoming().tradingCoinBalance < existing().tradingCoinBalance &&
+            incoming().coinBalance > existing().coinBalance &&
+            (incoming().coinBalance - existing().coinBalance) * 100 <=
+              (existing().tradingCoinBalance - incoming().tradingCoinBalance) * 92
+          ) ||
+          (
+            // Self Diamonds Withdraw: own Diamonds -> own Trading Balance.
+            // Trading credit may never exceed 90% of the diamond debit (10% fee).
+            // Minimum withdrawal: 100,000 diamonds.
+            isOwner(uid) &&
+            (isBdAgent() || isSuperAgent() || isAgent()) &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['diamondBalance', 'tradingCoinBalance', 'updatedAt']) &&
+            incoming().diamondBalance < existing().diamondBalance &&
+            existing().diamondBalance - incoming().diamondBalance >= 100000 &&
+            incoming().tradingCoinBalance > existing().tradingCoinBalance &&
+            (incoming().tradingCoinBalance - existing().tradingCoinBalance) * 100 <=
+              (existing().diamondBalance - incoming().diamondBalance) * 90
+          ) ||
+          (
             // Admin / BD Agent / Super Agent credits an agency recipient's Trading Balance.
             uid != request.auth.uid &&
             isAgencyWallet(uid) &&
@@ -946,6 +1071,23 @@ service cloud.firestore {
             incoming().diff(existing()).affectedKeys().hasOnly(['coinBalance', 'updatedAt']) &&
             incoming().coinBalance > existing().coinBalance &&
             incoming().coinBalance - existing().coinBalance <= 1900000
+          ) ||
+          (
+            // Host Reward Center: female hosts earn Diamonds. The credit must
+            // coincide with a reward claim in the same transaction (claimed
+            // list grows or 5 valid days are redeemed) and never exceed 5,000.
+            isOwner(uid) &&
+            get(/databases/$(database)/documents/users/$(uid)).data.gender == 'Female' &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['diamondBalance', 'updatedAt']) &&
+            incoming().diamondBalance > existing().diamondBalance &&
+            incoming().diamondBalance - existing().diamondBalance <= 5000 &&
+            getAfter(/databases/$(database)/documents/hostRewardProfiles/$(uid)).data.day == todayUtc() &&
+            (
+              getAfter(/databases/$(database)/documents/hostRewardProfiles/$(uid)).data.claimed.size() >
+                get(/databases/$(database)/documents/hostRewardProfiles/$(uid)).data.claimed.size() ||
+              getAfter(/databases/$(database)/documents/hostRewardProfiles/$(uid)).data.validDays ==
+                get(/databases/$(database)/documents/hostRewardProfiles/$(uid)).data.validDays - 5
+            )
           ) ||
           (
             isOwner(uid) &&
@@ -978,7 +1120,12 @@ service cloud.firestore {
             ) ||
             (
               isOwner(uid) &&
-              incoming().direction == 'DEBIT'
+              incoming().direction == 'DEBIT' &&
+              (
+                incoming().currency != 'DIAMOND' ||
+                !incoming().reason.matches('.*[Ww]ithdraw.*') ||
+                incoming().amount >= 100000
+              )
             ) ||
             (
               isOwner(uid) &&
@@ -1013,6 +1160,118 @@ service cloud.firestore {
               incoming().amount ==
                 getAfter(/databases/$(database)/documents/wallets/$(uid)).data.coinBalance -
                 get(/databases/$(database)/documents/wallets/$(uid)).data.coinBalance
+            ) ||
+            (
+              // Coins Exchange credit: must equal the exact main-balance increase
+              // committed in the same transaction.
+              isOwner(uid) &&
+              incoming().direction == 'CREDIT' &&
+              incoming().currency == 'COIN' &&
+              incoming().idempotencyKey.matches('^tx_ex_c_.*$') &&
+              incoming().amount ==
+                getAfter(/databases/$(database)/documents/wallets/$(uid)).data.coinBalance -
+                get(/databases/$(database)/documents/wallets/$(uid)).data.coinBalance
+            ) ||
+            (
+              // Self Diamonds Withdraw credit: must equal the exact trading-balance
+              // increase committed in the same transaction.
+              isOwner(uid) &&
+              incoming().direction == 'CREDIT' &&
+              incoming().currency == 'COIN' &&
+              incoming().idempotencyKey.matches('^tx_wself_c_.*$') &&
+              incoming().amount ==
+                getAfter(/databases/$(database)/documents/wallets/$(uid)).data.tradingCoinBalance -
+                get(/databases/$(database)/documents/wallets/$(uid)).data.tradingCoinBalance
+            ) ||
+            (
+              // Reward Center claims: once per task per UTC day, exact configured
+              // amount, progress verified, and exact main-balance increase.
+              isOwner(uid) &&
+              incoming().direction == 'CREDIT' &&
+              incoming().currency == 'COIN' &&
+              incoming().amount ==
+                getAfter(/databases/$(database)/documents/wallets/$(uid)).data.coinBalance -
+                get(/databases/$(database)/documents/wallets/$(uid)).data.coinBalance &&
+              getAfter(/databases/$(database)/documents/rewardProfiles/$(uid)).data.day == todayUtc() &&
+              !get(/databases/$(database)/documents/rewardProfiles/$(uid)).data.claimed.hasAny([incoming().idempotencyKey]) &&
+              getAfter(/databases/$(database)/documents/rewardProfiles/$(uid)).data.claimed.hasAny([incoming().idempotencyKey]) &&
+              (
+                (
+                  incoming().idempotencyKey == 'reward_checkin_' + todayUtc() &&
+                  getAfter(/databases/$(database)/documents/rewardProfiles/$(uid)).data.checkInDate == todayUtc() &&
+                  incoming().amount == [50, 80, 120, 180, 250, 350, 500][getAfter(/databases/$(database)/documents/rewardProfiles/$(uid)).data.streak - 1]
+                ) ||
+                (
+                  incoming().idempotencyKey == 'reward_watch_' + todayUtc() &&
+                  getAfter(/databases/$(database)/documents/rewardProfiles/$(uid)).data.watchSeconds >= 600 &&
+                  incoming().amount == 100
+                ) ||
+                (
+                  incoming().idempotencyKey == 'reward_gift_' + todayUtc() &&
+                  getAfter(/databases/$(database)/documents/rewardProfiles/$(uid)).data.giftsSent >= 3 &&
+                  incoming().amount == 150
+                ) ||
+                (
+                  incoming().idempotencyKey == 'reward_follow_' + todayUtc() &&
+                  getAfter(/databases/$(database)/documents/rewardProfiles/$(uid)).data.followsMade >= 2 &&
+                  incoming().amount == 80
+                ) ||
+                (
+                  incoming().idempotencyKey == 'reward_game_' + todayUtc() &&
+                  getAfter(/databases/$(database)/documents/rewardProfiles/$(uid)).data.gamesPlayed >= 3 &&
+                  incoming().amount == 100
+                )
+              )
+            ) ||
+            (
+              // Host Reward claims (female hosts only): once per task per UTC
+              // day, exact configured Diamond amount, progress verified, and
+              // exact diamond-balance increase.
+              isOwner(uid) &&
+              incoming().direction == 'CREDIT' &&
+              incoming().currency == 'DIAMOND' &&
+              get(/databases/$(database)/documents/users/$(uid)).data.gender == 'Female' &&
+              incoming().amount ==
+                getAfter(/databases/$(database)/documents/wallets/$(uid)).data.diamondBalance -
+                get(/databases/$(database)/documents/wallets/$(uid)).data.diamondBalance &&
+              getAfter(/databases/$(database)/documents/hostRewardProfiles/$(uid)).data.day == todayUtc() &&
+              !get(/databases/$(database)/documents/hostRewardProfiles/$(uid)).data.claimed.hasAny([incoming().idempotencyKey]) &&
+              getAfter(/databases/$(database)/documents/hostRewardProfiles/$(uid)).data.claimed.hasAny([incoming().idempotencyKey]) &&
+              (
+                (
+                  incoming().idempotencyKey == 'host_newbie' &&
+                  getAfter(/databases/$(database)/documents/hostRewardProfiles/$(uid)).data.firstLiveDone == true &&
+                  getAfter(/databases/$(database)/documents/hostRewardProfiles/$(uid)).data.liveSeconds >= 60 &&
+                  incoming().amount == 2000
+                ) ||
+                (
+                  incoming().idempotencyKey == 'host_live30_' + todayUtc() &&
+                  getAfter(/databases/$(database)/documents/hostRewardProfiles/$(uid)).data.liveSeconds >= 1800 &&
+                  incoming().amount == 500
+                ) ||
+                (
+                  incoming().idempotencyKey == 'host_live60_' + todayUtc() &&
+                  getAfter(/databases/$(database)/documents/hostRewardProfiles/$(uid)).data.liveSeconds >= 3600 &&
+                  incoming().amount == 1000
+                ) ||
+                (
+                  incoming().idempotencyKey == 'host_gift_' + todayUtc() &&
+                  getAfter(/databases/$(database)/documents/hostRewardProfiles/$(uid)).data.giftsReceived >= 5 &&
+                  incoming().amount == 500
+                ) ||
+                (
+                  incoming().idempotencyKey == 'host_follow_' + todayUtc() &&
+                  getAfter(/databases/$(database)/documents/hostRewardProfiles/$(uid)).data.newFollowers >= 3 &&
+                  incoming().amount == 300
+                ) ||
+                (
+                  incoming().idempotencyKey == 'host_valid_' + todayUtc() &&
+                  get(/databases/$(database)/documents/hostRewardProfiles/$(uid)).data.validDays >= 5 &&
+                  getAfter(/databases/$(database)/documents/hostRewardProfiles/$(uid)).data.validDays ==
+                    get(/databases/$(database)/documents/hostRewardProfiles/$(uid)).data.validDays - 5 &&
+                  incoming().amount == 5000
+                )
+              )
             )
           );
       }

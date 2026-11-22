@@ -4,13 +4,16 @@ import {
   Check,
   Eye,
   EyeOff,
+  Gem,
   KeyRound,
   Loader2,
   LogIn,
   LogOut,
   Mail,
+  Radio,
   RefreshCw,
   ShieldCheck,
+  Sparkles,
   UserPlus,
 } from 'lucide-react';
 import { GenderOption, UserProfile } from '../../types/app';
@@ -237,14 +240,67 @@ export const SignInView: React.FC<SignInViewProps> = ({
         </div>
       )}
 
-      <div className="max-w-xl mx-auto">
+      <div className="max-w-5xl mx-auto">
         {/* Auth Card */}
-        <section className="rounded-2xl bg-[#111420] border border-white/[0.09] overflow-hidden shadow-2xl">
-          <div className="px-6 py-5 border-b border-white/[0.08] flex items-center justify-between">
-            <BrandLogo />
-          </div>
+        <section className="relative rounded-3xl bg-gradient-to-br from-[#151A2B] via-[#111420] to-[#0B0E16] border border-white/[0.09] overflow-hidden shadow-[0_50px_120px_-60px_rgba(56,189,248,0.45)] grid lg:grid-cols-[1.05fr_1fr]">
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/60 to-transparent" />
 
-          <div className="p-6 space-y-5">
+          {/* Brand showcase */}
+          <aside className="relative hidden lg:flex flex-col justify-between gap-10 p-9 overflow-hidden">
+            <div className="pointer-events-none absolute -top-24 -left-16 w-72 h-72 rounded-full bg-violet-600/25 blur-3xl" />
+            <div className="pointer-events-none absolute bottom-0 right-0 w-64 h-64 rounded-full bg-sky-500/20 blur-3xl" />
+
+            <div className="relative flex items-center justify-between">
+              <BrandLogo />
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-500/12 border border-rose-500/25 px-2.5 py-1 text-[10px] font-bold tracking-wider text-rose-200">
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-400 live-dot" />
+                LIVE NOW
+              </span>
+            </div>
+
+            <div className="relative space-y-5">
+              <h2 className="font-display text-3xl xl:text-4xl font-bold leading-[1.12] text-gradient">
+                Go live. Connect.
+                <br />
+                Get rewarded.
+              </h2>
+              <p className="text-sm text-slate-300/90 leading-relaxed max-w-sm">
+                Bangladesh&apos;s creator-first live platform — multi-guest rooms, virtual gifts,
+                and a full agency earning system in one place.
+              </p>
+
+              <ul className="space-y-3 pt-1">
+                {[
+                  { icon: Radio, label: 'Video, audio & 8-seat multi-guest rooms' },
+                  { icon: Sparkles, label: 'Virtual gifts with coins & diamonds' },
+                  { icon: Gem, label: 'Agency, agent & creator reward tiers' },
+                ].map(({ icon: Icon, label }) => (
+                  <li key={label} className="flex items-center gap-3 text-xs text-slate-200">
+                    <span className="w-8 h-8 rounded-xl bg-white/[0.06] border border-white/10 flex items-center justify-center text-sky-300 shrink-0">
+                      <Icon className="w-4 h-4" />
+                    </span>
+                    <span>{label}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="relative flex items-center gap-2 text-[11px] text-slate-400">
+              <ShieldCheck className="w-4 h-4 text-emerald-400" />
+              <span>Verified accounts · Secure sign-in · Privacy first</span>
+            </div>
+          </aside>
+
+          <div className="relative bg-[#0B0E16]/80 backdrop-blur-sm">
+            <div className="px-6 py-5 border-b border-white/[0.08] flex items-center justify-between lg:hidden">
+              <BrandLogo />
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-500/12 border border-rose-500/25 px-2 py-0.5 text-[10px] font-bold tracking-wider text-rose-200">
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-400 live-dot" />
+                LIVE
+              </span>
+            </div>
+
+          <div className="p-6 sm:p-7 space-y-5">
             {error && (
               <div className="rounded-xl bg-rose-500/15 border border-rose-500/30 px-4 py-3 text-xs text-rose-200 leading-relaxed space-y-2">
                 <p>{error}</p>
@@ -290,7 +346,7 @@ export const SignInView: React.FC<SignInViewProps> = ({
                   <button
                     type="button"
                     onClick={onBackToDiscover}
-                    className="h-10 px-4 rounded-xl bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-500 hover:to-blue-500 text-xs font-semibold text-white"
+                    className="h-10 px-4 rounded-xl bg-gradient-to-r from-violet-600 via-indigo-600 to-sky-500 hover:from-violet-500 hover:via-indigo-500 hover:to-sky-400 text-xs font-semibold text-white"
                   >
                     Enter Live Feed
                   </button>
@@ -354,7 +410,7 @@ export const SignInView: React.FC<SignInViewProps> = ({
                         setBusy(false);
                       }
                     }}
-                    className="h-10 px-4 rounded-xl bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-500 hover:to-blue-500 disabled:opacity-50 text-xs font-semibold text-white inline-flex items-center gap-2"
+                    className="h-10 px-4 rounded-xl bg-gradient-to-r from-violet-600 via-indigo-600 to-sky-500 hover:from-violet-500 hover:via-indigo-500 hover:to-sky-400 disabled:opacity-50 text-xs font-semibold text-white inline-flex items-center gap-2"
                   >
                     {busy ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -399,7 +455,7 @@ export const SignInView: React.FC<SignInViewProps> = ({
             ) : needsOnboarding ? (
               <form onSubmit={handleOnboardingSubmit} className="space-y-4">
                 <div>
-                  <h1 className="font-display text-lg font-bold text-white">
+                  <h1 className="font-display text-lg font-bold text-gradient">
                     Complete your AddaBuzz profile
                   </h1>
                   <p className="text-xs text-slate-400 mt-1">
@@ -501,7 +557,7 @@ export const SignInView: React.FC<SignInViewProps> = ({
                 <button
                   type="submit"
                   disabled={busy}
-                  className="w-full h-11 rounded-xl bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-500 hover:to-blue-500 disabled:opacity-50 text-sm font-semibold text-white inline-flex items-center justify-center gap-2 transition-all"
+                  className="w-full h-11 rounded-xl bg-gradient-to-r from-violet-600 via-indigo-600 to-sky-500 hover:from-violet-500 hover:via-indigo-500 hover:to-sky-400 disabled:opacity-50 text-sm font-semibold text-white inline-flex items-center justify-center gap-2 transition-all"
                 >
                   {busy ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -513,12 +569,17 @@ export const SignInView: React.FC<SignInViewProps> = ({
               </form>
             ) : (
               <>
-                <div className="space-y-1">
-                  <h1 className="font-display text-xl font-bold text-white">
+                <div className="space-y-1.5">
+                  <h1 className="font-display text-xl font-bold text-gradient">
                     {authTab === 'signin'
                       ? 'Sign in to AddaBuzz Live'
                       : 'Create your AddaBuzz account'}
                   </h1>
+                  <p className="text-xs text-slate-400">
+                    {authTab === 'signin'
+                      ? 'Welcome back — sign in to enter the live feed.'
+                      : 'Join the community and start earning today.'}
+                  </p>
                 </div>
 
                 {/* Mode Tabs */}
@@ -532,7 +593,7 @@ export const SignInView: React.FC<SignInViewProps> = ({
                     }}
                     className={`h-9 rounded-lg text-xs font-semibold transition-colors ${
                       authTab === 'signin'
-                        ? 'bg-white/[0.1] text-white'
+                        ? 'bg-gradient-to-r from-violet-600 to-sky-500 text-white shadow-[0_8px_20px_-12px_rgba(99,102,241,0.9)]'
                         : 'text-slate-400 hover:text-white'
                     }`}
                   >
@@ -547,7 +608,7 @@ export const SignInView: React.FC<SignInViewProps> = ({
                     }}
                     className={`h-9 rounded-lg text-xs font-semibold transition-colors ${
                       authTab === 'register'
-                        ? 'bg-white/[0.1] text-white'
+                        ? 'bg-gradient-to-r from-violet-600 to-sky-500 text-white shadow-[0_8px_20px_-12px_rgba(99,102,241,0.9)]'
                         : 'text-slate-400 hover:text-white'
                     }`}
                   >
@@ -636,7 +697,7 @@ export const SignInView: React.FC<SignInViewProps> = ({
                   <button
                     type="submit"
                     disabled={busy}
-                    className="w-full h-11 rounded-xl bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-500 hover:to-blue-500 disabled:opacity-50 text-sm font-semibold text-white inline-flex items-center justify-center gap-2 transition-all"
+                    className="w-full h-11 rounded-xl bg-gradient-to-r from-violet-600 via-indigo-600 to-sky-500 hover:from-violet-500 hover:via-indigo-500 hover:to-sky-400 disabled:opacity-50 text-sm font-semibold text-white inline-flex items-center justify-center gap-2 transition-all"
                   >
                     {busy ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -658,7 +719,7 @@ export const SignInView: React.FC<SignInViewProps> = ({
                     <div className="w-full border-t border-white/[0.08]" />
                   </div>
                   <div className="relative flex justify-center text-[11px] uppercase">
-                    <span className="bg-[#111420] px-2.5 text-slate-500">
+                    <span className="bg-[#0B0E16] px-2.5 text-slate-500">
                       or continue with
                     </span>
                   </div>
@@ -685,6 +746,7 @@ export const SignInView: React.FC<SignInViewProps> = ({
                 </button>
               </>
             )}
+          </div>
           </div>
         </section>
       </div>

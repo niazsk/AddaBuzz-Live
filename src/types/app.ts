@@ -43,6 +43,8 @@ export type AppSection =
   | 'deposit'
   | 'coins-convert'
   | 'salary'
+  | 'reward'
+  | 'host-rewards'
   | 'withdraw'
   | 'profile'
   | 'admin'
@@ -236,6 +238,29 @@ export interface AdminWalletSnapshot {
   coinBalance: number;
   diamondBalance: number;
   tradingCoinBalance: number;
+}
+
+export interface RewardProfile {
+  uid: string;
+  day: string;
+  checkInDate: string;
+  streak: number;
+  watchSeconds: number;
+  giftsSent: number;
+  followsMade: number;
+  gamesPlayed: number;
+  claimed: string[];
+}
+
+export interface HostRewardProfile {
+  uid: string;
+  day: string;
+  liveSeconds: number;
+  giftsReceived: number;
+  newFollowers: number;
+  firstLiveDone: boolean;
+  validDays: number;
+  claimed: string[];
 }
 
 export interface ToastMessage {

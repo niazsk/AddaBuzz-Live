@@ -65,6 +65,8 @@ import {
   subscribeWalletTransactions,
   toggleBlockDoc,
   toggleFollowDoc,
+  bumpRewardProgress,
+  bumpHostRewardProgress,
   updateOwnProfile,
   updateSeatStateDoc,
 } from './lib/firestoreService';
@@ -84,7 +86,6 @@ import { GamesView } from './components/views/GamesView';
 import { GameHistoryView } from './components/views/GameHistoryView';
 import { GoldenFlowerView } from './components/views/GoldenFlowerView';
 import { GfHistoryView } from './components/views/GfHistoryView';
-import { MahjongWaysView } from './components/views/MahjongWaysView';
 import { ProfileView } from './components/views/ProfileView';
 import { AdminRolesView } from './components/views/AdminRolesView';
 import { AdminPanelView } from './components/views/AdminPanelView';
@@ -98,6 +99,8 @@ import { StoreView } from './components/views/StoreView';
 import { DepositView } from './components/views/DepositView';
 import { CoinsConvertView } from './components/views/CoinsConvertView';
 import { SalaryView } from './components/views/SalaryView';
+import { RewardView } from './components/views/RewardView';
+import { HostRewardView } from './components/views/HostRewardView';
 import { SignInView } from './components/views/SignInView';
 import { GoLiveModal } from './components/modals/GoLiveModal';
 import { AuthModal } from './components/modals/AuthModal';
@@ -470,6 +473,27 @@ export default function App() {
     return () => window.clearInterval(timer);
   }, [activeRoomId, isOffline]);
 
+  // Reward task: accumulate live-watch seconds, flush to Firestore every 30s.
+  useEffect(() => {
+    const uid = currentUser?.uid;
+    if (!activeRoomId || !uid || isOffline) return;
+    let pending = 0;
+    const flush = () => {
+      if (pending <= 0) return;
+      const seconds = pending;
+      pending = 0;
+      void bumpRewardProgress(uid, 'watchSeconds', seconds);
+    };
+    const timer = window.setInterval(() => {
+      pending += 1;
+      if (pending >= 30) flush();
+    }, 1000);
+    return () => {
+      window.clearInterval(timer);
+      flush();
+    };
+  }, [activeRoomId, currentUser?.uid, isOffline]);
+
   const [freshTick, setFreshTick] = useState(0);
   useEffect(() => {
     const timer = window.setInterval(() => setFreshTick((t) => t + 1), 30000);
@@ -500,6 +524,69 @@ export default function App() {
     }, 30000);
     return () => window.clearInterval(timer);
   }, [hostingRoomId, isOffline]);
+
+  // Host rewards: accumulate own live-stream seconds, flush every 30s.
+  useEffect(() => {
+    const uid = currentUser?.uid;
+    if (!hostingRoomId || !uid || isOffline || currentUser?.gender !== 'Female') return;
+    let pending = 0;
+    const flush = () => {
+      if (pending <= 0) return;
+      const seconds = pending;
+      pending = 0;
+      void bumpHostRewardProgress(uid, 'liveSeconds', seconds);
+    };
+    const timer = window.setInterval(() => {
+      pending += 1;
+      if (pending >= 30) flush();
+    }, 1000);
+    return () => {
+      window.clearInterval(timer);
+      flush();
+    };
+  }, [hostingRoomId, currentUser?.uid, currentUser?.gender, isOffline]);
+
+  // Host rewards: count gifts received today (new diamond gift credits).
+  const seenGiftCreditsRef = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    const uid = currentUser?.uid;
+    if (!uid || currentUser?.gender !== 'Female') return;
+    const giftCredits = transactions.filter(
+      (t) =>
+        t.currency === 'DIAMOND' &&
+        t.direction === 'CREDIT' &&
+        t.reason.startsWith('Received ')
+    );
+    if (seenGiftCreditsRef.current === null) {
+      seenGiftCreditsRef.current = new Set(giftCredits.map((t) => t.transactionId));
+      return;
+    }
+    const seen = seenGiftCreditsRef.current;
+    let fresh = 0;
+    giftCredits.forEach((t) => {
+      if (!seen.has(t.transactionId)) {
+        seen.add(t.transactionId);
+        fresh += 1;
+      }
+    });
+    if (fresh > 0) void bumpHostRewardProgress(uid, 'giftsReceived', fresh);
+  }, [transactions, currentUser?.uid, currentUser?.gender]);
+
+  // Host rewards: count new followers as they arrive.
+  const prevFollowerCountRef = useRef<number | null>(null);
+  useEffect(() => {
+    const uid = currentUser?.uid;
+    if (!uid || currentUser?.gender !== 'Female') return;
+    const count = followerUids.length;
+    if (prevFollowerCountRef.current === null) {
+      prevFollowerCountRef.current = count;
+      return;
+    }
+    if (count > prevFollowerCountRef.current) {
+      void bumpHostRewardProgress(uid, 'newFollowers', count - prevFollowerCountRef.current);
+    }
+    prevFollowerCountRef.current = count;
+  }, [followerUids, currentUser?.uid, currentUser?.gender]);
 
   const unreadMessagesCount = useMemo(
     () => conversations.reduce((sum, c) => sum + c.unreadCount, 0),
@@ -554,6 +641,9 @@ export default function App() {
     const currentlyFollowing = followingUids.includes(targetUid);
     try {
       await toggleFollowDoc(me.uid, targetUid, currentlyFollowing);
+      if (!currentlyFollowing) {
+        void bumpRewardProgress(me.uid, 'followsMade', 1);
+      }
       pushToast(
         currentlyFollowing
           ? `Unfollowed ${target?.displayName ?? 'creator'}`
@@ -665,6 +755,7 @@ export default function App() {
         host?.username ?? 'host',
         gift
       );
+      void bumpRewardProgress(me.uid, 'giftsSent', 1);
       pushToast(
         `Sent ${gift.name}`,
         `Transaction recorded (-${gift.price} ${
@@ -1312,7 +1403,6 @@ export default function App() {
               onBack={() => setActiveSection('profile')}
               onOpenFruitManor={() => setActiveSection('fruit-manor')}
               onOpenGoldenFlower={() => setActiveSection('golden-flower')}
-              onOpenMahjongWays={() => setActiveSection('mahjong-ways')}
             />
           )}
 
@@ -1348,16 +1438,6 @@ export default function App() {
             <GfHistoryView
               uid={currentUser.uid}
               onBack={() => setActiveSection('golden-flower')}
-            />
-          )}
-
-          {activeSection === 'mahjong-ways' && (
-            <MahjongWaysView
-              currentUser={currentUser}
-              coinBalance={coinBalance}
-              isOffline={isOffline}
-              onBack={() => setActiveSection('games')}
-              onUpdateCoinBalance={(updater) => setCoinBalance(updater)}
             />
           )}
 
@@ -1494,6 +1574,24 @@ export default function App() {
             <CoinsConvertView
               currentUser={currentUser}
               coinBalance={coinBalance}
+              diamondBalance={diamondBalance}
+              onBack={() => setActiveSection('profile')}
+              onToast={pushToast}
+            />
+          )}
+
+          {activeSection === 'reward' && (
+            <RewardView
+              currentUser={currentUser}
+              coinBalance={coinBalance}
+              onBack={() => setActiveSection('profile')}
+              onToast={pushToast}
+            />
+          )}
+
+          {activeSection === 'host-rewards' && currentUser && (
+            <HostRewardView
+              currentUser={currentUser}
               diamondBalance={diamondBalance}
               onBack={() => setActiveSection('profile')}
               onToast={pushToast}
