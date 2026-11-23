@@ -33,6 +33,7 @@ import {
   isAdminBootstrapEmail,
   isBdAgentProfile,
   leaveRoomSeatDoc,
+  normalizeSeatCount,
   postRoomMessageDoc,
   promoteUserDoc,
   registerWithEmailPassword,
@@ -422,6 +423,10 @@ export default function App() {
   const handleCloseAdmin = () => setActiveSection(adminReturnRef.current);
 
   // 4. Active Live Room details subscription (seats, join requests, messages) + viewer count
+  const activeRoomSeatCount = normalizeSeatCount(
+    rooms.find((r) => r.roomId === activeRoomId)?.seatCount
+  );
+
   useEffect(() => {
     if (!activeRoomId) {
       setActiveSeats([]);
@@ -430,11 +435,15 @@ export default function App() {
       return;
     }
 
-    const unsub = subscribeRoomDetails(activeRoomId, {
-      onSeats: (s) => setActiveSeats(s),
-      onJoinRequests: (r) => setActiveJoinRequests(r),
-      onMessages: (m) => setActiveComments(m),
-    });
+    const unsub = subscribeRoomDetails(
+      activeRoomId,
+      {
+        onSeats: (s) => setActiveSeats(s),
+        onJoinRequests: (r) => setActiveJoinRequests(r),
+        onMessages: (m) => setActiveComments(m),
+      },
+      activeRoomSeatCount
+    );
 
     void adjustRoomViewerCountDoc(activeRoomId, 1);
 
@@ -442,7 +451,7 @@ export default function App() {
       unsub();
       void adjustRoomViewerCountDoc(activeRoomId, -1);
     };
-  }, [activeRoomId, currentUser?.uid]);
+  }, [activeRoomId, currentUser?.uid, activeRoomSeatCount]);
 
   // 5. Active Direct Message thread subscription
   useEffect(() => {
@@ -692,6 +701,7 @@ export default function App() {
     description: string;
     category: Exclude<RoomCategory, 'All'>;
     mode: RoomMode;
+    seatCount?: number;
     isPrivateFollowersOnly: boolean;
   }) => {
     const me = requireSignedIn();
@@ -738,27 +748,60 @@ export default function App() {
     }
   };
 
-  const handleSendGift = async (roomId: string, gift: GiftCatalogItem) => {
+  const handleSendGift = async (
+    roomId: string,
+    gift: GiftCatalogItem,
+    recipientUid?: string
+  ) => {
     const me = requireSignedIn();
     if (!me) return;
     const room = liveRooms.find((r) => r.roomId === roomId);
-    if (room && room.hostUid === me.uid) {
-      pushToast('Cannot Gift Yourself', 'You cannot send a gift to yourself in your own live room.', 'warning');
+    if (!room) {
+      pushToast('Gift failed', 'This room is no longer available.', 'warning');
       return;
     }
-    const host = users.find((u) => u.uid === room?.hostUid);
-    try {
-      await sendVirtualGiftTransaction(
-        roomId,
-        me,
-        room?.hostUid,
-        host?.username ?? 'host',
-        gift
+
+    const targetUid =
+      recipientUid && recipientUid !== room.hostUid ? recipientUid : room.hostUid;
+    if (targetUid === me.uid) {
+      pushToast(
+        'Cannot Gift Yourself',
+        'You cannot send a gift to yourself in your own live room.',
+        'warning'
       );
+      return;
+    }
+
+    const seat = activeSeats.find(
+      (s) => s.status === 'OCCUPIED' && s.occupantUid === targetUid
+    );
+    if (targetUid !== room.hostUid && !seat) {
+      pushToast('Gift failed', 'That guest is no longer on stage.', 'warning');
+      return;
+    }
+
+    const host = users.find((u) => u.uid === room.hostUid);
+    const profile = users.find((u) => u.uid === targetUid);
+    const recipient = {
+      uid: targetUid,
+      username:
+        profile?.username ??
+        seat?.occupantUsername ??
+        (targetUid === room.hostUid ? host?.username : undefined) ??
+        'user',
+      displayName:
+        profile?.displayName ??
+        seat?.occupantName ??
+        (targetUid === room.hostUid ? host?.displayName : undefined) ??
+        'Guest',
+    };
+
+    try {
+      await sendVirtualGiftTransaction(roomId, me, recipient, gift);
       void bumpRewardProgress(me.uid, 'giftsSent', 1);
       pushToast(
         `Sent ${gift.name}`,
-        `Transaction recorded (-${gift.price} ${
+        `Gift delivered to @${recipient.username} (-${gift.price} ${
           gift.currency === 'COIN' ? 'Coins' : 'Diamonds'
         }).`,
         'success'

@@ -100,7 +100,7 @@ interface LiveRoomViewProps {
   onEndRoom: (roomId: string) => void;
   onToggleFollow: (uid: string) => void;
   onSendComment: (roomId: string, text: string) => void;
-  onSendGift: (roomId: string, gift: GiftCatalogItem) => void;
+  onSendGift: (roomId: string, gift: GiftCatalogItem, recipientUid?: string) => void;
   onRequestSeat: (roomId: string, seatNumber: number) => void;
   onLeaveSeat: (roomId: string, seatNumber: number) => void;
   onApproveJoinRequest: (roomId: string, request: JoinRequest) => void;
@@ -181,8 +181,54 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
   const [showGiftTray, setShowGiftTray] = useState(false);
   const [selectedGiftId, setSelectedGiftId] = useState<string>(gifts[0]?.giftId ?? '');
   const [giftTab, setGiftTab] = useState<'all' | GiftTier>('all');
+  const [giftTargetUid, setGiftTargetUid] = useState<string>('');
   const selectedGift = gifts.find((g) => g.giftId === selectedGiftId) ?? null;
   const visibleGifts = giftTab === 'all' ? gifts : gifts.filter((g) => giftTier(g.price) === giftTab);
+
+  // Gift targets: the host plus everyone currently seated in a multi-guest room.
+  const giftTargets = useMemo(() => {
+    const list: Array<{
+      uid: string;
+      name: string;
+      username: string;
+      avatarColor?: string;
+      isHost: boolean;
+    }> = [
+      {
+        uid: host.uid,
+        name: host.displayName,
+        username: host.username,
+        avatarColor: host.avatarColor,
+        isHost: true,
+      },
+    ];
+    seats.forEach((seat) => {
+      if (
+        seat.status === 'OCCUPIED' &&
+        seat.occupantUid &&
+        seat.occupantUid !== host.uid &&
+        !list.some((t) => t.uid === seat.occupantUid)
+      ) {
+        list.push({
+          uid: seat.occupantUid,
+          name: seat.occupantName ?? 'Guest',
+          username: seat.occupantUsername ?? 'guest',
+          avatarColor: seat.occupantAvatarColor,
+          isHost: false,
+        });
+      }
+    });
+    return list;
+  }, [host, seats]);
+
+  const selectedGiftTarget =
+    giftTargets.find((t) => t.uid === giftTargetUid) ?? giftTargets[0];
+
+  useEffect(() => {
+    if (showGiftTray && !giftTargets.some((t) => t.uid === giftTargetUid)) {
+      setGiftTargetUid(giftTargets[0]?.uid ?? '');
+    }
+  }, [showGiftTray, giftTargets, giftTargetUid]);
   const [confirmEndOpen, setConfirmEndOpen] = useState(false);
 
   // Gift effect queue — every new gift event in room chat drives an overlay effect
@@ -547,10 +593,14 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
         <div className="absolute inset-x-0 bottom-0 h-64 bg-gradient-to-t from-black/85 via-black/40 to-transparent" />
       </div>
 
-      {/* Multi-guest stage: host in Seat 1 + 8 guest seats in a modern tile grid */}
+      {/* Multi-guest stage: host in Seat 1 + guest seats in an adaptive tile grid */}
       {!isSolo && (
         <div className="relative order-2 flex-1 min-h-0 overflow-y-auto pl-3 pr-14 sm:px-4 pt-3 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <div className="max-w-2xl mx-auto grid grid-cols-4 gap-2 sm:gap-3">
+          <div
+            className={`max-w-2xl mx-auto grid gap-2 sm:gap-3 ${
+              seats.length > 12 ? 'grid-cols-4 sm:grid-cols-6' : 'grid-cols-4'
+            }`}
+          >
             {/* Seat 1 — Host */}
             <div
               className={`relative col-span-2 row-span-2 rounded-2xl overflow-hidden border-2 backdrop-blur-md bg-black/40 ${
@@ -687,6 +737,19 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
                               <UserMinus className="w-3 h-3" />
                             </button>
                           </>
+                        )}
+                        {!isMySeat && seat.occupantUid && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setGiftTargetUid(seat.occupantUid!);
+                              setShowGiftTray(true);
+                            }}
+                            aria-label={`Send a gift to ${seat.occupantName ?? 'guest'}`}
+                            className="w-6 h-6 rounded-full bg-black/55 hover:bg-amber-500/70 flex items-center justify-center text-amber-300"
+                          >
+                            <Gift className="w-3 h-3" />
+                          </button>
                         )}
                         {isMySeat && (
                           <button
@@ -1242,6 +1305,43 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
             </div>
           </div>
 
+          <div className="flex items-center gap-1.5 overflow-x-auto px-3 pb-2">
+            <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+              Send to
+            </span>
+            {giftTargets.map((target) => {
+              const active = selectedGiftTarget?.uid === target.uid;
+              return (
+                <button
+                  key={target.uid}
+                  type="button"
+                  onClick={() => setGiftTargetUid(target.uid)}
+                  className={`flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-1 text-[10px] font-semibold transition-colors ${
+                    active
+                      ? 'border-fuchsia-400/60 bg-fuchsia-500/20 text-white'
+                      : 'border-white/[0.08] bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]'
+                  }`}
+                >
+                  <Avatar
+                    name={target.name}
+                    color={target.avatarColor}
+                    size="xs"
+                  />
+                  <span className="max-w-[92px] truncate">{target.name}</span>
+                  {target.isHost ? (
+                    <span className="rounded bg-amber-400/20 px-1 text-[8px] font-bold text-amber-200">
+                      HOST
+                    </span>
+                  ) : (
+                    <span className="rounded bg-sky-400/15 px-1 text-[8px] font-bold text-sky-200">
+                      GUEST
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
           <div className="gift-tabs flex items-center gap-1 px-3 pb-2 overflow-x-auto">
             {(
               [
@@ -1363,6 +1463,12 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="text-xs font-bold text-white truncate">{selectedGift.name}</p>
+                  {selectedGiftTarget && (
+                    <p className="truncate text-[9px] text-slate-400">
+                      to {selectedGiftTarget.name}
+                      {selectedGiftTarget.isHost ? ' · Host' : ' · Guest'}
+                    </p>
+                  )}
                   <p className="flex items-center gap-1.5 text-[10px] font-mono text-amber-300 tabular-nums">
                     {selectedGift.price.toLocaleString()} coins
                     <span
@@ -1381,7 +1487,10 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
                 <button
                   type="button"
                   disabled={!currentUser || isOfflineSimulated || coinBalance < selectedGift.price}
-                  onClick={() => onSendGift(room.roomId, selectedGift)}
+                  onClick={() => {
+                    if (!selectedGiftTarget) return;
+                    onSendGift(room.roomId, selectedGift, selectedGiftTarget.uid);
+                  }}
                   className="relative overflow-hidden h-9 px-4 rounded-lg bg-gradient-to-r from-amber-400 via-orange-500 to-pink-500 hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-extrabold text-[#1A1206] inline-flex items-center gap-1.5 transition-all active:scale-[0.97] shadow-[0_4px_16px_rgba(249,115,22,0.4)]"
                 >
                   <Send className="w-3.5 h-3.5" aria-hidden="true" />
@@ -1408,6 +1517,11 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
           <div className="flex items-center justify-between">
             <h3 className="font-display text-sm font-semibold text-white">
               Guests & Requests
+              {!isSolo && (
+                <span className="ml-2 rounded-full bg-white/[0.07] px-2 py-0.5 text-[10px] font-semibold text-slate-300">
+                  {occupiedCount}/{seats.length} seats
+                </span>
+              )}
             </h3>
             <button
               type="button"

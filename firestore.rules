@@ -204,13 +204,14 @@ service cloud.firestore {
         data.keys().hasOnly([
           'roomId', 'hostUid', 'title', 'description', 'category', 'mode',
           'status', 'viewerCount', 'isPrivateFollowersOnly', 'isFeatured',
-          'thumbnailUrl', 'fallbackGradient', 'createdAt', 'updatedAt'
+          'thumbnailUrl', 'fallbackGradient', 'seatCount', 'createdAt', 'updatedAt'
         ]) &&
         data.roomId == roomId &&
         isValidId(data.roomId) &&
         isValidId(data.hostUid) &&
         data.title is string && data.title.size() >= 1 && data.title.size() <= 120 &&
         (!('description' in data) || (data.description is string && data.description.size() <= 400)) &&
+        (!('seatCount' in data) || data.seatCount in [8, 12, 16, 24]) &&
         data.category in ['Popular', 'Music', 'Entertainment', 'Friendship', 'Chat', 'Gaming', 'Talent', 'New Live'] &&
         data.mode in ['VIDEO', 'AUDIO', 'MULTI_GUEST'] &&
         data.status in ['LIVE', 'ENDED'] &&
@@ -224,13 +225,13 @@ service cloud.firestore {
     }
 
     function isValidRoomSeat(data, seatId) {
-      return seatId in ['seat_1', 'seat_2', 'seat_3', 'seat_4', 'seat_5', 'seat_6', 'seat_7', 'seat_8'] &&
+      return seatId.matches('^seat_([1-9]|1[0-9]|2[0-4])$') &&
         data.keys().hasAll(['seatNumber', 'status', 'updatedAt']) &&
         data.keys().hasOnly([
           'seatNumber', 'status', 'occupantUid', 'occupantName',
           'occupantUsername', 'occupantAvatarColor', 'isMuted', 'isSpeaking', 'updatedAt'
         ]) &&
-        data.seatNumber is int && data.seatNumber >= 1 && data.seatNumber <= 8 &&
+        data.seatNumber is int && data.seatNumber >= 1 && data.seatNumber <= 24 &&
         data.status in ['AVAILABLE', 'REQUESTED', 'OCCUPIED', 'LOCKED'] &&
         (!('occupantUid' in data) || (data.occupantUid is string && data.occupantUid.size() <= 128)) &&
         (!('occupantName' in data) || (data.occupantName is string && data.occupantName.size() <= 64)) &&
@@ -252,7 +253,7 @@ service cloud.firestore {
         data.username is string && data.username.size() >= 1 && data.username.size() <= 32 &&
         data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 64 &&
         (!('avatarColor' in data) || (data.avatarColor is string && data.avatarColor.size() <= 24)) &&
-        (!('preferredSeatNumber' in data) || (data.preferredSeatNumber is int && data.preferredSeatNumber >= 1 && data.preferredSeatNumber <= 8)) &&
+        (!('preferredSeatNumber' in data) || (data.preferredSeatNumber is int && data.preferredSeatNumber >= 1 && data.preferredSeatNumber <= 24)) &&
         data.createdAt == request.time;
     }
 
@@ -277,6 +278,110 @@ service cloud.firestore {
         (!('giftCurrency' in data) || data.giftCurrency in ['COIN', 'DIAMOND']) &&
         (!('giftAmount' in data) || (data.giftAmount is int && data.giftAmount > 0)) &&
         data.createdAt == request.time;
+    }
+
+    // Immutable gift receipt written by the sender. Wallet credits on both the
+    // recipient and agency wallets must reference a receipt created here in the
+    // same transaction (verified via getAfter + pre-existence checks).
+    function isValidGiftEvent(data, eventId) {
+      return data.keys().hasAll([
+          'eventId', 'roomId', 'senderUid', 'senderUsername', 'recipientUid',
+          'recipientUsername', 'recipientDisplayName', 'giftId', 'giftName',
+          'giftCurrency', 'giftAmount', 'recipientDiamonds', 'createdAt'
+        ]) &&
+        data.keys().hasOnly([
+          'eventId', 'roomId', 'senderUid', 'senderUsername', 'recipientUid',
+          'recipientUsername', 'recipientDisplayName', 'giftId', 'giftName',
+          'giftCurrency', 'giftAmount', 'recipientDiamonds',
+          'commissionUid', 'commissionAmount', 'commissionRate', 'createdAt'
+        ]) &&
+        data.eventId == eventId &&
+        isValidId(eventId) &&
+        isValidId(data.roomId) &&
+        data.senderUid == request.auth.uid &&
+        isValidId(data.recipientUid) &&
+        data.senderUid != data.recipientUid &&
+        data.senderUsername is string && data.senderUsername.size() >= 1 && data.senderUsername.size() <= 32 &&
+        data.recipientUsername is string && data.recipientUsername.size() >= 1 && data.recipientUsername.size() <= 32 &&
+        data.recipientDisplayName is string && data.recipientDisplayName.size() >= 1 && data.recipientDisplayName.size() <= 64 &&
+        data.giftId is string && data.giftId.size() >= 1 && data.giftId.size() <= 48 &&
+        data.giftName is string && data.giftName.size() >= 1 && data.giftName.size() <= 48 &&
+        data.giftCurrency in ['COIN', 'DIAMOND'] &&
+        data.giftAmount is int && data.giftAmount > 0 && data.giftAmount <= 1000000 &&
+        data.recipientDiamonds is int && data.recipientDiamonds >= 0 &&
+        data.recipientDiamonds * 10 == data.giftAmount * 7 &&
+        data.createdAt == request.time &&
+        (
+          (
+            data.giftCurrency == 'COIN' &&
+            get(/databases/$(database)/documents/wallets/$(request.auth.uid)).data.coinBalance -
+              getAfter(/databases/$(database)/documents/wallets/$(request.auth.uid)).data.coinBalance ==
+              data.giftAmount
+          ) ||
+          (
+            data.giftCurrency == 'DIAMOND' &&
+            get(/databases/$(database)/documents/wallets/$(request.auth.uid)).data.diamondBalance -
+              getAfter(/databases/$(database)/documents/wallets/$(request.auth.uid)).data.diamondBalance ==
+              data.giftAmount
+          )
+        ) &&
+        getAfter(/databases/$(database)/documents/wallets/$(data.recipientUid)).data.diamondBalance -
+          get(/databases/$(database)/documents/wallets/$(data.recipientUid)).data.diamondBalance ==
+          data.recipientDiamonds &&
+        (
+          (
+            !('commissionUid' in data) &&
+            !('commissionAmount' in data) &&
+            !('commissionRate' in data)
+          ) ||
+          (
+            isValidId(data.commissionUid) &&
+            data.commissionUid != data.senderUid &&
+            data.commissionUid != data.recipientUid &&
+            data.commissionAmount is int && data.commissionAmount > 0 &&
+            data.commissionRate in [5, 10] &&
+            data.commissionAmount * 100 == data.giftAmount * data.commissionRate &&
+            getAfter(/databases/$(database)/documents/wallets/$(data.commissionUid)).data.diamondBalance -
+              get(/databases/$(database)/documents/wallets/$(data.commissionUid)).data.diamondBalance ==
+              data.commissionAmount
+          )
+        );
+    }
+
+    function isValidAgencyCommission(data, storyId) {
+      return data.keys().hasAll([
+          'id', 'eventId', 'superAgentUid', 'memberUid', 'memberUsername',
+          'memberDisplayName', 'memberType', 'giftName', 'giftPrice',
+          'commissionRate', 'commissionAmount', 'dateKey', 'createdAt', 'timestampMillis'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'eventId', 'superAgentUid', 'memberUid', 'memberUsername',
+          'memberDisplayName', 'memberType', 'giftName', 'giftPrice',
+          'commissionRate', 'commissionAmount', 'dateKey', 'createdAt', 'timestampMillis'
+        ]) &&
+        data.id == storyId &&
+        isValidId(storyId) &&
+        isValidId(data.eventId) &&
+        isValidId(data.superAgentUid) &&
+        isValidId(data.memberUid) &&
+        data.memberUid != data.superAgentUid &&
+        data.memberUsername is string && data.memberUsername.size() >= 1 && data.memberUsername.size() <= 32 &&
+        data.memberDisplayName is string && data.memberDisplayName.size() >= 1 && data.memberDisplayName.size() <= 64 &&
+        data.memberType in ['AGENT', 'HOST'] &&
+        data.giftName is string && data.giftName.size() >= 1 && data.giftName.size() <= 48 &&
+        data.giftPrice is int && data.giftPrice > 0 &&
+        data.commissionAmount is int && data.commissionAmount > 0 &&
+        data.dateKey is string && data.dateKey.size() == 10 &&
+        data.timestampMillis is int &&
+        data.createdAt == request.time &&
+        !exists(/databases/$(database)/documents/giftEvents/$(data.eventId)) &&
+        existsAfter(/databases/$(database)/documents/giftEvents/$(data.eventId)) &&
+        getAfter(/databases/$(database)/documents/giftEvents/$(data.eventId)).data.senderUid == request.auth.uid &&
+        getAfter(/databases/$(database)/documents/giftEvents/$(data.eventId)).data.recipientUid == data.memberUid &&
+        getAfter(/databases/$(database)/documents/giftEvents/$(data.eventId)).data.commissionUid == data.superAgentUid &&
+        getAfter(/databases/$(database)/documents/giftEvents/$(data.eventId)).data.commissionAmount == data.commissionAmount &&
+        getAfter(/databases/$(database)/documents/giftEvents/$(data.eventId)).data.giftName == data.giftName &&
+        getAfter(/databases/$(database)/documents/giftEvents/$(data.eventId)).data.giftAmount == data.giftPrice;
     }
 
     function isValidConversation(data, conversationId) {
@@ -309,12 +414,13 @@ service cloud.firestore {
 
     function isValidWallet(data, uid) {
       return data.keys().hasAll(['uid', 'coinBalance', 'diamondBalance', 'createdAt', 'updatedAt']) &&
-        data.keys().hasOnly(['uid', 'coinBalance', 'diamondBalance', 'tradingCoinBalance', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['uid', 'coinBalance', 'diamondBalance', 'tradingCoinBalance', 'lastGiftEventId', 'createdAt', 'updatedAt']) &&
         data.uid == uid &&
         isValidId(data.uid) &&
         data.coinBalance is int && data.coinBalance >= 0 &&
         data.diamondBalance is int && data.diamondBalance >= 0 &&
         (!('tradingCoinBalance' in data) || (data.tradingCoinBalance is int && data.tradingCoinBalance >= 0)) &&
+        (!('lastGiftEventId' in data) || isValidId(data.lastGiftEventId)) &&
         data.createdAt is timestamp &&
         data.updatedAt is timestamp;
     }
@@ -599,10 +705,10 @@ service cloud.firestore {
       allow delete: if isAdmin() ||
         (isSignedIn() && resource.data.hostUid == request.auth.uid);
 
-      // 8 Multi-Guest Seats
+      // Multi-guest seats (8 / 12 / 16 / 24 capacity)
       match /seats/{seatId} {
         allow get: if isValidId(roomId) && isValidId(seatId);
-        allow list: if resource.data.seatNumber >= 1 && resource.data.seatNumber <= 8;
+        allow list: if resource.data.seatNumber >= 1 && resource.data.seatNumber <= 24;
         allow delete: if isAdmin();
         allow create: if isVerifiedUser() &&
           (isRoomHostAfter(roomId) || isAdmin()) &&
@@ -713,6 +819,28 @@ service cloud.firestore {
           get(/databases/$(database)/documents/liveRooms/$(roomId)).data.status == 'LIVE' &&
           isValidRoomMessage(incoming(), messageId, roomId);
       }
+    }
+
+    // Gift receipts — security anchor for gifting wallet credits.
+    match /giftEvents/{eventId} {
+      allow get: if isSignedIn() && isValidId(eventId);
+      allow list: if isSignedIn();
+      allow create: if isVerifiedUser() &&
+        isValidId(eventId) &&
+        isValidGiftEvent(incoming(), eventId) &&
+        !exists(/databases/$(database)/documents/giftEvents/$(eventId));
+      allow update, delete: if isAdmin();
+    }
+
+    // Agency commission stories (30-day retention ledger).
+    match /agencyCommissions/{storyId} {
+      allow get: if isValidId(storyId) &&
+        (isAdmin() || isSuperAgent() || (isSignedIn() && resource.data.memberUid == request.auth.uid));
+      allow list: if isAdmin() || isSuperAgent() ||
+        (isSignedIn() && resource.data.memberUid == request.auth.uid);
+      allow create: if isVerifiedUser() &&
+        isValidAgencyCommission(incoming(), storyId);
+      allow update, delete: if isAdmin();
     }
 
     // Private Conversations
@@ -1063,6 +1191,32 @@ service cloud.firestore {
             (isAgent() || (isSuperAgent() && isBdAgent() == false))
           ) ||
           (
+            // Gift credit to the recipient / agency. The wallet must reference a
+            // gift receipt created in this same transaction, and the credited
+            // amount must match the receipt exactly. Pre-existence is rejected,
+            // so a receipt can never be replayed.
+            uid != request.auth.uid &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['diamondBalance', 'lastGiftEventId', 'updatedAt']) &&
+            incoming().diamondBalance > existing().diamondBalance &&
+            incoming().lastGiftEventId is string &&
+            isValidId(incoming().lastGiftEventId) &&
+            !exists(/databases/$(database)/documents/giftEvents/$(incoming().lastGiftEventId)) &&
+            existsAfter(/databases/$(database)/documents/giftEvents/$(incoming().lastGiftEventId)) &&
+            getAfter(/databases/$(database)/documents/giftEvents/$(incoming().lastGiftEventId)).data.senderUid == request.auth.uid &&
+            (
+              (
+                getAfter(/databases/$(database)/documents/giftEvents/$(incoming().lastGiftEventId)).data.recipientUid == uid &&
+                incoming().diamondBalance - existing().diamondBalance ==
+                  getAfter(/databases/$(database)/documents/giftEvents/$(incoming().lastGiftEventId)).data.recipientDiamonds
+              ) ||
+              (
+                getAfter(/databases/$(database)/documents/giftEvents/$(incoming().lastGiftEventId)).data.commissionUid == uid &&
+                incoming().diamondBalance - existing().diamondBalance ==
+                  getAfter(/databases/$(database)/documents/giftEvents/$(incoming().lastGiftEventId)).data.commissionAmount
+              )
+            )
+          ) ||
+          (
             // Fruit Manor pays winnings / refunds back into the owner's own
             // wallet. Bounded by the largest possible single game payout
             // (maxStakePerBet 50,000 x top multiplier 38 = 1,900,000).
@@ -1115,6 +1269,29 @@ service cloud.firestore {
                 (isBdAgent() && isAgencyWallet(uid)) ||
                 (isSuperAgent() && isBdAgent() == false && (isAgentWallet(uid) || isUserWallet(uid))) ||
                 (isAgent() && isUserWallet(uid))
+              )
+            ) ||
+            (
+              // Gift ledger credit for the recipient or agency. Must reference
+              // the brand-new gift receipt created in this transaction.
+              uid != request.auth.uid &&
+              incoming().direction == 'CREDIT' &&
+              incoming().currency == 'DIAMOND' &&
+              incoming().idempotencyKey.matches('^gift_.*$') &&
+              !exists(/databases/$(database)/documents/giftEvents/$(incoming().idempotencyKey)) &&
+              existsAfter(/databases/$(database)/documents/giftEvents/$(incoming().idempotencyKey)) &&
+              getAfter(/databases/$(database)/documents/giftEvents/$(incoming().idempotencyKey)).data.senderUid == request.auth.uid &&
+              (
+                (
+                  getAfter(/databases/$(database)/documents/giftEvents/$(incoming().idempotencyKey)).data.recipientUid == uid &&
+                  incoming().amount ==
+                    getAfter(/databases/$(database)/documents/giftEvents/$(incoming().idempotencyKey)).data.recipientDiamonds
+                ) ||
+                (
+                  getAfter(/databases/$(database)/documents/giftEvents/$(incoming().idempotencyKey)).data.commissionUid == uid &&
+                  incoming().amount ==
+                    getAfter(/databases/$(database)/documents/giftEvents/$(incoming().idempotencyKey)).data.commissionAmount
+                )
               )
             ) ||
             (

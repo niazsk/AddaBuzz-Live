@@ -78,7 +78,7 @@ export interface UserProfile {
 }
 
 export interface GuestSeat {
-  seatNumber: number; // 1 to 8 (server-enforced max 8 guest seats)
+  seatNumber: number; // 1 to 24 (room capacity is 8, 12, 16 or 24)
   status: SeatStatus;
   occupantUid?: string;
   occupantName?: string;
@@ -129,7 +129,8 @@ export interface LiveRoom {
   lastHeartbeatMs: number;
   isFeatured?: boolean;
   isPrivateFollowersOnly?: boolean;
-  seats: GuestSeat[]; // Always length 8 for multi-guest / room readiness
+  seatCount?: number; // Multi-guest capacity: 8, 12, 16 or 24
+  seats: GuestSeat[]; // Guest seat grid (length matches seatCount for multi-guest rooms)
   joinRequests: JoinRequest[];
   comments: RoomComment[];
 }

@@ -19,6 +19,7 @@ import {
   Unsubscribe,
   DocumentSnapshot,
   DocumentData,
+  DocumentReference,
 } from 'firebase/firestore';
 import {
   createUserWithEmailAndPassword,
@@ -164,6 +165,14 @@ async function nextUserPlatformId(): Promise<string> {
 }
 
 const clampStr = (val: string, max: number) => val.trim().slice(0, max);
+
+export const SUPPORTED_SEAT_COUNTS = [8, 12, 16, 24] as const;
+
+/** Multi-guest capacity is restricted to the supported grid sizes (default 8). */
+export const normalizeSeatCount = (value: unknown): number => {
+  const n = Number(value);
+  return (SUPPORTED_SEAT_COUNTS as readonly number[]).includes(n) ? n : 8;
+};
 
 const formatTimestamp = (ts: unknown): string => {
   if (ts instanceof Timestamp) {
@@ -599,7 +608,8 @@ export function subscribeLiveRooms(
             d.updatedAt instanceof Timestamp ? d.updatedAt.toMillis() : createdAtMs,
           isFeatured: Boolean(d.isFeatured ?? false),
           isPrivateFollowersOnly: Boolean(d.isPrivateFollowersOnly ?? false),
-          seats: Array.from({ length: 8 }, (_, idx) => ({
+          seatCount: normalizeSeatCount(d.seatCount),
+          seats: Array.from({ length: normalizeSeatCount(d.seatCount) }, (_, idx) => ({
             seatNumber: idx + 1,
             status: 'AVAILABLE' as const,
           })),
@@ -625,12 +635,14 @@ export function subscribeRoomDetails(
     onSeats: (seats: GuestSeat[]) => void;
     onJoinRequests: (requests: JoinRequest[]) => void;
     onMessages: (comments: RoomComment[]) => void;
-  }
+  },
+  seatCount = 8
 ): () => void {
+  const capacity = normalizeSeatCount(seatCount);
   const seatsQ = query(
     collection(db, 'liveRooms', roomId, 'seats'),
     where('seatNumber', '>=', 1),
-    where('seatNumber', '<=', 8)
+    where('seatNumber', '<=', capacity)
   );
   const unsubSeats = listenWithRetry(
     seatsQ,
@@ -650,7 +662,7 @@ export function subscribeRoomDetails(
           isSpeaking: Boolean(d.isSpeaking ?? false),
         });
       });
-      const ordered = Array.from({ length: 8 }, (_, idx) => {
+      const ordered = Array.from({ length: capacity }, (_, idx) => {
         const num = idx + 1;
         return seatMap.get(num) ?? { seatNumber: num, status: 'AVAILABLE' as const };
       });
@@ -742,11 +754,13 @@ export async function createLiveRoomDoc(
     description: string;
     category: Exclude<RoomCategory, 'All'>;
     mode: RoomMode;
+    seatCount?: number;
     isPrivateFollowersOnly: boolean;
   }
 ): Promise<string> {
   const roomId = `room_${Date.now()}_${host.uid.slice(0, 6)}`;
   const batch = writeBatch(db);
+  const seatCount = normalizeSeatCount(payload.seatCount);
 
   batch.set(doc(db, 'liveRooms', roomId), {
     roomId,
@@ -755,6 +769,7 @@ export async function createLiveRoomDoc(
     description: clampStr(payload.description, 400),
     category: payload.category,
     mode: payload.mode,
+    seatCount,
     status: 'LIVE',
     viewerCount: 1,
     isPrivateFollowersOnly: payload.isPrivateFollowersOnly,
@@ -764,7 +779,7 @@ export async function createLiveRoomDoc(
     updatedAt: serverTimestamp(),
   });
 
-  for (let i = 1; i <= 8; i++) {
+  for (let i = 1; i <= seatCount; i++) {
     batch.set(doc(db, 'liveRooms', roomId, 'seats', `seat_${i}`), {
       seatNumber: i,
       status: 'AVAILABLE',
@@ -863,16 +878,19 @@ export async function approveJoinRequestDoc(
   const reqRef = doc(db, 'liveRooms', roomId, 'joinRequests', request.requestId);
   try {
     return await runTransaction(db, async (tx) => {
+      const roomSnap = await tx.get(doc(db, 'liveRooms', roomId));
+      if (!roomSnap.exists()) throw new Error('Room not found.');
+      const capacity = normalizeSeatCount(roomSnap.data().seatCount);
       const seatSnaps = await Promise.all(
-        Array.from({ length: 8 }, (_, idx) =>
+        Array.from({ length: capacity }, (_, idx) =>
           tx.get(doc(db, 'liveRooms', roomId, 'seats', `seat_${idx + 1}`))
         )
       );
       const occupiedCount = seatSnaps.filter(
         (s) => s.exists() && s.data().status === 'OCCUPIED'
       ).length;
-      if (occupiedCount >= 8) {
-        throw new Error('Maximum 8 guest seats are already occupied.');
+      if (occupiedCount >= capacity) {
+        throw new Error(`Maximum ${capacity} guest seats are already occupied.`);
       }
 
       const preferred = seatSnaps.find(
@@ -1075,39 +1093,50 @@ export function subscribeWalletTransactions(
   );
 }
 
+export interface GiftRecipient {
+  uid: string;
+  username: string;
+  displayName: string;
+}
+
 export async function sendVirtualGiftTransaction(
   roomId: string,
   sender: UserProfile,
-  hostUid: string | undefined,
-  hostUsername: string,
+  recipient: GiftRecipient,
   gift: GiftCatalogItem
 ): Promise<void> {
-  if (hostUid && sender.uid === hostUid) {
+  if (recipient.uid === sender.uid) {
     throw new Error('You cannot send a gift to yourself.');
   }
 
-  const walletRef = doc(db, 'wallets', sender.uid);
-  const hostWalletRef = hostUid ? doc(db, 'wallets', hostUid) : null;
-  const txId = `tx_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-  const hostTxId = `tx_h_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-  const txRef = doc(db, 'wallets', sender.uid, 'transactions', txId);
+  const eventId = `gift_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const senderWalletRef = doc(db, 'wallets', sender.uid);
+  const recipientWalletRef = doc(db, 'wallets', recipient.uid);
+  const senderTxId = `tx_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+  const recipientTxId = `tx_r_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+  const senderTxRef = doc(db, 'wallets', sender.uid, 'transactions', senderTxId);
+  const recipientTxRef = doc(db, 'wallets', recipient.uid, 'transactions', recipientTxId);
+  const eventRef = doc(db, 'giftEvents', eventId);
   const msgId = `msg_gift_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
   const msgRef = doc(db, 'liveRooms', roomId, 'messages', msgId);
-  const idempotencyKey = `gift_${gift.giftId}_${Date.now().toString(36)}`;
 
-  // Host receives diamonds (30% less silently)
-  const hostDiamondsToAdd = Math.floor(gift.price * 0.70);
+  // Recipient keeps 70% of the gift value as Diamonds.
+  const recipientDiamonds = Math.floor(gift.price * 0.70);
 
   try {
     await runTransaction(db, async (tx) => {
-      const [walletSnap, hostWalletSnap] = await Promise.all([
-        tx.get(walletRef),
-        hostWalletRef ? tx.get(hostWalletRef) : Promise.resolve(null),
+      // All reads must happen before the first write in a Firestore transaction.
+      const [walletSnap, recipientWalletSnap, recipientUserSnap] = await Promise.all([
+        tx.get(senderWalletRef),
+        tx.get(recipientWalletRef),
+        tx.get(doc(db, 'users', recipient.uid)),
       ]);
 
-      if (!walletSnap.exists()) {
-        throw new Error('Wallet not initialized.');
+      if (!walletSnap.exists()) throw new Error('Wallet not initialized.');
+      if (!recipientWalletSnap.exists()) {
+        throw new Error('Recipient wallet is not initialized.');
       }
+
       const w = walletSnap.data();
       const coins = Number(w.coinBalance ?? 0);
       const diamonds = Number(w.diamondBalance ?? 0);
@@ -1119,99 +1148,143 @@ export async function sendVirtualGiftTransaction(
         throw new Error(`Insufficient Diamonds (need ${gift.price}).`);
       }
 
-      tx.update(walletRef, {
+      // Agency commission metadata (resolved before writes).
+      let commissionUid: string | undefined;
+      let commissionAmount = 0;
+      let commissionRate = 0;
+      let commissionWalletRef: DocumentReference | null = null;
+      let commissionBalance = 0;
+
+      if (recipientUserSnap.exists()) {
+        const rData = recipientUserSnap.data();
+        const agencyUid = rData.superAgentUid || rData.hostAgencyUid;
+        if (
+          typeof agencyUid === 'string' &&
+          agencyUid &&
+          agencyUid !== recipient.uid &&
+          agencyUid !== sender.uid
+        ) {
+          // 5% for agents, 10% for hosts.
+          const ratePct = rData.accountType === 'AGENT' ? 5 : 10;
+          const amount = Math.max(1, Math.floor((gift.price * ratePct) / 100));
+          const agencyWalletRef = doc(db, 'wallets', agencyUid);
+          const agencyWalletSnap = await tx.get(agencyWalletRef);
+          if (agencyWalletSnap.exists()) {
+            commissionUid = agencyUid;
+            commissionAmount = amount;
+            commissionRate = ratePct;
+            commissionWalletRef = agencyWalletRef;
+            commissionBalance = Number(agencyWalletSnap.data().diamondBalance ?? 0);
+          }
+        }
+      }
+
+      // 1. Debit the sender.
+      tx.update(senderWalletRef, {
         coinBalance: gift.currency === 'COIN' ? coins - gift.price : coins,
         diamondBalance: gift.currency === 'DIAMOND' ? diamonds - gift.price : diamonds,
         updatedAt: serverTimestamp(),
       });
 
-      tx.set(txRef, {
-        transactionId: txId,
+      tx.set(senderTxRef, {
+        transactionId: senderTxId,
         uid: sender.uid,
         currency: gift.currency,
         direction: 'DEBIT',
         amount: gift.price,
-        reason: clampStr(`Sent ${gift.name} to @${hostUsername}`, 160),
-        counterparty: clampStr(`@${hostUsername}`, 64),
-        idempotencyKey,
+        reason: clampStr(`Sent ${gift.name} to @${recipient.username}`, 160),
+        counterparty: clampStr(`@${recipient.username}`, 64),
+        idempotencyKey: eventId,
         createdAt: serverTimestamp(),
       });
 
-      // Credit host with diamonds if host wallet exists and sender is not host
-      if (hostWalletRef && hostWalletSnap && hostWalletSnap.exists() && sender.uid !== hostUid && hostDiamondsToAdd > 0) {
-        const curHostDiamonds = Number(hostWalletSnap.data().diamondBalance ?? 0);
-        tx.update(hostWalletRef, {
-          diamondBalance: curHostDiamonds + hostDiamondsToAdd,
+      // 2. Credit the recipient with Diamonds.
+      const recipientWalletData = recipientWalletSnap.data();
+      const curRecipientDiamonds = Number(recipientWalletData.diamondBalance ?? 0);
+      tx.update(recipientWalletRef, {
+        diamondBalance: curRecipientDiamonds + recipientDiamonds,
+        lastGiftEventId: eventId,
+        updatedAt: serverTimestamp(),
+      });
+      tx.set(recipientTxRef, {
+        transactionId: recipientTxId,
+        uid: recipient.uid,
+        currency: 'DIAMOND',
+        direction: 'CREDIT',
+        amount: recipientDiamonds,
+        reason: clampStr(`Received ${gift.name} from @${sender.username}`, 160),
+        counterparty: clampStr(`@${sender.username}`, 64),
+        idempotencyKey: eventId,
+        createdAt: serverTimestamp(),
+      });
+
+      // 3. Agency commission (optional).
+      if (commissionUid && commissionAmount > 0 && commissionWalletRef) {
+        const commissionTxId = `tx_c_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+        tx.update(commissionWalletRef, {
+          diamondBalance: commissionBalance + commissionAmount,
+          lastGiftEventId: eventId,
           updatedAt: serverTimestamp(),
         });
-        tx.set(doc(db, 'wallets', hostUid!, 'transactions', hostTxId), {
-          transactionId: hostTxId,
-          uid: hostUid!,
+        tx.set(doc(db, 'wallets', commissionUid, 'transactions', commissionTxId), {
+          transactionId: commissionTxId,
+          uid: commissionUid,
           currency: 'DIAMOND',
           direction: 'CREDIT',
-          amount: hostDiamondsToAdd,
-          reason: clampStr(`Received ${gift.name} from @${sender.username}`, 160),
-          counterparty: clampStr(`@${sender.username}`, 64),
-          idempotencyKey: hostTxId,
+          amount: commissionAmount,
+          reason: clampStr(
+            `Agency Commission (${commissionRate}%): @${recipient.username} received ${gift.name}`,
+            160
+          ),
+          counterparty: clampStr(`@${recipient.username}`, 64),
+          idempotencyKey: eventId,
           createdAt: serverTimestamp(),
         });
 
-        // Check if host has an agency / super agent (10% commission for host, 5% if agent)
-        const hostUserRef = doc(db, 'users', hostUid!);
-        const hostUserSnap = await tx.get(hostUserRef);
-        if (hostUserSnap.exists()) {
-          const hostData = hostUserSnap.data();
-          const superAgentUid = hostData.superAgentUid || hostData.hostAgencyUid;
-          if (superAgentUid && superAgentUid !== hostUid) {
-            const isAgent = hostData.accountType === 'AGENT';
-            const commissionRate = isAgent ? 0.05 : 0.10; // 5% for agent, 10% for host
-            const commissionAmount = Math.max(1, Math.floor(gift.price * commissionRate));
-            
-            const saWalletRef = doc(db, 'wallets', superAgentUid);
-            const saWalletSnap = await tx.get(saWalletRef);
-            if (saWalletSnap.exists()) {
-              const saDiamonds = Number(saWalletSnap.data().diamondBalance ?? 0);
-              tx.update(saWalletRef, {
-                diamondBalance: saDiamonds + commissionAmount,
-                updatedAt: serverTimestamp(),
-              });
-              const saTxId = `tx_sa_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-              tx.set(doc(db, 'wallets', superAgentUid, 'transactions', saTxId), {
-                transactionId: saTxId,
-                uid: superAgentUid,
-                currency: 'DIAMOND',
-                direction: 'CREDIT',
-                amount: commissionAmount,
-                reason: clampStr(`Agency Commission (${commissionRate * 100}%): @${hostUsername} received ${gift.name}`, 160),
-                counterparty: clampStr(`@${hostUsername}`, 64),
-                idempotencyKey: saTxId,
-                createdAt: serverTimestamp(),
-              });
-            }
-
-            // Save Commission Story record (30 days retention record)
-            const storyId = `story_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-            const d = new Date();
-            const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-            tx.set(doc(db, 'agencyCommissions', storyId), {
-              id: storyId,
-              superAgentUid,
-              memberUid: hostUid!,
-              memberUsername: clampStr(hostUsername, 32),
-              memberDisplayName: clampStr(hostData.displayName || hostUsername, 64),
-              memberType: isAgent ? 'AGENT' : 'HOST',
-              giftName: gift.name,
-              giftPrice: gift.price,
-              commissionRate,
-              commissionAmount,
-              dateKey,
-              createdAt: serverTimestamp(),
-              timestampMillis: Date.now(),
-            });
-          }
-        }
+        const storyId = `story_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+        const d = new Date();
+        const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+          d.getDate()
+        ).padStart(2, '0')}`;
+        tx.set(doc(db, 'agencyCommissions', storyId), {
+          id: storyId,
+          eventId,
+          superAgentUid: commissionUid,
+          memberUid: recipient.uid,
+          memberUsername: clampStr(recipient.username, 32),
+          memberDisplayName: clampStr(recipient.displayName || recipient.username, 64),
+          memberType: recipientUserSnap.data()?.accountType === 'AGENT' ? 'AGENT' : 'HOST',
+          giftName: gift.name,
+          giftPrice: gift.price,
+          commissionRate: commissionRate / 100,
+          commissionAmount,
+          dateKey,
+          createdAt: serverTimestamp(),
+          timestampMillis: Date.now(),
+        });
       }
 
+      // 4. Immutable gift event receipt — the security anchor for wallet credits.
+      tx.set(eventRef, {
+        eventId,
+        roomId,
+        senderUid: sender.uid,
+        senderUsername: clampStr(sender.username, 32),
+        recipientUid: recipient.uid,
+        recipientUsername: clampStr(recipient.username, 32),
+        recipientDisplayName: clampStr(recipient.displayName || recipient.username, 64),
+        giftId: clampStr(gift.giftId, 48),
+        giftName: clampStr(gift.name, 48),
+        giftCurrency: gift.currency,
+        giftAmount: gift.price,
+        recipientDiamonds,
+        ...(commissionUid
+          ? { commissionUid, commissionAmount, commissionRate }
+          : {}),
+        createdAt: serverTimestamp(),
+      });
+
+      // 5. Room gift event message (drives chat + gift effects).
       tx.set(msgRef, {
         id: msgId,
         roomId,
@@ -1219,7 +1292,7 @@ export async function sendVirtualGiftTransaction(
         username: clampStr(sender.username, 32),
         displayName: clampStr(sender.displayName, 64),
         accountType: sender.accountType,
-        text: `Sent ${gift.name} (${gift.price} ${
+        text: `Sent ${gift.name} to @${recipient.username} (${gift.price} ${
           gift.currency === 'COIN' ? 'Coins' : 'Diamonds'
         })!`,
         isGiftEvent: true,
@@ -1232,6 +1305,9 @@ export async function sendVirtualGiftTransaction(
     });
   } catch (error) {
     if (error instanceof Error && error.message.startsWith('Insufficient')) {
+      throw error;
+    }
+    if (error instanceof Error && error.message.startsWith('Recipient')) {
       throw error;
     }
     handleFirestoreError(error, OperationType.WRITE, `wallets/${sender.uid}`);

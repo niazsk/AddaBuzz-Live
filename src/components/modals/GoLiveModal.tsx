@@ -11,9 +11,12 @@ interface GoLiveModalProps {
     description: string;
     category: Exclude<RoomCategory, 'All'>;
     mode: RoomMode;
+    seatCount: number;
     isPrivateFollowersOnly: boolean;
   }) => void;
 }
+
+const SEAT_OPTIONS = [8, 12, 16, 24] as const;
 
 export const GoLiveModal: React.FC<GoLiveModalProps> = ({
   open,
@@ -22,6 +25,8 @@ export const GoLiveModal: React.FC<GoLiveModalProps> = ({
 }) => {
   const [mode, setMode] = useState<RoomMode>('MULTI_GUEST');
   const [category, setCategory] = useState<Exclude<RoomCategory, 'All'>>('Music');
+  const [seatCount, setSeatCount] = useState<number>(8);
+  const [title, setTitle] = useState('Late-Night Adda & Open Stage');
   const [consentMicCam, setConsentMicCam] = useState(true);
 
   if (!open) return null;
@@ -33,12 +38,16 @@ export const GoLiveModal: React.FC<GoLiveModalProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!consentMicCam) return;
+    const capacity = mode === 'MULTI_GUEST' ? seatCount : 8;
     onStartLiveRoom({
-      title: 'Late-Night Adda & Open Stage',
+      title: title.trim() || 'Live Room',
       description:
-        'Welcome to the room — grab one of 8 guest seats or drop a comment.',
+        mode === 'MULTI_GUEST'
+          ? `Welcome to the room — grab one of ${capacity} guest seats or drop a comment.`
+          : 'Welcome to the room — drop a comment and show some love.',
       category,
       mode,
+      seatCount: capacity,
       isPrivateFollowersOnly: false,
     });
   };
@@ -78,7 +87,7 @@ export const GoLiveModal: React.FC<GoLiveModalProps> = ({
                 [
                   { id: 'VIDEO', label: 'Video Live', icon: Video },
                   { id: 'AUDIO', label: 'Audio Live', icon: Mic },
-                  { id: 'MULTI_GUEST', label: 'Multi-Guest (8)', icon: Users },
+                  { id: 'MULTI_GUEST', label: 'Multi-Guest', icon: Users },
                 ] as const
               ).map((item) => {
                 const Icon = item.icon;
@@ -101,6 +110,46 @@ export const GoLiveModal: React.FC<GoLiveModalProps> = ({
               })}
             </div>
           </div>
+
+          <label className="block space-y-1.5">
+            <span className="text-xs font-medium text-slate-300">Room Title</span>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              maxLength={120}
+              placeholder="Give your room a catchy title"
+              className="w-full h-10 px-3 rounded-xl bg-[#090B12] border border-white/[0.09] text-sm text-white placeholder:text-slate-500 focus:border-sky-500/60 focus:outline-none"
+            />
+          </label>
+
+          {mode === 'MULTI_GUEST' && (
+            <div className="space-y-1.5">
+              <span className="text-xs font-medium text-slate-300">Guest Seats</span>
+              <div className="grid grid-cols-4 gap-2">
+                {SEAT_OPTIONS.map((option) => {
+                  const active = seatCount === option;
+                  return (
+                    <button
+                      key={option}
+                      type="button"
+                      onClick={() => setSeatCount(option)}
+                      className={`py-2.5 rounded-xl border text-xs font-semibold transition-colors ${
+                        active
+                          ? 'bg-gradient-to-r from-violet-600/25 to-sky-500/20 border-violet-400 text-white'
+                          : 'bg-[#090B12] border-white/[0.08] text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      {option} Seats
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-[11px] text-slate-500">
+                Host takes the stage; {seatCount} guests can join the seat grid.
+              </p>
+            </div>
+          )}
 
           <label className="block space-y-1.5">
             <span className="text-xs font-medium text-slate-300">Category</span>
