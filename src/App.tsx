@@ -1485,6 +1485,7 @@ export default function App() {
               coinBalance={coinBalance}
               onSendDirectGift={handleSendDirectGift}
               onUnblockUser={handleToggleBlock}
+              onStartDirectMessage={handleStartDirectMessage}
               onOpenAuth={() => setActiveSection('signin')}
               isOfflineSimulated={isOffline}
             />

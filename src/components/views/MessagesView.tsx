@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Coins, Gift, LogIn, Send, ShieldBan, X } from 'lucide-react';
+import { Coins, Gift, LogIn, Plus, Search, Send, ShieldBan, X } from 'lucide-react';
 import { Conversation, DirectMessage, GiftCatalogItem, UserProfile } from '../../types/app';
 import { Avatar } from '../ui/Avatar';
 import { GiftArtwork } from '../ui/GiftArtwork';
@@ -26,6 +26,7 @@ interface MessagesViewProps {
     gift: GiftCatalogItem
   ) => Promise<void>;
   onUnblockUser: (uid: string) => void;
+  onStartDirectMessage: (user: UserProfile) => void;
   onOpenAuth: () => void;
   isOfflineSimulated: boolean;
 }
@@ -43,6 +44,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
   onSendDirectMessage,
   onSendDirectGift,
   onUnblockUser,
+  onStartDirectMessage,
   onOpenAuth,
   isOfflineSimulated,
 }) => {
@@ -51,6 +53,8 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
   const [selectedGiftId, setSelectedGiftId] = useState<string>(gifts[0]?.giftId ?? '');
   const [giftTab, setGiftTab] = useState<'all' | GiftTier>('all');
   const [giftBusy, setGiftBusy] = useState(false);
+  const [showNewChat, setShowNewChat] = useState(false);
+  const [peopleSearch, setPeopleSearch] = useState('');
 
   const selectedConv =
     conversations.find((c) => c.conversationId === activeConversationId) ??
@@ -133,21 +137,101 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
     }
   };
 
+  const peopleResults = users
+    .filter((u) => u.uid !== currentUser.uid)
+    .filter((u) => {
+      const q = peopleSearch.trim().toLowerCase();
+      if (!q) return true;
+      return (
+        u.displayName.toLowerCase().includes(q) ||
+        u.username.toLowerCase().includes(q) ||
+        u.platformId.toLowerCase().includes(q)
+      );
+    })
+    .slice(0, 30);
+
   return (
     <div className="space-y-5 pb-8">
-      <div>
-        <h1 className="font-display text-2xl font-bold text-white">Direct Messages</h1>
-        <p className="text-sm text-slate-400 mt-1">
-          Real-time conversations subject to block and privacy rules.
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="font-display text-2xl font-bold text-white">Direct Messages</h1>
+          <p className="text-sm text-slate-400 mt-1">
+            Real-time conversations subject to block and privacy rules.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setShowNewChat((v) => !v);
+            setPeopleSearch('');
+          }}
+          disabled={isOfflineSimulated}
+          className="shrink-0 h-9 px-3 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:opacity-45 text-white text-xs font-semibold inline-flex items-center gap-1.5"
+        >
+          <Plus className="w-4 h-4" />
+          <span>New message</span>
+        </button>
       </div>
 
       <div className="rounded-2xl bg-[#111420] border border-white/[0.08] overflow-hidden grid grid-cols-1 md:grid-cols-12 min-h-[520px]">
         {/* Conversation List */}
         <div className="md:col-span-4 border-b md:border-b-0 md:border-r border-white/[0.08] divide-y divide-white/[0.06]">
+          {showNewChat && (
+            <div className="p-3 space-y-2 bg-white/[0.02]">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 w-3.5 h-3.5 -translate-y-1/2 text-slate-500" />
+                <input
+                  type="text"
+                  value={peopleSearch}
+                  onChange={(e) => setPeopleSearch(e.target.value)}
+                  placeholder="Search people by name, @username or ID"
+                  autoFocus
+                  className="w-full h-9 pl-9 pr-3 rounded-lg bg-[#090B12] border border-white/[0.08] focus:border-sky-500/60 focus:outline-none text-xs text-white placeholder:text-slate-500"
+                />
+              </div>
+              <div className="max-h-64 overflow-y-auto space-y-1">
+                {peopleResults.length === 0 ? (
+                  <p className="text-[11px] text-slate-400 px-1 py-2">
+                    No matching people found.
+                  </p>
+                ) : (
+                  peopleResults.map((person) => (
+                    <button
+                      key={person.uid}
+                      type="button"
+                      disabled={isOfflineSimulated}
+                      onClick={() => {
+                        onStartDirectMessage(person);
+                        setShowNewChat(false);
+                        setPeopleSearch('');
+                      }}
+                      className="w-full flex items-center gap-2.5 rounded-lg p-2 text-left hover:bg-white/[0.06] disabled:opacity-45 transition-colors"
+                    >
+                      <Avatar
+                        name={person.displayName}
+                        color={person.avatarColor}
+                        size="xs"
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-xs font-medium text-white truncate">
+                          {person.displayName}
+                        </span>
+                        <span className="block text-[10px] text-slate-400 truncate">
+                          @{person.username} · {person.platformId}
+                        </span>
+                      </span>
+                      <span className="shrink-0 rounded-full bg-white/[0.06] px-1.5 py-0.5 text-[9px] font-semibold text-slate-300">
+                        {person.accountType.replace('_', ' ')}
+                      </span>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
           {conversations.length === 0 ? (
             <div className="p-6 text-xs text-slate-400 leading-relaxed">
-              No conversations yet. Open any creator profile from Home or Online Friends to start messaging.
+              No conversations yet. Tap <span className="text-slate-200 font-semibold">New message</span> above to pick someone and start chatting.
             </div>
           ) : (
             conversations.map((conv) => {

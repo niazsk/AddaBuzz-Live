@@ -862,7 +862,11 @@ service cloud.firestore {
 
     // Private Conversations
     match /conversations/{conversationId} {
-      allow get: if isValidId(conversationId) && isSignedIn() && (request.auth.uid in existing().memberUids || isAdmin());
+      // Allow "does this conversation exist?" probes on a not-yet-created doc
+      // (resource == null). Without this branch ensureConversationDoc cannot
+      // check for an existing thread and conversation creation fails closed.
+      allow get: if isValidId(conversationId) && isSignedIn() &&
+        (resource == null || request.auth.uid in resource.data.memberUids || isAdmin());
       allow list: if isSignedIn() && request.auth.uid in resource.data.memberUids;
       allow delete: if isAdmin();
       allow create: if isVerifiedUser() &&
@@ -1189,6 +1193,37 @@ service cloud.firestore {
               (existing().diamondBalance - incoming().diamondBalance) * 90
           ) ||
           (
+            // Diamonds Withdraw to an Agent: the owner's diamond balance
+            // decreases (minimum 100,000). The agent-side credit and both
+            // transaction docs are validated by their own rules in the same
+            // transaction.
+            isOwner(uid) &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['diamondBalance', 'updatedAt']) &&
+            incoming().diamondBalance < existing().diamondBalance &&
+            existing().diamondBalance - incoming().diamondBalance >= 100000
+          ) ||
+          (
+            // Diamonds Withdraw -> agent Trading Balance: any verified user's
+            // same-batch diamond debit (>= 100,000) funds this credit, at most
+            // 97% of it (3% platform fee).
+            uid != request.auth.uid &&
+            isAgencyWallet(uid) &&
+            isVerifiedUser() &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['tradingCoinBalance', 'updatedAt']) &&
+            incoming().tradingCoinBalance > existing().tradingCoinBalance &&
+            getAfter(/databases/$(database)/documents/wallets/$(request.auth.uid)).data.diamondBalance <
+              get(/databases/$(database)/documents/wallets/$(request.auth.uid)).data.diamondBalance &&
+            (
+              get(/databases/$(database)/documents/wallets/$(request.auth.uid)).data.diamondBalance -
+              getAfter(/databases/$(database)/documents/wallets/$(request.auth.uid)).data.diamondBalance
+            ) >= 100000 &&
+            (incoming().tradingCoinBalance - existing().tradingCoinBalance) * 100 <=
+              (
+                get(/databases/$(database)/documents/wallets/$(request.auth.uid)).data.diamondBalance -
+                getAfter(/databases/$(database)/documents/wallets/$(request.auth.uid)).data.diamondBalance
+              ) * 97
+          ) ||
+          (
             // Admin / BD Agent / Super Agent credits an agency recipient's Trading Balance.
             uid != request.auth.uid &&
             isAgencyWallet(uid) &&
@@ -1465,6 +1500,39 @@ service cloud.firestore {
                   incoming().amount == 5000
                 )
               )
+            ) ||
+            (
+              // Diamonds Withdraw credit on the agent side: tied to the
+              // sender's same-batch diamond debit (97% bound) and the exact
+              // trading-balance increase.
+              uid != request.auth.uid &&
+              incoming().direction == 'CREDIT' &&
+              incoming().currency == 'COIN' &&
+              isAgencyWallet(uid) &&
+              isVerifiedUser() &&
+              incoming().idempotencyKey.matches('^tx_w_c_.*$') &&
+              getAfter(/databases/$(database)/documents/wallets/$(request.auth.uid)).data.diamondBalance <
+                get(/databases/$(database)/documents/wallets/$(request.auth.uid)).data.diamondBalance &&
+              incoming().amount * 100 <=
+                (
+                  get(/databases/$(database)/documents/wallets/$(request.auth.uid)).data.diamondBalance -
+                  getAfter(/databases/$(database)/documents/wallets/$(request.auth.uid)).data.diamondBalance
+                ) * 97 &&
+              incoming().amount ==
+                getAfter(/databases/$(database)/documents/wallets/$(uid)).data.tradingCoinBalance -
+                get(/databases/$(database)/documents/wallets/$(uid)).data.tradingCoinBalance
+            ) ||
+            (
+              // Coin Deposit Vault return: principal + bonus (max deposit
+              // 1,000,000 x 1.4 = 1,400,000), exactly the wallet increase.
+              isOwner(uid) &&
+              incoming().direction == 'CREDIT' &&
+              incoming().currency == 'COIN' &&
+              incoming().idempotencyKey.matches('^with_.*$') &&
+              incoming().amount <= 1400000 &&
+              incoming().amount ==
+                getAfter(/databases/$(database)/documents/wallets/$(uid)).data.coinBalance -
+                get(/databases/$(database)/documents/wallets/$(uid)).data.coinBalance
             )
           );
       }

@@ -46,14 +46,6 @@ interface ActiveDeposit {
 
 const DEPOSIT_PLANS: DepositPlan[] = [
   {
-    id: 'flexible',
-    name: 'Flexible Deposit',
-    durationDays: 0,
-    bonusPercent: 3,
-    tag: 'Anytime Withdraw',
-    description: 'Deposit coins and earn 3% reward. Withdraw back to your wallet at any time.',
-  },
-  {
     id: 'fixed-7d',
     name: '7-Day Silver Vault',
     durationDays: 7,
@@ -143,6 +135,11 @@ export const DepositView: React.FC<DepositViewProps> = ({
       return;
     }
 
+    if (parsedAmount > 1000000) {
+      onToast?.('Maximum Amount', 'Maximum deposit is 1,000,000 Coins.', 'warning');
+      return;
+    }
+
     setIsProcessing(true);
     try {
       const now = Date.now();
@@ -193,7 +190,7 @@ export const DepositView: React.FC<DepositViewProps> = ({
     if (!currentUser || isProcessing) return;
 
     const now = Date.now();
-    const isMatured = dep.maturesAt <= now || dep.planId === 'flexible';
+    const isMatured = dep.maturesAt <= now;
 
     // If premature on fixed, user gets principal without interest; if matured, user gets principal + bonus
     const payoutAmount = isMatured ? dep.returnAmount : dep.amount;
@@ -441,11 +438,7 @@ export const DepositView: React.FC<DepositViewProps> = ({
             <div className="space-y-3">
               {deposits.map((dep) => {
                 const now = Date.now();
-                const isMatured = dep.maturesAt <= now || dep.planId === 'flexible';
-                const createdDate = new Date(dep.createdAt).toLocaleDateString('en-US', {
-                  month: 'short',
-                  day: 'numeric',
-                });
+                const isMatured = dep.maturesAt <= now;
                 const matureDate = new Date(dep.maturesAt).toLocaleDateString('en-US', {
                   month: 'short',
                   day: 'numeric',
@@ -498,8 +491,8 @@ export const DepositView: React.FC<DepositViewProps> = ({
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="text-[10px] text-slate-400">{dep.planId === 'flexible' ? 'Deposit Date' : 'Mature Date'}</p>
-                        <p className="font-mono text-slate-300">{dep.planId === 'flexible' ? createdDate : matureDate}</p>
+                        <p className="text-[10px] text-slate-400">Mature Date</p>
+                        <p className="font-mono text-slate-300">{matureDate}</p>
                       </div>
                     </div>
 
