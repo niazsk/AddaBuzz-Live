@@ -111,6 +111,9 @@ export interface RoomComment {
   giftName?: string;
   giftCurrency?: CurrencyType;
   giftAmount?: number;
+  giftRecipientUid?: string;
+  giftRecipientName?: string;
+  giftRecipientDiamonds?: number;
 }
 
 export interface LiveRoom {
@@ -186,6 +189,14 @@ export interface DirectMessage {
   senderUid: string;
   text: string;
   timestampLabel: string;
+  isGiftEvent?: boolean;
+  giftId?: string;
+  giftName?: string;
+  giftCurrency?: CurrencyType;
+  giftAmount?: number;
+  giftRecipientUid?: string;
+  giftRecipientName?: string;
+  giftRecipientDiamonds?: number;
 }
 
 export interface Conversation {

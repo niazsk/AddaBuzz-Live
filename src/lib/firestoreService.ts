@@ -730,6 +730,16 @@ export function subscribeRoomDetails(
               giftName: d.giftName,
               giftCurrency: d.giftCurrency,
               giftAmount: d.giftAmount,
+              giftRecipientUid: d.giftRecipientUid
+                ? String(d.giftRecipientUid)
+                : undefined,
+              giftRecipientName: d.giftRecipientName
+                ? String(d.giftRecipientName)
+                : undefined,
+              giftRecipientDiamonds:
+                typeof d.giftRecipientDiamonds === 'number'
+                  ? Number(d.giftRecipientDiamonds)
+                  : undefined,
             } as RoomComment,
           };
         })
@@ -1099,12 +1109,17 @@ export interface GiftRecipient {
   displayName: string;
 }
 
+export type GiftContext = {
+  type: 'ROOM' | 'CONVERSATION';
+  id: string;
+};
+
 export async function sendVirtualGiftTransaction(
-  roomId: string,
+  context: GiftContext,
   sender: UserProfile,
   recipient: GiftRecipient,
   gift: GiftCatalogItem
-): Promise<void> {
+): Promise<{ recipientDiamonds: number }> {
   if (recipient.uid === sender.uid) {
     throw new Error('You cannot send a gift to yourself.');
   }
@@ -1118,10 +1133,18 @@ export async function sendVirtualGiftTransaction(
   const recipientTxRef = doc(db, 'wallets', recipient.uid, 'transactions', recipientTxId);
   const eventRef = doc(db, 'giftEvents', eventId);
   const msgId = `msg_gift_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-  const msgRef = doc(db, 'liveRooms', roomId, 'messages', msgId);
+  const msgRef =
+    context.type === 'ROOM'
+      ? doc(db, 'liveRooms', context.id, 'messages', msgId)
+      : doc(db, 'conversations', context.id, 'messages', msgId);
+  const conversationRef =
+    context.type === 'CONVERSATION'
+      ? doc(db, 'conversations', context.id)
+      : null;
 
   // Recipient keeps 70% of the gift value as Diamonds.
   const recipientDiamonds = Math.floor(gift.price * 0.70);
+  const giftMessage = `Sent ${gift.name} to @${recipient.username} (+${recipientDiamonds.toLocaleString()} Diamonds)`;
 
   try {
     await runTransaction(db, async (tx) => {
@@ -1267,7 +1290,8 @@ export async function sendVirtualGiftTransaction(
       // 4. Immutable gift event receipt — the security anchor for wallet credits.
       tx.set(eventRef, {
         eventId,
-        roomId,
+        contextType: context.type,
+        contextId: context.id,
         senderUid: sender.uid,
         senderUsername: clampStr(sender.username, 32),
         recipientUid: recipient.uid,
@@ -1284,25 +1308,48 @@ export async function sendVirtualGiftTransaction(
         createdAt: serverTimestamp(),
       });
 
-      // 5. Room gift event message (drives chat + gift effects).
-      tx.set(msgRef, {
-        id: msgId,
-        roomId,
-        uid: sender.uid,
-        username: clampStr(sender.username, 32),
-        displayName: clampStr(sender.displayName, 64),
-        accountType: sender.accountType,
-        text: `Sent ${gift.name} to @${recipient.username} (${gift.price} ${
-          gift.currency === 'COIN' ? 'Coins' : 'Diamonds'
-        })!`,
+      const giftMessageFields = {
         isGiftEvent: true,
         giftId: gift.giftId,
         giftName: gift.name,
         giftCurrency: gift.currency,
         giftAmount: gift.price,
-        createdAt: serverTimestamp(),
-      });
+        giftRecipientUid: recipient.uid,
+        giftRecipientName: clampStr(recipient.displayName || recipient.username, 64),
+        giftRecipientDiamonds: recipientDiamonds,
+      };
+
+      // 5. Gift message in the room chat or the direct-message thread.
+      if (context.type === 'ROOM') {
+        tx.set(msgRef, {
+          id: msgId,
+          roomId: context.id,
+          uid: sender.uid,
+          username: clampStr(sender.username, 32),
+          displayName: clampStr(sender.displayName, 64),
+          accountType: sender.accountType,
+          text: clampStr(giftMessage, 400),
+          ...giftMessageFields,
+          createdAt: serverTimestamp(),
+        });
+      } else {
+        tx.set(msgRef, {
+          id: msgId,
+          senderUid: sender.uid,
+          memberUids: [sender.uid, recipient.uid].sort(),
+          text: clampStr(giftMessage, 1000),
+          ...giftMessageFields,
+          createdAt: serverTimestamp(),
+        });
+        if (conversationRef) {
+          tx.update(conversationRef, {
+            lastMessageText: clampStr(giftMessage, 500),
+            updatedAt: serverTimestamp(),
+          });
+        }
+      }
     });
+    return { recipientDiamonds };
   } catch (error) {
     if (error instanceof Error && error.message.startsWith('Insufficient')) {
       throw error;
@@ -2667,6 +2714,22 @@ export function subscribeConversationMessages(
               senderUid: String(d.senderUid),
               text: String(d.text),
               timestampLabel: formatTimestamp(d.createdAt),
+              isGiftEvent: Boolean(d.isGiftEvent ?? false),
+              giftId: d.giftId ? String(d.giftId) : undefined,
+              giftName: d.giftName ? String(d.giftName) : undefined,
+              giftCurrency: d.giftCurrency,
+              giftAmount:
+                typeof d.giftAmount === 'number' ? Number(d.giftAmount) : undefined,
+              giftRecipientUid: d.giftRecipientUid
+                ? String(d.giftRecipientUid)
+                : undefined,
+              giftRecipientName: d.giftRecipientName
+                ? String(d.giftRecipientName)
+                : undefined,
+              giftRecipientDiamonds:
+                typeof d.giftRecipientDiamonds === 'number'
+                  ? Number(d.giftRecipientDiamonds)
+                  : undefined,
             } as DirectMessage,
           };
         })

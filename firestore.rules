@@ -261,7 +261,8 @@ service cloud.firestore {
       return data.keys().hasAll(['id', 'roomId', 'uid', 'username', 'displayName', 'accountType', 'text', 'createdAt']) &&
         data.keys().hasOnly([
           'id', 'roomId', 'uid', 'username', 'displayName', 'accountType', 'text',
-          'isGiftEvent', 'giftId', 'giftName', 'giftCurrency', 'giftAmount', 'createdAt'
+          'isGiftEvent', 'giftId', 'giftName', 'giftCurrency', 'giftAmount',
+          'giftRecipientUid', 'giftRecipientName', 'giftRecipientDiamonds', 'createdAt'
         ]) &&
         data.id == messageId &&
         isValidId(data.id) &&
@@ -277,6 +278,9 @@ service cloud.firestore {
         (!('giftName' in data) || (data.giftName is string && data.giftName.size() <= 48)) &&
         (!('giftCurrency' in data) || data.giftCurrency in ['COIN', 'DIAMOND']) &&
         (!('giftAmount' in data) || (data.giftAmount is int && data.giftAmount > 0)) &&
+        (!('giftRecipientUid' in data) || isValidId(data.giftRecipientUid)) &&
+        (!('giftRecipientName' in data) || (data.giftRecipientName is string && data.giftRecipientName.size() <= 64)) &&
+        (!('giftRecipientDiamonds' in data) || (data.giftRecipientDiamonds is int && data.giftRecipientDiamonds >= 0)) &&
         data.createdAt == request.time;
     }
 
@@ -285,19 +289,20 @@ service cloud.firestore {
     // same transaction (verified via getAfter + pre-existence checks).
     function isValidGiftEvent(data, eventId) {
       return data.keys().hasAll([
-          'eventId', 'roomId', 'senderUid', 'senderUsername', 'recipientUid',
+          'eventId', 'contextType', 'contextId', 'senderUid', 'senderUsername', 'recipientUid',
           'recipientUsername', 'recipientDisplayName', 'giftId', 'giftName',
           'giftCurrency', 'giftAmount', 'recipientDiamonds', 'createdAt'
         ]) &&
         data.keys().hasOnly([
-          'eventId', 'roomId', 'senderUid', 'senderUsername', 'recipientUid',
+          'eventId', 'contextType', 'contextId', 'senderUid', 'senderUsername', 'recipientUid',
           'recipientUsername', 'recipientDisplayName', 'giftId', 'giftName',
           'giftCurrency', 'giftAmount', 'recipientDiamonds',
           'commissionUid', 'commissionAmount', 'commissionRate', 'createdAt'
         ]) &&
         data.eventId == eventId &&
         isValidId(eventId) &&
-        isValidId(data.roomId) &&
+        data.contextType in ['ROOM', 'CONVERSATION'] &&
+        isValidId(data.contextId) &&
         data.senderUid == request.auth.uid &&
         isValidId(data.recipientUid) &&
         data.senderUid != data.recipientUid &&
@@ -400,7 +405,11 @@ service cloud.firestore {
 
     function isValidDirectMessage(data, messageId) {
       return data.keys().hasAll(['id', 'senderUid', 'memberUids', 'text', 'createdAt']) &&
-        data.keys().hasOnly(['id', 'senderUid', 'memberUids', 'text', 'createdAt']) &&
+        data.keys().hasOnly([
+          'id', 'senderUid', 'memberUids', 'text', 'createdAt',
+          'isGiftEvent', 'giftId', 'giftName', 'giftCurrency', 'giftAmount',
+          'giftRecipientUid', 'giftRecipientName', 'giftRecipientDiamonds'
+        ]) &&
         data.id == messageId &&
         isValidId(data.id) &&
         data.senderUid == request.auth.uid &&
@@ -409,6 +418,14 @@ service cloud.firestore {
         data.memberUids[0] is string && data.memberUids[1] is string &&
         request.auth.uid in data.memberUids &&
         data.text is string && data.text.size() >= 1 && data.text.size() <= 1000 &&
+        (!('isGiftEvent' in data) || data.isGiftEvent is bool) &&
+        (!('giftId' in data) || (data.giftId is string && data.giftId.size() <= 48)) &&
+        (!('giftName' in data) || (data.giftName is string && data.giftName.size() <= 48)) &&
+        (!('giftCurrency' in data) || data.giftCurrency in ['COIN', 'DIAMOND']) &&
+        (!('giftAmount' in data) || (data.giftAmount is int && data.giftAmount > 0)) &&
+        (!('giftRecipientUid' in data) || isValidId(data.giftRecipientUid)) &&
+        (!('giftRecipientName' in data) || (data.giftRecipientName is string && data.giftRecipientName.size() <= 64)) &&
+        (!('giftRecipientDiamonds' in data) || (data.giftRecipientDiamonds is int && data.giftRecipientDiamonds >= 0)) &&
         data.createdAt == request.time;
     }
 

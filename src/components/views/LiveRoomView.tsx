@@ -224,6 +224,17 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
   const selectedGiftTarget =
     giftTargets.find((t) => t.uid === giftTargetUid) ?? giftTargets[0];
 
+  // Diamonds each participant has received from gifts in this room.
+  const giftEarnings = useMemo(() => {
+    const totals = new Map<string, number>();
+    comments.forEach((comment) => {
+      if (!comment.isGiftEvent || !comment.giftRecipientUid) return;
+      const amount = Number(comment.giftRecipientDiamonds ?? 0);
+      totals.set(comment.giftRecipientUid, (totals.get(comment.giftRecipientUid) ?? 0) + amount);
+    });
+    return totals;
+  }, [comments]);
+
   useEffect(() => {
     if (showGiftTray && !giftTargets.some((t) => t.uid === giftTargetUid)) {
       setGiftTargetUid(giftTargets[0]?.uid ?? '');
@@ -233,7 +244,9 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
 
   // Gift effect queue — every new gift event in room chat drives an overlay effect
   const [giftFx, setGiftFx] = useState<GiftFx[]>([]);
+  const [receivedNotice, setReceivedNotice] = useState<string | null>(null);
   const seenGiftIdRef = useRef<string | null>(null);
+  const receivedTimerRef = useRef<number | null>(null);
   const comboRef = useRef<{ giftId: string; uid: string; ts: number; count: number } | null>(null);
 
   useEffect(() => {
@@ -250,6 +263,20 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
         (newest.giftId ? GIFT_BY_ID.get(newest.giftId) : undefined) ??
         gifts.find((g) => g.name === newest.giftName);
       if (!gift) return;
+
+      // Let the recipient see exactly how many Diamonds they received.
+      if (
+        currentUser &&
+        newest.giftRecipientUid === currentUser.uid &&
+        (newest.giftRecipientDiamonds ?? 0) > 0
+      ) {
+        setReceivedNotice(
+          `+${Number(newest.giftRecipientDiamonds).toLocaleString()} Diamonds`
+        );
+        if (receivedTimerRef.current) window.clearTimeout(receivedTimerRef.current);
+        receivedTimerRef.current = window.setTimeout(() => setReceivedNotice(null), 4500);
+      }
+
       const now = Date.now();
       const prev = comboRef.current;
       const combo =
@@ -262,7 +289,13 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
         { key: newest.id, gift, senderName: newest.displayName, combo },
       ]);
     }
-  }, [comments, gifts]);
+  }, [comments, gifts, currentUser]);
+
+  useEffect(() => {
+    return () => {
+      if (receivedTimerRef.current) window.clearTimeout(receivedTimerRef.current);
+    };
+  }, []);
 
   const handleGiftFxExpire = (key: string) => {
     setGiftFx((prev) => prev.filter((f) => f.key !== key));
@@ -653,6 +686,11 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
                 <p className="text-[10px] font-medium text-white truncate flex-1">
                   {host.displayName}
                 </p>
+                {(giftEarnings.get(host.uid) ?? 0) > 0 && (
+                  <span className="flex shrink-0 items-center gap-0.5 rounded-full bg-cyan-500/25 px-1.5 py-px text-[9px] font-bold text-cyan-100 tabular-nums">
+                    💎 {(giftEarnings.get(host.uid) ?? 0).toLocaleString()}
+                  </span>
+                )}
                 {micMuted && isOwnerHost ? (
                   <MicOff className="w-3 h-3 text-rose-300 shrink-0" />
                 ) : (
@@ -769,6 +807,11 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
                         <p className="text-[10px] font-medium text-white truncate flex-1">
                           {seat.occupantName}
                         </p>
+                        {seat.occupantUid && (giftEarnings.get(seat.occupantUid) ?? 0) > 0 && (
+                          <span className="flex shrink-0 items-center gap-0.5 rounded-full bg-cyan-500/25 px-1.5 py-px text-[9px] font-bold text-cyan-100 tabular-nums">
+                            💎 {(giftEarnings.get(seat.occupantUid) ?? 0).toLocaleString()}
+                          </span>
+                        )}
                         {seat.isMuted ? (
                           <MicOff className="w-3 h-3 text-rose-300 shrink-0" />
                         ) : (
@@ -961,6 +1004,18 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
 
       {/* Gift effects overlay (particles + banners + cinematic gifts) */}
       <GiftEffectsOverlay fx={giftFx} onExpire={handleGiftFxExpire} />
+
+      {/* Recipient feedback: exact Diamonds earned */}
+      {receivedNotice && (
+        <div className="pointer-events-none absolute inset-x-0 top-16 z-30 flex justify-center px-4">
+          <div className="gfx-sheet rounded-full border border-cyan-300/40 bg-gradient-to-r from-cyan-500/25 via-sky-500/20 to-fuchsia-500/25 px-4 py-2 text-center shadow-[0_8px_30px_-12px_rgba(34,211,238,0.8)] backdrop-blur-md">
+            <p className="text-sm font-extrabold text-white">
+              💎 {receivedNotice}
+            </p>
+            <p className="text-[10px] font-medium text-cyan-100/80">gift received</p>
+          </div>
+        </div>
+      )}
 
       {/* Right floating action rail (multi-guest only) */}
       {!isSolo && (
@@ -1335,6 +1390,11 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
                   ) : (
                     <span className="rounded bg-sky-400/15 px-1 text-[8px] font-bold text-sky-200">
                       GUEST
+                    </span>
+                  )}
+                  {(giftEarnings.get(target.uid) ?? 0) > 0 && (
+                    <span className="text-[8px] font-bold text-cyan-200 tabular-nums">
+                      💎{(giftEarnings.get(target.uid) ?? 0).toLocaleString()}
                     </span>
                   )}
                 </button>

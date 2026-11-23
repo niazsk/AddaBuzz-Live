@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
-import { LogIn, Send, ShieldBan } from 'lucide-react';
-import { Conversation, DirectMessage, UserProfile } from '../../types/app';
+import React, { useEffect, useState } from 'react';
+import { Coins, Gift, LogIn, Send, ShieldBan, X } from 'lucide-react';
+import { Conversation, DirectMessage, GiftCatalogItem, UserProfile } from '../../types/app';
 import { Avatar } from '../ui/Avatar';
+import { GiftArtwork } from '../ui/GiftArtwork';
+import { giftTier, GiftTier, GIFT_BY_ID } from '../../data/gifts';
 
 interface MessagesViewProps {
   conversations: Conversation[];
@@ -10,11 +12,18 @@ interface MessagesViewProps {
   currentUser: UserProfile | null;
   blockedUids: string[];
   activeConversationId: string | null;
+  gifts: GiftCatalogItem[];
+  coinBalance: number;
   onSelectConversation: (conversationId: string) => void;
   onSendDirectMessage: (
     conversationId: string,
     partnerUid: string,
     text: string
+  ) => Promise<void>;
+  onSendDirectGift: (
+    conversationId: string,
+    partnerUid: string,
+    gift: GiftCatalogItem
   ) => Promise<void>;
   onUnblockUser: (uid: string) => void;
   onOpenAuth: () => void;
@@ -28,13 +37,33 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
   currentUser,
   blockedUids,
   activeConversationId,
+  gifts,
+  coinBalance,
   onSelectConversation,
   onSendDirectMessage,
+  onSendDirectGift,
   onUnblockUser,
   onOpenAuth,
   isOfflineSimulated,
 }) => {
   const [draft, setDraft] = useState('');
+  const [showGiftTray, setShowGiftTray] = useState(false);
+  const [selectedGiftId, setSelectedGiftId] = useState<string>(gifts[0]?.giftId ?? '');
+  const [giftTab, setGiftTab] = useState<'all' | GiftTier>('all');
+  const [giftBusy, setGiftBusy] = useState(false);
+
+  const selectedConv =
+    conversations.find((c) => c.conversationId === activeConversationId) ??
+    conversations[0] ??
+    null;
+
+  const selectedGift = gifts.find((g) => g.giftId === selectedGiftId) ?? gifts[0] ?? null;
+  const visibleGifts =
+    giftTab === 'all' ? gifts : gifts.filter((g) => giftTier(g.price) === giftTab);
+
+  useEffect(() => {
+    setShowGiftTray(false);
+  }, [selectedConv?.conversationId]);
 
   if (!currentUser) {
     return (
@@ -62,11 +91,6 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
     );
   }
 
-  const selectedConv =
-    conversations.find((c) => c.conversationId === activeConversationId) ??
-    conversations[0] ??
-    null;
-
   const getUser = (uid: string) => users.find((u) => u.uid === uid);
 
   const selectedPartner = selectedConv ? getUser(selectedConv.participantUid) : undefined;
@@ -91,6 +115,22 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
       selectedPartner.uid,
       text
     );
+  };
+
+  const handleSendGift = async () => {
+    if (!selectedConv || !selectedPartner || !selectedGift) return;
+    if (isOfflineSimulated || isPartnerBlocked || giftBusy) return;
+    setGiftBusy(true);
+    try {
+      await onSendDirectGift(
+        selectedConv.conversationId,
+        selectedPartner.uid,
+        selectedGift
+      );
+      setShowGiftTray(false);
+    } finally {
+      setGiftBusy(false);
+    }
   };
 
   return (
@@ -167,6 +207,12 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
                     </p>
                   </div>
                 </div>
+                <span className="flex items-center gap-1.5 rounded-full border border-amber-300/25 bg-amber-400/10 px-2.5 py-1 shrink-0">
+                  <span className="h-2 w-2 rounded-full bg-gradient-to-br from-amber-300 to-orange-500" />
+                  <span className="font-mono text-[11px] font-bold text-amber-200 tabular-nums">
+                    {coinBalance.toLocaleString()}
+                  </span>
+                </span>
               </div>
 
               <div className="flex-1 p-4 space-y-3 overflow-y-auto max-h-[380px]">
@@ -177,6 +223,43 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
                 ) : (
                   activeMessages.map((msg) => {
                     const isMine = msg.senderUid === currentUser.uid;
+                    if (msg.isGiftEvent) {
+                      return (
+                        <div
+                          key={msg.id}
+                          className={`flex flex-col ${isMine ? 'items-end' : 'items-start'}`}
+                        >
+                          <div className="max-w-[85%] rounded-2xl border border-amber-300/30 bg-gradient-to-br from-amber-400/15 via-fuchsia-500/10 to-transparent px-3.5 py-2.5 flex items-center gap-3">
+                            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-black/40 border border-white/10">
+                              {msg.giftId ? (
+                                <GiftArtwork
+                                  src={GIFT_BY_ID.get(msg.giftId)?.imageUrl ?? ''}
+                                  alt={msg.giftName ?? 'Gift'}
+                                  size={30}
+                                />
+                              ) : (
+                                <Gift className="w-5 h-5 text-amber-300" />
+                              )}
+                            </span>
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-white truncate">
+                                {msg.giftName ?? 'Gift'}
+                              </p>
+                              <p className="text-[11px] text-slate-300">{msg.text}</p>
+                              {typeof msg.giftRecipientDiamonds === 'number' && (
+                                <p className="mt-0.5 text-[11px] font-semibold text-cyan-300">
+                                  +{msg.giftRecipientDiamonds.toLocaleString()} Diamonds to @
+                                  {msg.giftRecipientName ?? 'recipient'}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          <span className="text-[11px] text-slate-500 mt-1 font-mono">
+                            {msg.timestampLabel}
+                          </span>
+                        </div>
+                      );
+                    }
                     return (
                       <div
                         key={msg.id}
@@ -215,32 +298,182 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
                   </button>
                 </div>
               ) : (
-                <form
-                  onSubmit={handleSubmit}
-                  className="p-3 border-t border-white/[0.08] flex items-center gap-2"
-                >
-                  <input
-                    type="text"
-                    value={draft}
-                    onChange={(e) => setDraft(e.target.value)}
-                    disabled={isOfflineSimulated}
-                    placeholder={
-                      isOfflineSimulated
-                        ? 'Offline — reconnect to message'
-                        : `Message ${selectedPartner.displayName}...`
-                    }
-                    className="flex-1 h-10 px-4 rounded-xl bg-[#090B12] border border-white/[0.08] focus:border-sky-500/60 focus:outline-none text-sm text-white placeholder:text-slate-500"
-                  />
-                  <button
-                    type="submit"
-                    disabled={!draft.trim() || isOfflineSimulated}
-                    aria-label="Send message"
-                    className="h-10 px-4 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:opacity-40 text-white text-xs font-medium inline-flex items-center gap-1.5 transition-colors"
+                <>
+                  {showGiftTray && (
+                    <div className="border-t border-white/[0.08] bg-[#0b0e17]/95 p-3 space-y-2.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <h3 className="flex items-center gap-1.5 font-display text-xs font-bold text-white">
+                          <Gift className="w-3.5 h-3.5 text-amber-300" />
+                          Send a gift to {selectedPartner.displayName}
+                        </h3>
+                        <button
+                          type="button"
+                          onClick={() => setShowGiftTray(false)}
+                          aria-label="Close gift tray"
+                          className="w-7 h-7 rounded-full bg-white/[0.07] hover:bg-white/[0.14] flex items-center justify-center text-slate-300"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      <div className="flex items-center gap-1 overflow-x-auto">
+                        {(
+                          [
+                            ['all', 'All'],
+                            ['classic', 'Classic'],
+                            ['premium', 'Premium'],
+                            ['luxury', 'Luxury'],
+                          ] as const
+                        ).map(([key, label]) => {
+                          const active = giftTab === key;
+                          return (
+                            <button
+                              key={key}
+                              type="button"
+                              onClick={() => setGiftTab(key)}
+                              className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold transition-all ${
+                                active
+                                  ? 'bg-white/[0.12] text-white border border-white/20'
+                                  : 'bg-white/[0.04] text-slate-400 border border-white/[0.06] hover:bg-white/[0.08]'
+                              }`}
+                            >
+                              {label}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <div className="max-h-40 overflow-y-auto">
+                        <div className="grid grid-cols-5 sm:grid-cols-7 gap-1.5">
+                          {visibleGifts.map((gift) => {
+                            const selected = gift.giftId === selectedGift?.giftId;
+                            const affordable = gift.price <= coinBalance;
+                            return (
+                              <button
+                                key={gift.giftId}
+                                type="button"
+                                disabled={isOfflineSimulated}
+                                onClick={() => setSelectedGiftId(gift.giftId)}
+                                title={gift.name}
+                                className={`group relative rounded-xl border p-1.5 pb-1 flex flex-col items-center transition-all hover:-translate-y-px disabled:opacity-45 ${
+                                  selected
+                                    ? 'bg-white/[0.08]'
+                                    : 'bg-white/[0.03] border-white/[0.06] hover:bg-white/[0.07]'
+                                }`}
+                                style={
+                                  selected
+                                    ? {
+                                        borderColor: gift.accentHex,
+                                        boxShadow: `0 0 0 1px ${gift.accentHex}, 0 4px 14px ${gift.accentHex}45`,
+                                      }
+                                    : undefined
+                                }
+                              >
+                                <GiftArtwork
+                                  src={gift.imageUrl}
+                                  alt={gift.name}
+                                  size={34}
+                                  className={`relative transition-transform duration-150 group-hover:scale-110 ${
+                                    affordable ? '' : 'opacity-40 saturate-50'
+                                  }`}
+                                />
+                                <span
+                                  className={`mt-1 flex items-center gap-0.5 text-[9px] font-mono tabular-nums whitespace-nowrap ${
+                                    affordable ? 'text-amber-200' : 'text-rose-300/80'
+                                  }`}
+                                >
+                                  <Coins className="w-2.5 h-2.5" />
+                                  {gift.price.toLocaleString()}
+                                </span>
+                                <p className="w-full truncate text-center text-[9px] font-medium text-slate-300">
+                                  {gift.name}
+                                </p>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2.5">
+                        {selectedGift && (
+                          <>
+                            <span
+                              className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border"
+                              style={{
+                                borderColor: `${selectedGift.accentHex}66`,
+                                background: `radial-gradient(circle at 50% 40%, ${selectedGift.accentHex}33, rgba(10,13,22,0.7))`,
+                              }}
+                            >
+                              <GiftArtwork src={selectedGift.imageUrl} alt={selectedGift.name} size={28} />
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-xs font-bold text-white">
+                                {selectedGift.name}
+                              </p>
+                              <p className="text-[10px] font-mono text-amber-300 tabular-nums">
+                                {selectedGift.price.toLocaleString()} coins
+                              </p>
+                            </div>
+                          </>
+                        )}
+                        <button
+                          type="button"
+                          disabled={
+                            !selectedGift ||
+                            isOfflineSimulated ||
+                            giftBusy ||
+                            coinBalance < (selectedGift?.price ?? 0)
+                          }
+                          onClick={() => void handleSendGift()}
+                          className="ml-auto h-9 px-4 rounded-lg bg-gradient-to-r from-amber-400 via-orange-500 to-pink-500 hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-extrabold text-[#1A1206] inline-flex items-center gap-1.5 transition-all active:scale-[0.97]"
+                        >
+                          <Send className="w-3.5 h-3.5" />
+                          <span>{giftBusy ? 'Sending…' : 'Send Gift'}</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  <form
+                    onSubmit={handleSubmit}
+                    className="p-3 border-t border-white/[0.08] flex items-center gap-2"
                   >
-                    <Send className="w-4 h-4" />
-                    <span>Send</span>
-                  </button>
-                </form>
+                    <input
+                      type="text"
+                      value={draft}
+                      onChange={(e) => setDraft(e.target.value)}
+                      disabled={isOfflineSimulated}
+                      placeholder={
+                        isOfflineSimulated
+                          ? 'Offline — reconnect to message'
+                          : `Message ${selectedPartner.displayName}...`
+                      }
+                      className="flex-1 h-10 px-4 rounded-xl bg-[#090B12] border border-white/[0.08] focus:border-sky-500/60 focus:outline-none text-sm text-white placeholder:text-slate-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowGiftTray((s) => !s)}
+                      disabled={isOfflineSimulated}
+                      aria-label="Send a gift"
+                      className={`h-10 w-10 rounded-xl border inline-flex items-center justify-center transition-colors shrink-0 ${
+                        showGiftTray
+                          ? 'bg-amber-500/20 border-amber-400/50 text-amber-200'
+                          : 'bg-white/[0.05] border-white/[0.08] text-amber-300 hover:bg-white/[0.1]'
+                      }`}
+                    >
+                      <Gift className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={!draft.trim() || isOfflineSimulated}
+                      aria-label="Send message"
+                      className="h-10 px-4 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:opacity-40 text-white text-xs font-medium inline-flex items-center gap-1.5 transition-colors"
+                    >
+                      <Send className="w-4 h-4" />
+                      <span>Send</span>
+                    </button>
+                  </form>
+                </>
               )}
             </>
           ) : (

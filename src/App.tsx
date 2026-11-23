@@ -797,11 +797,16 @@ export default function App() {
     };
 
     try {
-      await sendVirtualGiftTransaction(roomId, me, recipient, gift);
+      const result = await sendVirtualGiftTransaction(
+        { type: 'ROOM', id: roomId },
+        me,
+        recipient,
+        gift
+      );
       void bumpRewardProgress(me.uid, 'giftsSent', 1);
       pushToast(
         `Sent ${gift.name}`,
-        `Gift delivered to @${recipient.username} (-${gift.price} ${
+        `Gift delivered to @${recipient.username} (+${result.recipientDiamonds.toLocaleString()} Diamonds, -${gift.price} ${
           gift.currency === 'COIN' ? 'Coins' : 'Diamonds'
         }).`,
         'success'
@@ -1006,6 +1011,48 @@ export default function App() {
         'Message failed',
         err instanceof Error ? err.message : 'Unable to send message.',
         'error'
+      );
+    }
+  };
+
+  const handleSendDirectGift = async (
+    conversationId: string,
+    partnerUid: string,
+    gift: GiftCatalogItem
+  ) => {
+    const me = requireSignedIn();
+    if (!me) return;
+    const partner = users.find((u) => u.uid === partnerUid);
+    if (!partner) {
+      pushToast('Gift failed', 'This person is no longer available.', 'warning');
+      return;
+    }
+    if (partnerUid === me.uid) {
+      pushToast('Cannot Gift Yourself', 'Pick another person to send a gift.', 'warning');
+      return;
+    }
+    try {
+      const result = await sendVirtualGiftTransaction(
+        { type: 'CONVERSATION', id: conversationId },
+        me,
+        {
+          uid: partner.uid,
+          username: partner.username,
+          displayName: partner.displayName,
+        },
+        gift
+      );
+      void bumpRewardProgress(me.uid, 'giftsSent', 1);
+      pushToast(
+        `Sent ${gift.name}`,
+        `Gift delivered to @${partner.username} (+${result.recipientDiamonds.toLocaleString()} Diamonds).`,
+        'success'
+      );
+    } catch (err) {
+      pushToast(
+        'Gift failed',
+        err instanceof Error ? err.message : 'Unable to send gift in this chat.',
+        'warning'
       );
     }
   };
@@ -1434,6 +1481,9 @@ export default function App() {
               activeConversationId={activeConversationId}
               onSelectConversation={setActiveConversationId}
               onSendDirectMessage={handleSendDirectMessage}
+              gifts={GIFT_CATALOG}
+              coinBalance={coinBalance}
+              onSendDirectGift={handleSendDirectGift}
               onUnblockUser={handleToggleBlock}
               onOpenAuth={() => setActiveSection('signin')}
               isOfflineSimulated={isOffline}
