@@ -186,6 +186,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
   const visibleGifts = giftTab === 'all' ? gifts : gifts.filter((g) => giftTier(g.price) === giftTab);
 
   // Gift targets: the host plus everyone currently seated in a multi-guest room.
+  // You never gift yourself, so the signed-in user is excluded from the list.
   const giftTargets = useMemo(() => {
     const list: Array<{
       uid: string;
@@ -193,20 +194,24 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
       username: string;
       avatarColor?: string;
       isHost: boolean;
-    }> = [
-      {
+    }> = [];
+
+    if (host.uid !== currentUser?.uid) {
+      list.push({
         uid: host.uid,
         name: host.displayName,
         username: host.username,
         avatarColor: host.avatarColor,
         isHost: true,
-      },
-    ];
+      });
+    }
+
     seats.forEach((seat) => {
       if (
         seat.status === 'OCCUPIED' &&
         seat.occupantUid &&
         seat.occupantUid !== host.uid &&
+        seat.occupantUid !== currentUser?.uid &&
         !list.some((t) => t.uid === seat.occupantUid)
       ) {
         list.push({
@@ -219,7 +224,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
       }
     });
     return list;
-  }, [host, seats]);
+  }, [host, seats, currentUser?.uid]);
 
   const selectedGiftTarget =
     giftTargets.find((t) => t.uid === giftTargetUid) ?? giftTargets[0];
@@ -682,6 +687,24 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
               <span className="absolute top-1.5 left-1.5 rounded-md bg-gradient-to-r from-fuchsia-500 to-violet-500 px-1.5 py-0.5 text-[9px] font-bold text-white">
                 HOST
               </span>
+              {!isOwnerHost && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!currentUser) {
+                      onOpenAuth();
+                      return;
+                    }
+                    setGiftTargetUid(host.uid);
+                    setShowGiftTray(true);
+                  }}
+                  aria-label={`Send a gift to ${host.displayName}`}
+                  className="absolute top-1.5 right-1.5 flex items-center gap-1 rounded-full bg-black/55 hover:bg-amber-500/80 px-2 py-1 text-[9px] font-bold text-amber-300 hover:text-[#1A1206] transition-colors"
+                >
+                  <Gift className="w-3 h-3" />
+                  <span>Gift</span>
+                </button>
+              )}
               <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent px-1.5 pt-4 pb-1.5 flex items-center gap-1">
                 <p className="text-[10px] font-medium text-white truncate flex-1">
                   {host.displayName}
@@ -780,6 +803,10 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
                           <button
                             type="button"
                             onClick={() => {
+                              if (!currentUser) {
+                                onOpenAuth();
+                                return;
+                              }
                               setGiftTargetUid(seat.occupantUid!);
                               setShowGiftTray(true);
                             }}
@@ -1299,6 +1326,41 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
           ) : (
             <>
               <button
+                type="button"
+                onClick={() => {
+                  if (!currentUser) {
+                    onOpenAuth();
+                    return;
+                  }
+                  if (giftTargets.length === 0) {
+                    return;
+                  }
+                  setGiftTargetUid((uid) =>
+                    giftTargets.some((t) => t.uid === uid)
+                      ? uid
+                      : giftTargets[0]?.uid ?? ''
+                  );
+                  setShowGiftTray((s) => !s);
+                }}
+                disabled={
+                  isOfflineSimulated ||
+                  (currentUser !== null && giftTargets.length === 0)
+                }
+                aria-label="Send gift"
+                title={
+                  giftTargets.length === 0
+                    ? 'No one on stage to gift yet'
+                    : 'Send a gift to the host or a guest'
+                }
+                className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 transition-all disabled:opacity-40 ${
+                  showGiftTray
+                    ? 'bg-gradient-to-br from-amber-400 to-orange-500 text-[#1A1206]'
+                    : 'bg-gradient-to-br from-pink-500 to-amber-400 hover:from-pink-400 hover:to-amber-300 text-white'
+                }`}
+              >
+                <Gift className="w-4.5 h-4.5" />
+              </button>
+              <button
                 type="submit"
                 disabled={
                   (currentUser !== null && !chatInput.trim()) || isOfflineSimulated
@@ -1364,7 +1426,12 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
             <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
               Send to
             </span>
-            {giftTargets.map((target) => {
+            {giftTargets.length === 0 ? (
+              <span className="text-[10px] text-slate-400">
+                No one else is on stage yet — invite a guest to send gifts.
+              </span>
+            ) : (
+              giftTargets.map((target) => {
               const active = selectedGiftTarget?.uid === target.uid;
               return (
                 <button
@@ -1399,7 +1466,8 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
                   )}
                 </button>
               );
-            })}
+              })
+            )}
           </div>
 
           <div className="gift-tabs flex items-center gap-1 px-3 pb-2 overflow-x-auto">
