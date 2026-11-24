@@ -163,8 +163,8 @@ export const FruitManorLiveBoard: React.FC<FruitManorLiveBoardProps> = ({
         )}
       </div>
 
-      <div className="flex items-center gap-1.5">
-        <div className="w-[82px] shrink-0">
+      <div className="flex items-center gap-2">
+        <div className="w-[100px] sm:w-[110px] shrink-0">
           <FruitWheel
             fruits={CFG.fruits}
             roundId={round?.roundId ?? ''}
