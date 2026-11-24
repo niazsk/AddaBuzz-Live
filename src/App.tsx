@@ -57,6 +57,7 @@ import {
   subscribeConversationsList,
   subscribeFollowsAndBlocks,
   subscribeFollowerUids,
+  subscribeVisitorUids,
   incrementProfileVisitors,
   heartbeatLiveRoom,
   subscribeLiveRooms,
@@ -146,6 +147,7 @@ export default function App() {
   // User-scoped Firestore State
   const [followingUids, setFollowingUids] = useState<string[]>([]);
   const [followerUids, setFollowerUids] = useState<string[]>([]);
+  const [visitorUids, setVisitorUids] = useState<string[]>([]);
   const [blockedUids, setBlockedUids] = useState<string[]>([]);
   const visitedProfilesRef = useRef<Set<string>>(new Set());
   const walletReturnRef = useRef<AppSection>('profile');
@@ -346,6 +348,7 @@ export default function App() {
     );
 
     const unsubFollowers = subscribeFollowerUids(currentUser.uid, setFollowerUids);
+    const unsubVisitors = subscribeVisitorUids(currentUser.uid, setVisitorUids);
 
     const unsubConvs = subscribeConversationsList(currentUser.uid, (convs) => {
       setConversations(convs);
@@ -358,6 +361,7 @@ export default function App() {
       unsubWallet();
       unsubSocial();
       unsubFollowers();
+      unsubVisitors();
       unsubConvs();
     };
   }, [authReady, firebaseUser?.uid, currentUser?.uid, currentUser?.accountType, isAdminUser]);
@@ -408,7 +412,7 @@ export default function App() {
     if (!target || !me || target.uid === me.uid) return;
     if (visitedProfilesRef.current.has(target.uid)) return;
     visitedProfilesRef.current.add(target.uid);
-    incrementProfileVisitors(target.uid).catch(() => undefined);
+    incrementProfileVisitors(target.uid, me.uid).catch(() => undefined);
   }, [inspectedUser?.uid, firebaseUser?.uid]);
 
   const handleToggleWallet = () => {
@@ -1846,6 +1850,8 @@ export default function App() {
               currentUser={currentUser}
               allUsers={users}
               followingUids={followingUids}
+              followersUids={followerUids}
+              visitorUids={visitorUids}
               blockedUids={blockedUids}
               isAdminUser={isAdminUser}
               friendsCount={followingUids.filter((uid) => followerUids.includes(uid)).length}
@@ -1858,6 +1864,7 @@ export default function App() {
                 pushToast('Profile saved', undefined, 'success');
               }}
               onUnblockUser={handleToggleBlock}
+              onOpenUserProfile={setInspectedUser}
               onOpenSection={handleSelectSection}
               onOpenAuth={() => setActiveSection('signin')}
               onSignOut={async () => {

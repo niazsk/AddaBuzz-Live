@@ -526,11 +526,32 @@ export function subscribeFollowerUids(
   );
 }
 
-export async function incrementProfileVisitors(uid: string): Promise<void> {
+export function subscribeVisitorUids(
+  ownerUid: string,
+  onUids: (uids: string[]) => void
+): Unsubscribe {
+  return listenWithRetry(
+    query(
+      collection(db, 'profileVisits', ownerUid, 'visitors'),
+      orderBy('visitedAt', 'desc'),
+      limit(50)
+    ),
+    (snap) => onUids(snap.docs.map((d) => String(d.data().visitorUid))),
+    () => onUids([])
+  );
+}
+
+export async function incrementProfileVisitors(uid: string, visitorUid?: string): Promise<void> {
   await updateDoc(doc(db, 'users', uid), {
     visitorsCount: increment(1),
     updatedAt: serverTimestamp(),
   });
+  if (visitorUid && visitorUid !== uid) {
+    await setDoc(doc(db, 'profileVisits', uid, 'visitors', visitorUid), {
+      visitorUid,
+      visitedAt: serverTimestamp(),
+    });
+  }
 }
 
 export async function heartbeatLiveRoom(roomId: string): Promise<void> {

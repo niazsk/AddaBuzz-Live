@@ -604,6 +604,21 @@ service cloud.firestore {
         request.resource.data.updatedAt == request.time;
     }
 
+    // Profile visitor log — each visitor writes only their own entry; the
+    // profile owner (or admin) can read the list that powers the Visitor stat.
+    match /profileVisits/{ownerUid} {
+      allow read, write: if false;
+      match /visitors/{visitorUid} {
+        allow read: if isValidId(ownerUid) && (isOwner(ownerUid) || isAdmin());
+        allow create, update: if isVerifiedUser() &&
+          request.auth.uid == visitorUid &&
+          visitorUid != ownerUid &&
+          request.resource.data.visitorUid == visitorUid &&
+          request.resource.data.visitedAt == request.time;
+        allow delete: if isAdmin();
+      }
+    }
+
     // Owner-only PII
     match /userPrivate/{uid} {
       allow get: if isValidId(uid) && (isOwner(uid) || isAdmin());

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   BadgeCheck,
   Camera,
@@ -39,6 +40,8 @@ interface ProfileViewProps {
   currentUser: UserProfile | null;
   allUsers: UserProfile[];
   followingUids: string[];
+  followersUids?: string[];
+  visitorUids?: string[];
   blockedUids: string[];
   isAdminUser: boolean;
   friendsCount: number;
@@ -55,6 +58,7 @@ interface ProfileViewProps {
     coverUrl?: string;
   }) => Promise<void>;
   onUnblockUser: (uid: string) => void;
+  onOpenUserProfile?: (user: UserProfile) => void;
   onOpenSection: (section: AppSection) => void;
   onOpenAuth: () => void;
   onSignOut: () => void;
@@ -127,6 +131,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   currentUser,
   allUsers,
   followingUids,
+  followersUids = [],
+  visitorUids = [],
   blockedUids,
   isAdminUser,
   friendsCount,
@@ -135,10 +141,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   tradingCoinBalance = 0,
   onUpdateProfile,
   onUnblockUser,
+  onOpenUserProfile,
   onOpenSection,
   onOpenAuth,
   onSignOut,
 }) => {
+  const [statsList, setStatsList] = useState<
+    'followers' | 'following' | 'friends' | 'visitors' | null
+  >(null);
   const [editing, setEditing] = useState(false);
   const [displayName, setDisplayName] = useState(currentUser?.displayName ?? '');
   const [bio, setBio] = useState(visibleBio(currentUser?.bio));
@@ -204,6 +214,27 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     : currentUser.accountType === 'AGENT'
     ? 'Agent'
     : 'User';
+
+  const friendUids = followingUids.filter((uid) => followersUids.includes(uid));
+  const statsListUids: Record<NonNullable<typeof statsList>, string[]> = {
+    followers: followersUids,
+    following: followingUids,
+    friends: friendUids,
+    visitors: visitorUids,
+  };
+  const statsListTitle =
+    statsList === 'followers'
+      ? 'Followers'
+      : statsList === 'following'
+      ? 'Following'
+      : statsList === 'friends'
+      ? 'Friends'
+      : 'Visitors';
+  const statsListUsers = statsList
+    ? statsListUids[statsList]
+        .map((uid) => allUsers.find((u) => u.uid === uid))
+        .filter((u): u is UserProfile => Boolean(u))
+    : [];
 
   const startEditing = () => {
     setDisplayName(currentUser.displayName);
@@ -414,30 +445,46 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           ) : (
             <>
           <div className="mt-5 grid grid-cols-4 divide-x divide-white/[0.07] rounded-2xl bg-white/[0.04] border border-white/[0.06] py-3 text-center">
-            <div>
-              <p className="font-mono text-lg font-bold text-white tabular-nums">
+            <button
+              type="button"
+              onClick={() => setStatsList('followers')}
+              className="group px-1 rounded-lg transition-colors hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60"
+            >
+              <p className="font-mono text-lg font-bold text-white tabular-nums group-hover:text-sky-300 transition-colors">
                 {(currentUser.followersCount ?? 0).toLocaleString()}
               </p>
               <p className="text-[11px] text-slate-400">Followers</p>
-            </div>
-            <div>
-              <p className="font-mono text-lg font-bold text-white tabular-nums">
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatsList('following')}
+              className="group px-1 rounded-lg transition-colors hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60"
+            >
+              <p className="font-mono text-lg font-bold text-white tabular-nums group-hover:text-sky-300 transition-colors">
                 {(followingUids?.length ?? 0).toLocaleString()}
               </p>
               <p className="text-[11px] text-slate-400">Following</p>
-            </div>
-            <div>
-              <p className="font-mono text-lg font-bold text-white tabular-nums">
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatsList('friends')}
+              className="group px-1 rounded-lg transition-colors hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60"
+            >
+              <p className="font-mono text-lg font-bold text-white tabular-nums group-hover:text-sky-300 transition-colors">
                 {(friendsCount ?? 0).toLocaleString()}
               </p>
               <p className="text-[11px] text-slate-400">Friends</p>
-            </div>
-            <div>
-              <p className="font-mono text-lg font-bold text-white tabular-nums">
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatsList('visitors')}
+              className="group px-1 rounded-lg transition-colors hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60"
+            >
+              <p className="font-mono text-lg font-bold text-white tabular-nums group-hover:text-sky-300 transition-colors">
                 {(currentUser.visitorsCount ?? 0).toLocaleString()}
               </p>
               <p className="text-[11px] text-slate-400">Visitor</p>
-            </div>
+            </button>
           </div>
 
           <div className="mt-2.5 grid grid-cols-2 divide-x divide-white/[0.07] rounded-2xl bg-white/[0.04] border border-white/[0.06] py-3 text-center">
@@ -567,6 +614,78 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           </div>
         </section>
       )}
+
+      {/* Followers / Following / Friends / Visitors list overlay */}
+      {statsList &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-0 sm:p-6"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="stats-list-title"
+            onClick={() => setStatsList(null)}
+          >
+          <div
+            className="w-full sm:max-w-md max-h-[80vh] flex flex-col rounded-t-3xl sm:rounded-3xl bg-[#111420] border border-white/[0.1] overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.08] shrink-0">
+              <div>
+                <h2 id="stats-list-title" className="font-display text-base font-semibold text-white">
+                  {statsListTitle}
+                </h2>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  {statsListUsers.length} {statsListUsers.length === 1 ? 'person' : 'people'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setStatsList(null)}
+                aria-label={`Close ${statsListTitle}`}
+                className="w-8 h-8 rounded-full bg-white/[0.08] hover:bg-white/[0.15] flex items-center justify-center text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto divide-y divide-white/[0.06]">
+              {statsListUsers.length === 0 ? (
+                <div className="px-5 py-10 text-center space-y-1.5">
+                  <Users className="w-6 h-6 text-slate-500 mx-auto" aria-hidden="true" />
+                  <p className="text-sm font-medium text-slate-200">No {statsListTitle.toLowerCase()} yet</p>
+                  <p className="text-xs text-slate-500">
+                    {statsList === 'visitors'
+                      ? 'Visitors appear here as people open your profile.'
+                      : 'People will show up here as your community grows.'}
+                  </p>
+                </div>
+              ) : (
+                statsListUsers.map((user) => (
+                  <button
+                    key={user.uid}
+                    type="button"
+                    onClick={() => {
+                      setStatsList(null);
+                      onOpenUserProfile?.(user);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-white/[0.04] transition-colors"
+                  >
+                    <Avatar name={user.displayName} color={user.avatarColor} src={user.avatarUrl} size="sm" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-white truncate">{user.displayName}</p>
+                      <p className="text-xs text-slate-400 truncate">
+                        @{user.username} · {user.country}
+                      </p>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-500 shrink-0" />
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+          </div>,
+          document.body
+        )}
 
       {/* Edit profile overlay */}
       {editing && (
