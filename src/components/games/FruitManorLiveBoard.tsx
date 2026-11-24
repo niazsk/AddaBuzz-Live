@@ -232,7 +232,7 @@ export const FruitManorLiveBoard: React.FC<FruitManorLiveBoardProps> = ({
         </div>
       </div>
 
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1.5 pt-0.5">
         {CFG.chips.map((c) => {
           const st = CHIP_STYLE[c];
           const selected = chip === c;
@@ -244,7 +244,7 @@ export const FruitManorLiveBoard: React.FC<FruitManorLiveBoardProps> = ({
               aria-label={`Select ${formatCoins(c)} coin chip`}
               aria-pressed={selected}
               className={`grid h-6 w-6 shrink-0 place-items-center rounded-full transition-transform ${
-                selected ? '-translate-y-0.5 scale-105' : 'opacity-80'
+                selected ? '-translate-y-0.5 scale-105' : 'opacity-80 hover:opacity-100'
               } ${coinBalance >= c ? '' : 'opacity-40 saturate-50'}`}
               style={{
                 background: `radial-gradient(circle at 35% 30%, ${st.face}, #060D09 130%)`,
@@ -258,15 +258,16 @@ export const FruitManorLiveBoard: React.FC<FruitManorLiveBoardProps> = ({
             </button>
           );
         })}
-        <span className="ml-auto shrink-0 font-mono text-[9px] font-bold tabular-nums text-[#F7F3E8]">
-          {formatCoins(myStake)}
+        <span className="ml-auto shrink-0 font-mono text-[9px] font-bold tabular-nums text-emerald-300">
+          Bet: {formatCoins(myStake)}
         </span>
         {myStake > 0 && canBet && (
           <button
             type="button"
             onClick={cancelBets}
             aria-label="Cancel my bets"
-            className="grid h-6 w-6 shrink-0 place-items-center rounded-md border border-white/15 bg-white/[0.06] text-slate-200 hover:bg-white/[0.12]"
+            title="Cancel my bets"
+            className="grid h-6 w-6 shrink-0 place-items-center rounded-md border border-rose-400/30 bg-rose-500/15 text-rose-300 hover:bg-rose-500/30 transition-colors"
           >
             <RotateCcw className="h-3 w-3" />
           </button>
