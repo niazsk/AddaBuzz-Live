@@ -163,71 +163,73 @@ export const FruitManorLiveBoard: React.FC<FruitManorLiveBoardProps> = ({
         )}
       </div>
 
-      <div className="mx-auto w-full max-w-[92px]">
-        <FruitWheel
-          fruits={CFG.fruits}
-          roundId={round?.roundId ?? ''}
-          phase={phase}
-          resultFruitId={round?.resultFruitId}
-          lastFruitId={last?.fruitId}
-          spinMs={CFG.spinMs}
-          reducedMotion={false}
-          burstKey={0}
-          burstAccent={lastFruit?.accentHex ?? '#F5B93F'}
-          burstBig={false}
-          onPeg={() => {}}
-          onSpinEnd={() => {}}
-        />
-      </div>
+      <div className="flex items-center gap-1.5">
+        <div className="w-[82px] shrink-0">
+          <FruitWheel
+            fruits={CFG.fruits}
+            roundId={round?.roundId ?? ''}
+            phase={phase}
+            resultFruitId={round?.resultFruitId}
+            lastFruitId={last?.fruitId}
+            spinMs={CFG.spinMs}
+            reducedMotion={false}
+            burstKey={0}
+            burstAccent={lastFruit?.accentHex ?? '#F5B93F'}
+            burstBig={false}
+            onPeg={() => {}}
+            onSpinEnd={() => {}}
+          />
+        </div>
 
-      <div className="grid grid-cols-4 gap-1">
-        {CFG.fruits.map((f) => {
-          const st = poolByFruit[f.fruitId] ?? 0;
-          const mine = myByFruit.get(f.fruitId) ?? 0;
-          const isWinner = last?.fruitId === f.fruitId;
-          const busy = !!placing[f.fruitId];
-          return (
-            <button
-              key={f.fruitId}
-              type="button"
-              onClick={() => void tapFruit(f.fruitId)}
-              disabled={!canBet || busy}
-              aria-label={`Bet ${formatCoins(chip)} coins on ${f.label}, multiplier ${f.multiplier}`}
-              className={`relative flex flex-col items-center rounded-lg border px-0.5 py-0.5 transition-all ${
-                canBet && !busy ? 'hover:-translate-y-0.5 active:scale-[0.97]' : 'opacity-70'
-              } ${isWinner ? 'fm-cell-winner' : ''}`}
-              style={{
-                borderColor: isWinner ? f.accentHex : st > 0 ? `${f.accentHex}88` : 'rgba(255,255,255,0.09)',
-                background:
-                  st > 0
-                    ? `linear-gradient(165deg, ${f.accentHex}26, rgba(9,26,18,0.92) 62%)`
-                    : 'linear-gradient(165deg, rgba(255,255,255,0.05), rgba(9,26,18,0.92) 62%)',
-                boxShadow: isWinner ? `0 0 0 1.5px ${f.accentHex}, 0 0 18px ${f.accentHex}55` : undefined,
-              }}
-            >
-              <FruitIcon fruitId={f.fruitId} className="h-5 w-5" />
-              <span className="text-[7px] font-black leading-tight tabular-nums" style={{ color: f.accentHex }}>
-                ×{f.multiplier}
-              </span>
-              <span className="w-full truncate text-center text-[7px] font-semibold leading-tight text-[#EAF5EC]/80">{f.label}</span>
-              {st > 0 && (
-                <span className="absolute -right-1 -top-1 rounded-full border border-amber-300/60 bg-gradient-to-r from-amber-400 to-amber-500 px-0.5 font-mono text-[6px] font-black leading-tight text-[#3B2A05] shadow">
-                  {formatCoins(st)}
+        <div className="grid flex-1 grid-cols-4 gap-0.5">
+          {CFG.fruits.map((f) => {
+            const st = poolByFruit[f.fruitId] ?? 0;
+            const mine = myByFruit.get(f.fruitId) ?? 0;
+            const isWinner = last?.fruitId === f.fruitId;
+            const busy = !!placing[f.fruitId];
+            return (
+              <button
+                key={f.fruitId}
+                type="button"
+                onClick={() => void tapFruit(f.fruitId)}
+                disabled={!canBet || busy}
+                aria-label={`Bet ${formatCoins(chip)} coins on ${f.label}, multiplier ${f.multiplier}`}
+                className={`relative flex flex-col items-center rounded-md border px-0.5 py-0.5 transition-all ${
+                  canBet && !busy ? 'hover:-translate-y-0.5 active:scale-[0.97]' : 'opacity-70'
+                } ${isWinner ? 'fm-cell-winner' : ''}`}
+                style={{
+                  borderColor: isWinner ? f.accentHex : st > 0 ? `${f.accentHex}88` : 'rgba(255,255,255,0.09)',
+                  background:
+                    st > 0
+                      ? `linear-gradient(165deg, ${f.accentHex}26, rgba(9,26,18,0.92) 62%)`
+                      : 'linear-gradient(165deg, rgba(255,255,255,0.05), rgba(9,26,18,0.92) 62%)',
+                  boxShadow: isWinner ? `0 0 0 1.5px ${f.accentHex}, 0 0 18px ${f.accentHex}55` : undefined,
+                }}
+              >
+                <FruitIcon fruitId={f.fruitId} className="h-3.5 w-3.5" />
+                <span className="text-[6.5px] font-black leading-tight tabular-nums" style={{ color: f.accentHex }}>
+                  ×{f.multiplier}
                 </span>
-              )}
-              {mine > 0 && (
-                <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full border border-emerald-300/50 bg-emerald-500/90 px-0.5 font-mono text-[5.5px] font-black leading-tight text-emerald-950 shadow">
-                  YOU
-                </span>
-              )}
-              {busy && (
-                <span className="absolute inset-0 grid place-items-center rounded-lg bg-black/45">
-                  <Loader2 className="h-3 w-3 animate-spin text-amber-300" />
-                </span>
-              )}
-            </button>
-          );
-        })}
+                <span className="w-full truncate text-center text-[6px] font-semibold leading-tight text-[#EAF5EC]/80">{f.label}</span>
+                {st > 0 && (
+                  <span className="absolute -right-0.5 -top-0.5 rounded-full border border-amber-300/60 bg-gradient-to-r from-amber-400 to-amber-500 px-0.5 font-mono text-[5.5px] font-black leading-tight text-[#3B2A05] shadow">
+                    {formatCoins(st)}
+                  </span>
+                )}
+                {mine > 0 && (
+                  <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 rounded-full border border-emerald-300/50 bg-emerald-500/90 px-0.5 font-mono text-[5px] font-black leading-tight text-emerald-950 shadow">
+                    YOU
+                  </span>
+                )}
+                {busy && (
+                  <span className="absolute inset-0 grid place-items-center rounded-md bg-black/45">
+                    <Loader2 className="h-2.5 w-2.5 animate-spin text-amber-300" />
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <div className="flex items-center gap-1">
