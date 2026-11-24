@@ -2,6 +2,14 @@ import { gameCoinCredit, gameCoinDebit } from '../../lib/firestoreService';
 
 export const ARCADE_CHIPS = [10, 100, 1000, 5000] as const;
 
+// Largest payout a single arcade round can credit. Matches the wallet-rule
+// bound so a win can never be computed above what Firestore will accept.
+export const MAX_ARCADE_PAYOUT = 1_900_000;
+
+export function capPayout(amount: number): number {
+  return Math.min(amount, MAX_ARCADE_PAYOUT);
+}
+
 export function fmtCoins(n: number): string {
   return n.toLocaleString('en-US');
 }
@@ -59,7 +67,7 @@ export async function arcadeDebit(
 }
 
 export function creditArcade(uid: string, amount: number, reason: string, key: string) {
-  void gameCoinCredit(uid, amount, reason, key).catch(() => {
+  void gameCoinCredit(uid, capPayout(amount), reason, key).catch(() => {
     const list = readPending(uid);
     if (!list.some((p) => p.key === key)) {
       list.push({ key, amount, reason });

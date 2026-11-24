@@ -17,6 +17,7 @@ import {
   Send,
   Share2,
   ShieldAlert,
+  Sparkles,
   Unlock,
   UserCheck,
   UserMinus,
@@ -52,6 +53,14 @@ import { MediaImage } from '../ui/MediaImage';
 import { GiftArtwork } from '../ui/GiftArtwork';
 import { GiftEffectsOverlay, GiftFx } from '../ui/GiftEffectsOverlay';
 import { GIFT_BY_ID, giftTier, GiftTier } from '../../data/gifts';
+import {
+  LUCKY_BY_ID,
+  LUCKY_GIFTS,
+  LuckyGiftBox,
+  LuckyRoll,
+  luckyTier,
+  rollLucky,
+} from '../../data/luckyGifts';
 import { FruitManorLiveBoard } from '../games/FruitManorLiveBoard';
 import { GoldenFlowerLiveBoard } from '../games/GoldenFlowerLiveBoard';
 
@@ -106,6 +115,12 @@ interface LiveRoomViewProps {
   onToggleFollow: (uid: string) => void;
   onSendComment: (roomId: string, text: string) => void;
   onSendGift: (roomId: string, gift: GiftCatalogItem, recipientUid?: string) => void;
+  onSendLuckyGift: (
+    roomId: string,
+    box: LuckyGiftBox,
+    roll: LuckyRoll,
+    recipientUid?: string
+  ) => Promise<number | null>;
   onRequestSeat: (roomId: string, seatNumber: number) => void;
   onLeaveSeat: (roomId: string, seatNumber: number) => void;
   onApproveJoinRequest: (roomId: string, request: JoinRequest) => void;
@@ -136,6 +151,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
   onToggleFollow,
   onSendComment,
   onSendGift,
+  onSendLuckyGift,
   onRequestSeat,
   onLeaveSeat,
   onApproveJoinRequest,
@@ -186,10 +202,16 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
   const [guestPanelOpen, setGuestPanelOpen] = useState(false);
   const [showGiftTray, setShowGiftTray] = useState(false);
   const [selectedGiftId, setSelectedGiftId] = useState<string>(gifts[0]?.giftId ?? '');
-  const [giftTab, setGiftTab] = useState<'all' | GiftTier>('all');
+  const [giftTab, setGiftTab] = useState<'all' | GiftTier | 'lucky'>('all');
   const [giftTargetUid, setGiftTargetUid] = useState<string>('');
+  const [luckyBoxId, setLuckyBoxId] = useState<string>(LUCKY_GIFTS[0].giftId);
+  const [luckyQty, setLuckyQty] = useState<1 | 5 | 10>(1);
+  const [luckyBusy, setLuckyBusy] = useState(false);
+  const [luckyDraws, setLuckyDraws] = useState<Array<LuckyRoll & { key: string }>>([]);
+  const luckyBox = LUCKY_GIFTS.find((b) => b.giftId === luckyBoxId) ?? LUCKY_GIFTS[0];
   const selectedGift = gifts.find((g) => g.giftId === selectedGiftId) ?? null;
-  const visibleGifts = giftTab === 'all' ? gifts : gifts.filter((g) => giftTier(g.price) === giftTab);
+  const visibleGifts =
+    giftTab === 'all' ? gifts : giftTab === 'lucky' ? [] : gifts.filter((g) => giftTier(g.price) === giftTab);
 
   // Gift targets: the host plus everyone currently seated in a multi-guest room.
   // You never gift yourself, so the signed-in user is excluded from the list.
@@ -272,6 +294,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
       seenGiftIdRef.current = newest.id;
       const gift =
         (newest.giftId ? GIFT_BY_ID.get(newest.giftId) : undefined) ??
+        (newest.giftId ? LUCKY_BY_ID.get(newest.giftId) : undefined) ??
         gifts.find((g) => g.name === newest.giftName);
       if (!gift) return;
 
@@ -310,6 +333,29 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
 
   const handleGiftFxExpire = (key: string) => {
     setGiftFx((prev) => prev.filter((f) => f.key !== key));
+  };
+
+  // Poppo-style Lucky open: each roll is its own gift transaction, so a x10
+  // batch is sent sequentially and stops the moment one fails (e.g. funds).
+  const openLucky = async () => {
+    if (!currentUser || luckyBusy || isOfflineSimulated || !selectedGiftTarget) return;
+    if (coinBalance < luckyBox.price * luckyQty) return;
+    setLuckyBusy(true);
+    for (let i = 0; i < luckyQty; i += 1) {
+      const roll = rollLucky(luckyBox);
+      const diamonds = await onSendLuckyGift(room.roomId, luckyBox, roll, selectedGiftTarget.uid);
+      if (diamonds === null) break;
+      setLuckyDraws((prev) =>
+        [{ ...roll, diamonds, key: `d${Date.now()}_${i}_${Math.random().toString(36).slice(2, 6)}` }, ...prev].slice(
+          0,
+          12
+        )
+      );
+      if (i < luckyQty - 1) {
+        await new Promise((resolve) => setTimeout(resolve, 380));
+      }
+    }
+    setLuckyBusy(false);
   };
 
   useEffect(() => {
@@ -1138,9 +1184,9 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
                   <span className="text-sm font-bold text-cyan-300 mr-2">
                     {comment.displayName}
                   </span>
-                  {comment.isGiftEvent && comment.giftId && GIFT_BY_ID.get(comment.giftId) && (
+                  {comment.isGiftEvent && comment.giftId && (GIFT_BY_ID.get(comment.giftId) ?? LUCKY_BY_ID.get(comment.giftId)) && (
                     <GiftArtwork
-                      src={GIFT_BY_ID.get(comment.giftId)!.imageUrl}
+                      src={(GIFT_BY_ID.get(comment.giftId) ?? LUCKY_BY_ID.get(comment.giftId))!.imageUrl}
                       size={22}
                       className="inline-block align-middle mr-1.5"
                     />
@@ -1161,9 +1207,9 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
                   <span className="inline-flex items-center rounded-md bg-gradient-to-r from-amber-500 to-orange-500 px-1.5 py-0.5 text-[9px] font-bold text-white mr-1.5 align-middle">
                     {comment.displayName}
                   </span>
-                  {comment.isGiftEvent && comment.giftId && GIFT_BY_ID.get(comment.giftId) && (
+                  {comment.isGiftEvent && comment.giftId && (GIFT_BY_ID.get(comment.giftId) ?? LUCKY_BY_ID.get(comment.giftId)) && (
                     <GiftArtwork
-                      src={GIFT_BY_ID.get(comment.giftId)!.imageUrl}
+                      src={(GIFT_BY_ID.get(comment.giftId) ?? LUCKY_BY_ID.get(comment.giftId))!.imageUrl}
                       size={16}
                       className="inline-block align-middle mr-1"
                     />
@@ -1562,11 +1608,16 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
                 ['classic', 'Classic'],
                 ['premium', 'Premium'],
                 ['luxury', 'Luxury'],
+                ['lucky', 'Lucky'],
               ] as const
             ).map(([key, label]) => {
               const active = giftTab === key;
               const count =
-                key === 'all' ? gifts.length : gifts.filter((g) => giftTier(g.price) === key).length;
+                key === 'all'
+                  ? gifts.length
+                  : key === 'lucky'
+                    ? LUCKY_GIFTS.length
+                    : gifts.filter((g) => giftTier(g.price) === key).length;
               return (
                 <button
                   key={key}
@@ -1575,12 +1626,17 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
                   aria-label={`Show ${label} gifts`}
                   className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold transition-all ${
                     active
-                      ? key === 'luxury'
+                      ? key === 'luxury' || key === 'lucky'
                         ? 'bg-gradient-to-r from-amber-400 to-pink-500 text-[#1A1206] shadow-[0_0_12px_rgba(236,72,153,0.45)]'
                         : 'bg-white/[0.12] text-white border border-white/20'
-                      : 'bg-white/[0.04] text-slate-400 border border-white/[0.06] hover:bg-white/[0.08] hover:text-slate-200'
+                      : key === 'lucky'
+                        ? 'bg-fuchsia-500/10 text-fuchsia-200 border border-fuchsia-300/30 hover:bg-fuchsia-500/20'
+                        : 'bg-white/[0.04] text-slate-400 border border-white/[0.06] hover:bg-white/[0.08] hover:text-slate-200'
                   }`}
                 >
+                  {key === 'lucky' && (
+                    <Sparkles className="mr-0.5 inline h-2.5 w-2.5 align-[-1px]" aria-hidden="true" />
+                  )}
                   {label}
                   <span className={`ml-0.5 font-mono text-[9px] tabular-nums ${active ? 'opacity-70' : 'opacity-50'}`}>
                     {count}
@@ -1591,6 +1647,134 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
           </div>
 
           <div className="flex-1 overflow-y-auto px-3 pb-2">
+            {giftTab === 'lucky' ? (
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between gap-2 rounded-xl border border-amber-300/25 bg-[linear-gradient(120deg,rgba(251,191,36,0.14),rgba(236,72,153,0.10)_55%,rgba(34,211,238,0.10))] px-2.5 py-1.5">
+                  <p className="text-[10px] font-semibold text-amber-100/90">
+                    Open a box — a random gift pops out, up to ×520 value.
+                  </p>
+                  <span className="shrink-0 text-[9px] font-bold text-fuchsia-200">
+                    {selectedGiftTarget ? `to ${selectedGiftTarget.name}` : 'pick a target'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  {LUCKY_GIFTS.map((box) => {
+                    const selected = box.giftId === luckyBoxId;
+                    const affordable = box.price <= coinBalance;
+                    return (
+                      <button
+                        key={box.giftId}
+                        type="button"
+                        disabled={luckyBusy}
+                        onClick={() => setLuckyBoxId(box.giftId)}
+                        aria-label={`Select ${box.name}, ${box.price} coins`}
+                        className={`group relative flex flex-col items-center rounded-xl border p-2 transition-all disabled:opacity-60 ${
+                          selected
+                            ? 'border-amber-300/70 bg-white/[0.08] shadow-[0_0_14px_rgba(251,191,36,0.35)]'
+                            : 'border-white/[0.06] bg-white/[0.03] hover:bg-white/[0.07]'
+                        }`}
+                      >
+                        <GiftArtwork
+                          src={box.imageUrl}
+                          alt={box.name}
+                          size={42}
+                          className={`transition-transform duration-150 group-hover:scale-110 ${
+                            affordable ? '' : 'opacity-40 saturate-50'
+                          }`}
+                        />
+                        <p className="mt-1.5 w-full truncate text-center text-[10px] font-bold text-white">
+                          {box.name}
+                        </p>
+                        <p className="flex items-center gap-1 font-mono text-[9px] font-bold tabular-nums text-amber-200">
+                          <span className="h-1.5 w-1.5 rounded-full bg-gradient-to-br from-amber-300 to-yellow-600" />
+                          {box.price.toLocaleString()}
+                        </p>
+                        <span className="mt-0.5 rounded-full bg-fuchsia-500/15 px-1.5 text-[8px] font-black tracking-wide text-fuchsia-200">
+                          {box.tagline}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  {([1, 5, 10] as const).map((q) => (
+                    <button
+                      key={q}
+                      type="button"
+                      disabled={luckyBusy}
+                      onClick={() => setLuckyQty(q)}
+                      className={`h-9 w-10 shrink-0 rounded-lg border font-mono text-[11px] font-bold tabular-nums transition-colors ${
+                        luckyQty === q
+                          ? 'border-amber-300/60 bg-amber-400/20 text-amber-100'
+                          : 'border-white/[0.08] bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]'
+                      }`}
+                    >
+                      ×{q}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    disabled={
+                      !currentUser ||
+                      luckyBusy ||
+                      isOfflineSimulated ||
+                      !selectedGiftTarget ||
+                      coinBalance < luckyBox.price * luckyQty
+                    }
+                    onClick={() => void openLucky()}
+                    className="relative h-9 flex-1 overflow-hidden rounded-lg bg-gradient-to-r from-amber-400 via-orange-500 to-pink-500 text-xs font-extrabold text-[#1A1206] shadow-[0_4px_16px_rgba(249,115,22,0.4)] transition-all hover:brightness-110 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40 inline-flex items-center justify-center gap-1.5"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                    {luckyBusy
+                      ? 'Opening…'
+                      : `Open ×${luckyQty} · ${(luckyBox.price * luckyQty).toLocaleString()}`}
+                  </button>
+                </div>
+
+                {coinBalance < luckyBox.price * luckyQty && (
+                  <p className="text-[10px] text-rose-300">
+                    Need {(luckyBox.price * luckyQty - coinBalance).toLocaleString()} more coins
+                    for this open.
+                  </p>
+                )}
+
+                {luckyDraws.length > 0 && (
+                  <div className="space-y-1">
+                    {luckyDraws.slice(0, 6).map((d) => {
+                      const tier = luckyTier(d.multiplier);
+                      return (
+                        <div
+                          key={d.key}
+                          className={`flex items-center justify-between rounded-lg border px-2.5 py-1 text-[10px] ${
+                            tier === 'jackpot' || tier === 'mega'
+                              ? 'border-amber-300/50 bg-gradient-to-r from-amber-400/20 to-pink-500/15 text-amber-100'
+                              : tier === 'big'
+                                ? 'border-fuchsia-300/40 bg-fuchsia-500/10 text-fuchsia-100'
+                                : tier === 'nice'
+                                  ? 'border-emerald-300/30 bg-emerald-500/10 text-emerald-100'
+                                  : 'border-white/[0.06] bg-white/[0.03] text-slate-300'
+                          }`}
+                        >
+                          <span className="font-mono font-black tabular-nums">
+                            ×{d.multiplier}
+                            {tier === 'jackpot' && (
+                              <span className="ml-1 rounded bg-gradient-to-r from-amber-400 to-pink-500 px-1 text-[7px] font-black tracking-wider text-[#1A1206]">
+                                JACKPOT
+                              </span>
+                            )}
+                          </span>
+                          <span className="font-mono tabular-nums">
+                            {d.value.toLocaleString()} gift · +{d.diamonds.toLocaleString()} Diamonds
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            ) : (
             <div className="grid grid-cols-5 sm:grid-cols-7 lg:grid-cols-10 gap-1.5">
               {visibleGifts.map((gift) => {
                 const selected = gift.giftId === selectedGiftId;
@@ -1654,14 +1838,16 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
                 );
               })}
             </div>
+            )}
           </div>
 
-          {selectedGift && coinBalance < selectedGift.price && (
+          {giftTab !== 'lucky' && selectedGift && coinBalance < selectedGift.price && (
             <p className="px-3 pb-1 text-[10px] text-rose-300">
               Need {(selectedGift.price - coinBalance).toLocaleString()} more coins for this gift.
             </p>
           )}
 
+          {giftTab !== 'lucky' && (
           <div className="border-t border-white/[0.08] p-2.5 flex items-center gap-2.5 bg-[#080a12]/90">
             {selectedGift ? (
               <>
@@ -1721,6 +1907,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
               <p className="text-xs text-slate-400 py-1.5">Pick a gift to send.</p>
             )}
           </div>
+          )}
         </div>
       )}
 

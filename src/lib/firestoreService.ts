@@ -78,6 +78,7 @@ import {
   HOST_VALID_DAY_SECONDS,
   HostTaskId,
 } from '../rewards/hostConfig';
+import type { LuckyGiftBox, LuckyRoll } from '../data/luckyGifts';
 
 export const ADMIN_BOOTSTRAP_EMAIL = 'niazskapp@gmail.com';
 export const ADMIN_BOOTSTRAP_EMAILS = [
@@ -1114,11 +1115,53 @@ export type GiftContext = {
   id: string;
 };
 
+type LuckyReceiptExtras = { luckyValue: number; luckyMultiplier: number };
+
 export async function sendVirtualGiftTransaction(
   context: GiftContext,
   sender: UserProfile,
   recipient: GiftRecipient,
   gift: GiftCatalogItem
+): Promise<{ recipientDiamonds: number }> {
+  return sendGiftTransactionCore(context, sender, recipient, gift);
+}
+
+/**
+ * Poppo-style Lucky open: the sender pays the box price, and the recipient
+ * receives 70% of the randomly revealed value as Diamonds. The revealed
+ * value/multiplier ride along on the gift receipt so the security rules can
+ * bound them (value <= price x 520, diamonds = 70% of the revealed value).
+ */
+export async function sendLuckyGiftTransaction(
+  context: GiftContext,
+  sender: UserProfile,
+  recipient: GiftRecipient,
+  box: LuckyGiftBox,
+  roll: LuckyRoll
+): Promise<{ recipientDiamonds: number }> {
+  const gift: GiftCatalogItem = {
+    giftId: box.giftId,
+    name: `${box.name} ×${roll.multiplier}`,
+    currency: 'COIN',
+    price: box.price,
+    accentHex: box.accentHex,
+    imageUrl: box.imageUrl,
+    effect: box.effect,
+  };
+  return sendGiftTransactionCore(context, sender, recipient, gift, {
+    luckyValue: roll.value,
+    // Receipts store the multiplier in tenths so Firestore rules can type it
+    // as an int (0.1 -> 1, 520 -> 5200).
+    luckyMultiplier: Math.round(roll.multiplier * 10),
+  });
+}
+
+async function sendGiftTransactionCore(
+  context: GiftContext,
+  sender: UserProfile,
+  recipient: GiftRecipient,
+  gift: GiftCatalogItem,
+  lucky?: LuckyReceiptExtras
 ): Promise<{ recipientDiamonds: number }> {
   if (recipient.uid === sender.uid) {
     throw new Error('You cannot send a gift to yourself.');
@@ -1142,8 +1185,11 @@ export async function sendVirtualGiftTransaction(
       ? doc(db, 'conversations', context.id)
       : null;
 
-  // Recipient keeps 70% of the gift value as Diamonds.
-  const recipientDiamonds = Math.floor(gift.price * 0.70);
+  // Recipient keeps 70% of the gift value as Diamonds. A Lucky open pays 70%
+  // of the revealed value instead of the box price.
+  const recipientDiamonds = lucky
+    ? Math.floor((lucky.luckyValue * 7) / 10)
+    : Math.floor(gift.price * 0.70);
   const giftMessage = `Sent ${gift.name} to @${recipient.username} (+${recipientDiamonds.toLocaleString()} Diamonds)`;
 
   try {
@@ -1304,6 +1350,9 @@ export async function sendVirtualGiftTransaction(
         recipientDiamonds,
         ...(commissionUid
           ? { commissionUid, commissionAmount, commissionRate }
+          : {}),
+        ...(lucky
+          ? { luckyValue: lucky.luckyValue, luckyMultiplier: lucky.luckyMultiplier }
           : {}),
         createdAt: serverTimestamp(),
       });

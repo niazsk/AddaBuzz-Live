@@ -21,6 +21,7 @@ import {
   WalletTransaction,
 } from './types/app';
 import { GIFT_CATALOG } from './data/gifts';
+import type { LuckyGiftBox, LuckyRoll } from './data/luckyGifts';
 import { auth } from './lib/firebase';
 import {
   adjustRoomViewerCountDoc,
@@ -43,6 +44,7 @@ import {
   resendVerificationEmail,
   resolveReportDoc,
   sendDirectMessageDoc,
+  sendLuckyGiftTransaction,
   sendPasswordReset,
   sendVirtualGiftTransaction,
   transferCoins,
@@ -760,17 +762,15 @@ export default function App() {
     }
   };
 
-  const handleSendGift = async (
+  const resolveGiftRecipient = (
+    me: UserProfile,
     roomId: string,
-    gift: GiftCatalogItem,
     recipientUid?: string
   ) => {
-    const me = requireSignedIn();
-    if (!me) return;
     const room = liveRooms.find((r) => r.roomId === roomId);
     if (!room) {
       pushToast('Gift failed', 'This room is no longer available.', 'warning');
-      return;
+      return null;
     }
 
     const targetUid =
@@ -781,7 +781,7 @@ export default function App() {
         'You cannot send a gift to yourself in your own live room.',
         'warning'
       );
-      return;
+      return null;
     }
 
     const seat = activeSeats.find(
@@ -789,24 +789,38 @@ export default function App() {
     );
     if (targetUid !== room.hostUid && !seat) {
       pushToast('Gift failed', 'That guest is no longer on stage.', 'warning');
-      return;
+      return null;
     }
 
     const host = users.find((u) => u.uid === room.hostUid);
     const profile = users.find((u) => u.uid === targetUid);
-    const recipient = {
-      uid: targetUid,
-      username:
-        profile?.username ??
-        seat?.occupantUsername ??
-        (targetUid === room.hostUid ? host?.username : undefined) ??
-        'user',
-      displayName:
-        profile?.displayName ??
-        seat?.occupantName ??
-        (targetUid === room.hostUid ? host?.displayName : undefined) ??
-        'Guest',
+    return {
+      recipient: {
+        uid: targetUid,
+        username:
+          profile?.username ??
+          seat?.occupantUsername ??
+          (targetUid === room.hostUid ? host?.username : undefined) ??
+          'user',
+        displayName:
+          profile?.displayName ??
+          seat?.occupantName ??
+          (targetUid === room.hostUid ? host?.displayName : undefined) ??
+          'Guest',
+      },
     };
+  };
+
+  const handleSendGift = async (
+    roomId: string,
+    gift: GiftCatalogItem,
+    recipientUid?: string
+  ) => {
+    const me = requireSignedIn();
+    if (!me) return;
+    const resolved = resolveGiftRecipient(me, roomId, recipientUid);
+    if (!resolved) return;
+    const { recipient } = resolved;
 
     try {
       const result = await sendVirtualGiftTransaction(
@@ -829,6 +843,37 @@ export default function App() {
         err instanceof Error ? err.message : 'Unable to process gift.',
         'warning'
       );
+    }
+  };
+
+  const handleSendLuckyGift = async (
+    roomId: string,
+    box: LuckyGiftBox,
+    roll: LuckyRoll,
+    recipientUid?: string
+  ): Promise<number | null> => {
+    const me = requireSignedIn();
+    if (!me) return null;
+    const resolved = resolveGiftRecipient(me, roomId, recipientUid);
+    if (!resolved) return null;
+
+    try {
+      const result = await sendLuckyGiftTransaction(
+        { type: 'ROOM', id: roomId },
+        me,
+        resolved.recipient,
+        box,
+        roll
+      );
+      void bumpRewardProgress(me.uid, 'giftsSent', 1);
+      return result.recipientDiamonds;
+    } catch (err) {
+      pushToast(
+        'Lucky open failed',
+        err instanceof Error ? err.message : 'Unable to process lucky gift.',
+        'warning'
+      );
+      return null;
     }
   };
 
@@ -1278,6 +1323,7 @@ export default function App() {
           onToggleFollow={handleToggleFollow}
           onSendComment={handleSendRoomComment}
           onSendGift={handleSendGift}
+          onSendLuckyGift={handleSendLuckyGift}
           onRequestSeat={handleRequestSeat}
           onLeaveSeat={handleLeaveSeat}
           onApproveJoinRequest={handleApproveJoinRequest}

@@ -297,6 +297,7 @@ service cloud.firestore {
           'eventId', 'contextType', 'contextId', 'senderUid', 'senderUsername', 'recipientUid',
           'recipientUsername', 'recipientDisplayName', 'giftId', 'giftName',
           'giftCurrency', 'giftAmount', 'recipientDiamonds',
+          'luckyValue', 'luckyMultiplier',
           'commissionUid', 'commissionAmount', 'commissionRate', 'createdAt'
         ]) &&
         data.eventId == eventId &&
@@ -314,7 +315,27 @@ service cloud.firestore {
         data.giftCurrency in ['COIN', 'DIAMOND'] &&
         data.giftAmount is int && data.giftAmount > 0 && data.giftAmount <= 1000000 &&
         data.recipientDiamonds is int && data.recipientDiamonds >= 0 &&
-        data.recipientDiamonds * 10 == data.giftAmount * 7 &&
+        (
+          // Normal gift: recipient keeps exactly 70% of the paid value.
+          (
+            data.recipientDiamonds * 10 == data.giftAmount * 7 &&
+            !('luckyValue' in data) &&
+            !('luckyMultiplier' in data)
+          ) ||
+          // Lucky open: the sender pays the box price, the recipient keeps 70%
+          // of the randomly revealed value. The revealed value is bounded by
+          // price x 520 (the top ladder rung) so a forged receipt can never
+          // mint more than the biggest possible jackpot.
+          (
+            data.giftId.matches('^lucky_[a-z]+$') &&
+            'luckyValue' in data &&
+            data.luckyValue is int && data.luckyValue >= 10 && data.luckyValue <= 1000000 &&
+            'luckyMultiplier' in data &&
+            data.luckyMultiplier is int && data.luckyMultiplier >= 1 && data.luckyMultiplier <= 5200 &&
+            data.luckyValue <= data.giftAmount * 520 &&
+            data.recipientDiamonds * 10 == data.luckyValue * 7
+          )
+        ) &&
         data.createdAt == request.time &&
         (
           (
@@ -1395,6 +1416,22 @@ service cloud.firestore {
               (
                 (incoming().idempotencyKey.matches('^gf-w-.*$') && incoming().amount <= 149000) ||
                 (incoming().idempotencyKey.matches('^gf-r-.*$') && incoming().amount <= 50000)
+              ) &&
+              incoming().amount ==
+                getAfter(/databases/$(database)/documents/wallets/$(uid)).data.coinBalance -
+                get(/databases/$(database)/documents/wallets/$(uid)).data.coinBalance
+            ) ||
+            (
+              // Instant arcade payouts / refunds (Coin Flip, Bingo, Plinko,
+              // Crash, Mines, Hi-Lo, Roulette). Key names the game round;
+              // wins stay within the shared 1,900,000 max payout and refunds
+              // never exceed the 5,000 top stake.
+              isOwner(uid) &&
+              incoming().direction == 'CREDIT' &&
+              incoming().currency == 'COIN' &&
+              (
+                (incoming().idempotencyKey.matches('^(cf|bb|pl|cr|mn|hl|rl)-[A-Z0-9]+-w$') && incoming().amount <= 1900000) ||
+                (incoming().idempotencyKey.matches('^(mn|hl)-[A-Z0-9]+-r$') && incoming().amount <= 5000)
               ) &&
               incoming().amount ==
                 getAfter(/databases/$(database)/documents/wallets/$(uid)).data.coinBalance -

@@ -12,6 +12,7 @@ import { UserProfile } from '../../types/app';
 import {
   ARCADE_CHIPS,
   arcadeDebit,
+  capPayout,
   creditArcade,
   flushArcadeCredits,
   fmtCoins,
@@ -101,7 +102,7 @@ export const MinesView: React.FC<Props> = ({
     info.settled = true;
     const payout =
       outcome === 'cashed' && info.revealed.length > 0
-        ? Math.round(info.stake * multiplierAt(info.revealed.length))
+        ? capPayout(Math.round(info.stake * multiplierAt(info.revealed.length)))
         : 0;
     if (payout > 0) {
       creditArcade(
@@ -211,7 +212,7 @@ export const MinesView: React.FC<Props> = ({
   };
 
   const liveMultiplier = revealed.length > 0 ? multiplierAt(revealed.length) : 1;
-  const livePayout = Math.round(stake * liveMultiplier);
+  const livePayout = capPayout(Math.round(stake * liveMultiplier));
   const nextMultiplier =
     revealed.length < TILE_COUNT - MINE_COUNT ? multiplierAt(revealed.length + 1) : liveMultiplier;
 

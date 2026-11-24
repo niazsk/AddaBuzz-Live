@@ -13,6 +13,7 @@ import { UserProfile } from '../../types/app';
 import {
   ARCADE_CHIPS,
   arcadeDebit,
+  capPayout,
   creditArcade,
   flushArcadeCredits,
   fmtCoins,
@@ -146,7 +147,7 @@ export const HiLoView: React.FC<Props> = ({
     if (!info || !uid || info.settled) return;
     info.settled = true;
     const payout = won
-      ? Math.round(info.stake * Math.pow(STEP_MULTIPLIER, info.streak))
+      ? capPayout(Math.round(info.stake * Math.pow(STEP_MULTIPLIER, info.streak)))
       : 0;
     if (payout > 0) {
       creditArcade(
@@ -262,7 +263,7 @@ export const HiLoView: React.FC<Props> = ({
   };
 
   const liveMultiplier = Math.pow(STEP_MULTIPLIER, streak);
-  const livePayout = Math.round(stake * liveMultiplier);
+  const livePayout = capPayout(Math.round(stake * liveMultiplier));
 
   return (
     <div className="space-y-4 pb-10">
