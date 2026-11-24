@@ -6,6 +6,7 @@ import {
   CircleUserRound,
   Radio,
   Bell,
+  Download,
 } from 'lucide-react';
 import { AppSection } from '../../types/app';
 import { BrandLogo } from '../ui/BrandLogo';
@@ -45,6 +46,14 @@ export const MobileTopBar: React.FC<MobileNavProps> = ({
             Sign In
           </button>
         )}
+        <a
+          href="/downloads/AddaBuzzLive.apk"
+          download="AddaBuzzLive.apk"
+          className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500/12 border border-emerald-400/30 px-2.5 py-1.5 text-xs font-medium text-emerald-300 hover:bg-emerald-500/20 transition-colors whitespace-nowrap"
+        >
+          <Download className="w-3.5 h-3.5 shrink-0" />
+          <span className="hidden min-[400px]:inline">Get App</span>
+        </a>
         <button
           type="button"
           onClick={onOpenNotifications}

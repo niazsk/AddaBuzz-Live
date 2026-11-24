@@ -56,15 +56,18 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({ compact = false }) => {
       </span>
       {!compact && (
         <span className="flex items-center gap-2">
-          <span className="font-display text-[20px] font-extrabold leading-none tracking-[-0.035em]">
-            <span className="text-white">Adda</span>
-            <span className="bg-[linear-gradient(92deg,#C4B5FD_0%,#7DD3FC_50%,#5EEAD4_100%)] bg-clip-text text-transparent">
-              Buzz
+          <span className="relative font-display text-[21px] font-black leading-none tracking-[-0.05em]">
+            <span
+              aria-hidden="true"
+              className="absolute inset-x-0 -bottom-1 h-[7px] rounded-full bg-gradient-to-r from-violet-500/40 via-sky-400/35 to-transparent blur-[6px]"
+            />
+            <span className="relative bg-[linear-gradient(96deg,#FFFFFF_0%,#DDD6FE_42%,#93C5FD_74%,#67E8F9_100%)] bg-clip-text text-transparent drop-shadow-[0_1px_16px_rgba(129,140,248,0.35)]">
+              AddaBuzz
             </span>
           </span>
-          <span className="flex items-center gap-[5px] rounded-full border border-white/10 bg-white/[0.05] px-2 py-[3px]">
-            <span className="live-dot h-[5px] w-[5px] rounded-full bg-rose-400" />
-            <span className="text-[8px] font-black uppercase leading-none tracking-[0.26em] text-slate-300">
+          <span className="flex items-center gap-[5px] rounded-full border border-rose-400/25 bg-gradient-to-r from-rose-500/15 via-fuchsia-500/10 to-transparent px-2 py-[3px]">
+            <span className="live-dot h-[5px] w-[5px] rounded-full bg-rose-400 shadow-[0_0_8px_rgba(251,113,133,0.9)]" />
+            <span className="bg-gradient-to-r from-rose-200 to-fuchsia-200 bg-clip-text text-[8px] font-black uppercase leading-none tracking-[0.28em] text-transparent">
               Live
             </span>
           </span>

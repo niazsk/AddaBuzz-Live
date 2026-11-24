@@ -49,12 +49,12 @@ export const AgentPromoteView: React.FC<AgentPromoteViewProps> = ({
     if (afterType === 'SUPER_AGENT' && !isBdAgent) {
       setPromoteMsg({
         ok: false,
-        text: 'Only the BD Agent can promote a USER to SUPER_AGENT.',
+        text: 'Only the main BD Agent can promote a USER to BD Agent.',
       });
       return;
     }
     onPromoteUser(target, afterType);
-    const roleLabel = afterType === 'SUPER_AGENT' ? 'Super Agent' : 'Agent';
+    const roleLabel = afterType === 'SUPER_AGENT' ? 'BD Agent' : 'Agent';
     setPromoteMsg({ ok: true, text: `ID ${id} (${target.displayName}) is now a ${roleLabel}.` });
     setPromoteId('');
   };
@@ -99,8 +99,8 @@ export const AgentPromoteView: React.FC<AgentPromoteViewProps> = ({
         {/* Info banner */}
         <div className="rounded-xl bg-violet-500/10 border border-violet-500/25 px-4 py-3 text-xs text-violet-200 leading-relaxed">
           {isBdAgent
-            ? 'As a BD Agent you can promote a USER to Super Agent or Agent. Enter the user\'s platform ID below and choose the target role.'
-            : 'As a Super Agent you can promote a USER to Agent only. Only the BD Agent can create new Super Agents.'}
+            ? 'As the main BD Agent you can promote a USER to BD Agent or Agent. Enter the user\'s platform ID below and choose the target role.'
+            : 'As a BD Agent you can promote a USER to Agent only. Only the main BD Agent can create new BD Agents.'}
         </div>
 
         <div className="space-y-3">
@@ -133,7 +133,7 @@ export const AgentPromoteView: React.FC<AgentPromoteViewProps> = ({
                 className="w-full px-4 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 disabled:opacity-45 disabled:cursor-not-allowed text-sm font-semibold text-[#1A1206] inline-flex items-center justify-center gap-2 transition-all active:scale-[0.99]"
               >
                 <ArrowUpRight className="w-4 h-4" />
-                <span>Super Agent</span>
+                <span>BD Agent</span>
               </button>
             )}
             <button
@@ -171,15 +171,15 @@ export const AgentPromoteView: React.FC<AgentPromoteViewProps> = ({
           <div className="flex items-start gap-2.5">
             <span className="w-5 h-5 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">1</span>
             <p>
-              <strong className="text-white">BD Agent → Super Agent:</strong>{' '}
-              The BD Agent can promote any USER to Super Agent, granting them full agent management rights.
+              <strong className="text-white">Main BD Agent → BD Agent:</strong>{' '}
+              The main BD Agent can promote any USER to BD Agent, granting them full agency management rights.
             </p>
           </div>
           <div className="flex items-start gap-2.5">
             <span className="w-5 h-5 rounded-full bg-violet-500/20 text-violet-400 flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">2</span>
             <p>
-              <strong className="text-white">Super Agent → Agent:</strong>{' '}
-              A Super Agent can promote any USER to Agent. Super Agents cannot create other Super Agents.
+              <strong className="text-white">BD Agent → Agent:</strong>{' '}
+              A BD Agent can promote any USER to Agent. BD Agents cannot create other BD Agents.
             </p>
           </div>
           <div className="flex items-start gap-2.5">

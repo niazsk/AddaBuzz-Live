@@ -2,6 +2,7 @@ import React from 'react';
 import { MessageSquare, ShieldAlert, ShieldBan, X } from 'lucide-react';
 import { UserProfile } from '../../types/app';
 import { Avatar } from '../ui/Avatar';
+import { visibleBio } from '../../lib/profileBio';
 
 interface UserProfileModalProps {
   user: UserProfile | null;
@@ -70,7 +71,9 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             </p>
           </div>
 
-          <p className="text-sm text-slate-300 mt-3 leading-relaxed">{user.bio}</p>
+          {visibleBio(user.bio) && (
+            <p className="text-sm text-slate-300 mt-3 leading-relaxed">{visibleBio(user.bio)}</p>
+          )}
 
           <div className="flex items-center gap-5 mt-4 pt-4 border-t border-white/[0.07] text-xs text-slate-400">
             <span>

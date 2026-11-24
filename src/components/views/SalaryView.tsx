@@ -51,7 +51,7 @@ export const SalaryView: React.FC<SalaryViewProps> = ({
     credited?: number;
   } | null>(null);
 
-  // Eligible withdrawal targets: Super Agents and Agents only (excluding self)
+  // Eligible withdrawal targets: BD Agents and Agents only (excluding self)
   const eligibleAgents = users.filter((u) => {
     if (!currentUser) return false;
     if (u.uid === currentUser.uid) return false;
@@ -82,7 +82,7 @@ export const SalaryView: React.FC<SalaryViewProps> = ({
     }
 
     if (mode === 'AGENT' && !selectedAgent) {
-      onToast?.('Select Agent', 'Please select a Super Agent or Agent to receive withdrawal.', 'warning');
+      onToast?.('Select Agent', 'Please select a BD Agent or Agent to receive withdrawal.', 'warning');
       return;
     }
 
@@ -177,9 +177,6 @@ export const SalaryView: React.FC<SalaryViewProps> = ({
           <p className="font-mono text-3xl font-black text-sky-400 tabular-nums">
             {diamondBalance.toLocaleString()} <span className="text-sm font-normal text-slate-300 font-sans">Diamonds</span>
           </p>
-          <p className="text-xs text-slate-400">
-            Diamonds are withdrawable to authorized Super Agents and Agents. Super Agents & Agents can also withdraw to their own Trading Balance (10% fee).
-          </p>
         </div>
       </div>
 
@@ -215,7 +212,7 @@ export const SalaryView: React.FC<SalaryViewProps> = ({
         <form onSubmit={handleWithdrawSubmit} className="rounded-2xl bg-[#111420] border border-white/[0.08] p-5 space-y-4">
           <h2 className="font-display text-sm font-semibold text-white flex items-center gap-2">
             <Send className="w-4 h-4 text-sky-400" />
-            <span>{mode === 'SELF' ? 'Withdraw to My Trading Balance' : 'Select Target Super Agent / Agent'}</span>
+            <span>{mode === 'SELF' ? 'Withdraw to My Trading Balance' : 'Select Target BD Agent / Agent'}</span>
           </h2>
 
           {isAgencyUser && (
@@ -272,7 +269,7 @@ export const SalaryView: React.FC<SalaryViewProps> = ({
             <div className="max-h-48 overflow-y-auto rounded-xl border border-white/[0.06] divide-y divide-white/[0.04] bg-[#0B0D14]">
               {filteredAgents.length === 0 ? (
                 <div className="p-4 text-center text-xs text-slate-500">
-                  No registered Super Agents or Agents found.
+                  No registered BD Agents or Agents found.
                 </div>
               ) : (
                 filteredAgents.map((agent) => {
@@ -298,7 +295,7 @@ export const SalaryView: React.FC<SalaryViewProps> = ({
                               isSuper ? 'bg-amber-500/20 text-amber-300' : 'bg-violet-500/20 text-violet-300'
                             }`}
                           >
-                            {isSuper ? 'Super Agent' : 'Agent'}
+                            {isSuper ? 'BD Agent' : 'Agent'}
                           </span>
                         </div>
                         <p className="text-[11px] text-slate-400 font-mono">

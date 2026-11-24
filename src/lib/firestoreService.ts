@@ -383,7 +383,7 @@ export async function completeUserOnboarding(
     platformId,
     username: normalized,
     displayName,
-    bio: 'New creator on AddaBuzz Live.',
+    bio: 'Connect • Stream • Chat • Enjoy',
     country,
     gender: input.gender,
     accountType: isBootstrappedSuperAgent ? 'SUPER_AGENT' : 'USER',
@@ -489,6 +489,29 @@ export async function updateOwnProfile(
     await updateDoc(doc(db, 'users', uid), payload);
   } catch (error) {
     handleFirestoreError(error, OperationType.UPDATE, path);
+  }
+}
+
+export async function saveCoverImage(uid: string, dataUrl: string): Promise<void> {
+  const path = `userCovers/${uid}`;
+  try {
+    await setDoc(doc(db, 'userCovers', uid), {
+      uid,
+      dataUrl,
+      updatedAt: serverTimestamp(),
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, path);
+  }
+}
+
+export async function fetchCoverImage(uid: string): Promise<string | null> {
+  try {
+    const snap = await getDoc(doc(db, 'userCovers', uid));
+    const dataUrl = snap.exists() ? snap.data().dataUrl : null;
+    return typeof dataUrl === 'string' && dataUrl ? dataUrl : null;
+  } catch {
+    return null;
   }
 }
 
@@ -2042,16 +2065,16 @@ export async function transferCoins(
 
   const senderRole = resolveCoinTransferRole(sender, options?.isAdmin);
   if (senderRole === 'USER') {
-    throw new Error('Only Admin, BD Agent, Super Agent or Agent can transfer coins.');
+    throw new Error('Only Admin, BD Agent or Agent can transfer coins.');
   }
   if (!canTransferCoinsTo(senderRole, recipient)) {
     throw new Error(
       senderRole === 'AGENT'
         ? 'Agents can only transfer coins to Users.'
         : senderRole === 'SUPER_AGENT'
-        ? 'Super Agents can only transfer coins to Agents or Users.'
+        ? 'BD Agents can only transfer coins to Agents or Users.'
         : senderRole === 'BD_AGENT'
-        ? 'BD Agent can only transfer coins to Super Agents or Agents.'
+        ? 'Main BD Agent can only transfer coins to BD Agents or Agents.'
         : 'This recipient is not allowed for your role.'
     );
   }
@@ -2286,7 +2309,7 @@ export async function withdrawDiamondsToAgent(
     isBdAgentProfile(targetAgent);
 
   if (!isAgentOrSuper) {
-    throw new Error('Diamonds can only be withdrawn to an official Agent or Super Agent.');
+    throw new Error('Diamonds can only be withdrawn to an official Agent or BD Agent.');
   }
 
   // 3% reduction applied silently to recipient's trading coins
@@ -2376,7 +2399,7 @@ export async function withdrawDiamondsToSelf(
     sender.accountType === 'SUPER_AGENT' ||
     isBdAgentProfile(sender);
   if (!isAgency) {
-    throw new Error('Only Super Agents and Agents can withdraw diamonds to their own ID.');
+    throw new Error('Only BD Agents and Agents can withdraw diamonds to their own ID.');
   }
 
   const tradingCoinsCredited = Math.floor(diamonds * 0.9);
@@ -2431,7 +2454,7 @@ export async function withdrawDiamondsToSelf(
     return { diamondsDebited: diamonds, tradingCoinsCredited };
   } catch (error) {
     if (error instanceof Error && error.message.startsWith('Insufficient')) throw error;
-    if (error instanceof Error && error.message.startsWith('Only Super Agents')) throw error;
+    if (error instanceof Error && error.message.startsWith('Only BD Agents')) throw error;
     if (error instanceof Error && error.message.startsWith('Amount too small')) throw error;
     if (error instanceof Error && error.message.startsWith('Minimum withdrawal')) throw error;
     handleFirestoreError(error, OperationType.WRITE, `wallets/${sender.uid}`);

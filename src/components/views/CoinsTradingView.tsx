@@ -177,9 +177,6 @@ export const CoinsTradingView: React.FC<CoinsTradingViewProps> = ({
             <h1 className="font-display text-lg sm:text-xl font-bold text-white leading-tight">
               Agency Coins Trading
             </h1>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Admin → BD Agent → Super Agent → Agent → User distribution
-            </p>
           </div>
         </div>
         <span className="inline-flex items-center gap-1.5 text-xs text-slate-400 shrink-0">
@@ -205,9 +202,6 @@ export const CoinsTradingView: React.FC<CoinsTradingViewProps> = ({
             {tradingCoinBalance.toLocaleString()}{' '}
             <span className="text-xs font-sans font-normal text-violet-300">Coins</span>
           </p>
-          <p className="text-[11px] text-slate-400">
-            Dedicated trading balance for transfers and withdrawals.
-          </p>
         </div>
 
         {/* Main Wallet Coin Balance Card - Hidden for BD Agent */}
@@ -225,9 +219,6 @@ export const CoinsTradingView: React.FC<CoinsTradingViewProps> = ({
             <p className="font-mono text-3xl font-black text-amber-400 tabular-nums">
               {coinBalance.toLocaleString()}{' '}
               <span className="text-xs font-sans font-normal text-amber-300">Coins</span>
-            </p>
-            <p className="text-[11px] text-slate-400">
-              Used for gifts, games, deposits and all in-app activities.
             </p>
           </div>
         )}
@@ -269,9 +260,6 @@ export const CoinsTradingView: React.FC<CoinsTradingViewProps> = ({
               <Send className="w-4 h-4 text-violet-400" />
               <span>Agency Coins Transfer</span>
             </h2>
-            <span className="text-[11px] text-slate-400">
-              Agency recipients → Trading Balance · Users → Main Balance
-            </span>
           </div>
 
           {canTrade ? (

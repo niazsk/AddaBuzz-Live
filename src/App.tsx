@@ -1014,7 +1014,7 @@ export default function App() {
     if (afterType === 'SUPER_AGENT' && !isBdAgentProfile(me)) {
       pushToast(
         'Promotion rejected',
-        'Only the BD Agent can promote a USER to Super Agent.',
+        'Only the main BD Agent can promote a USER to BD Agent.',
         'error'
       );
       return;
@@ -1022,7 +1022,7 @@ export default function App() {
     try {
       await promoteUserDoc(me, target, afterType);
       pushToast(
-        `Promoted @${target.username} to ${afterType === 'SUPER_AGENT' ? 'Super Agent' : 'Agent'}`,
+        `Promoted @${target.username} to ${afterType === 'SUPER_AGENT' ? 'BD Agent' : 'Agent'}`,
         'Immutable promotion audit record saved.',
         'success'
       );

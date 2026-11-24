@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight, Bell, Eye, Gamepad2, Gift, Radio, Search, Sparkles, Users, Play, X } from 'lucide-react';
+import { Bell, Download, Eye, Radio, Search, Users, Play, X } from 'lucide-react';
 import { LiveRoom, RoomCategory, RoomMode, UserProfile } from '../../types/app';
 import { ROOM_CATEGORIES } from '../../data/previewData';
 import { RoomCard } from '../cards/RoomCard';
@@ -137,6 +137,14 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
         </div>
 
         <div className="hidden lg:flex items-center gap-3 shrink-0">
+          <a
+            href="/downloads/AddaBuzzLive.apk"
+            download="AddaBuzzLive.apk"
+            className="h-10 px-3.5 rounded-xl bg-emerald-500/12 border border-emerald-400/30 hover:bg-emerald-500/20 text-emerald-300 inline-flex items-center gap-2 text-xs font-medium transition-colors whitespace-nowrap shrink-0"
+          >
+            <Download className="w-4 h-4" />
+            <span>Get App</span>
+          </a>
           <button
             type="button"
             onClick={onOpenNotifications}
@@ -179,55 +187,6 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
               <Radio className="w-4 h-4" />
               <span>Start First Live Room</span>
             </button>
-          </div>
-
-          <div className="relative mt-6 grid grid-cols-3 gap-2.5">
-            {[
-              {
-                label: 'Coin Arcade',
-                sub: '9 games',
-                icon: <Gamepad2 className="h-[18px] w-[18px] text-white" />,
-                chip: 'from-violet-300 via-purple-500 to-fuchsia-600',
-                glow: 'shadow-violet-500/30',
-                onOpen: onOpenGames,
-              },
-              {
-                label: 'Rewards',
-                sub: 'Daily coins',
-                icon: <Sparkles className="h-[18px] w-[18px] text-white" />,
-                chip: 'from-amber-300 via-orange-500 to-rose-500',
-                glow: 'shadow-amber-500/30',
-                onOpen: onOpenReward,
-              },
-              {
-                label: 'Gift Store',
-                sub: '44 gifts',
-                icon: <Gift className="h-[18px] w-[18px] text-white" />,
-                chip: 'from-fuchsia-300 via-pink-500 to-rose-600',
-                glow: 'shadow-fuchsia-500/30',
-                onOpen: onOpenStore,
-              },
-            ].map((tile) => (
-              <button
-                key={tile.label}
-                type="button"
-                onClick={tile.onOpen}
-                className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.04] p-3 text-left transition-all hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/[0.07] active:scale-[0.99]"
-              >
-                <span
-                  className={`grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br ${tile.chip} ring-1 ring-white/25 shadow-lg ${tile.glow}`}
-                >
-                  {tile.icon}
-                </span>
-                <span className="mt-2.5 flex items-center gap-1 text-[11px] font-bold text-white">
-                  {tile.label}
-                  <ArrowRight className="h-3 w-3 text-slate-500 transition-transform group-hover:translate-x-0.5 group-hover:text-white" />
-                </span>
-                <span className="mt-0.5 block text-[9px] font-semibold uppercase tracking-wide text-slate-500">
-                  {tile.sub}
-                </span>
-              </button>
-            ))}
           </div>
         </section>
       )}

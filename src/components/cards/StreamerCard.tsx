@@ -1,7 +1,7 @@
 import React from 'react';
 import { UserProfile } from '../../types/app';
 import { Avatar } from '../ui/Avatar';
-import { isBdAgentProfile } from '../../lib/firestoreService';
+import { visibleBio } from '../../lib/profileBio';
 
 interface StreamerCardProps {
   user: UserProfile;
@@ -53,7 +53,9 @@ export const StreamerCard: React.FC<StreamerCardProps> = ({
         </button>
       </div>
 
-      <p className="text-xs text-slate-300/90 line-clamp-2 leading-relaxed">{user.bio}</p>
+      {visibleBio(user.bio) && (
+        <p className="text-xs text-slate-300/90 line-clamp-2 leading-relaxed">{visibleBio(user.bio)}</p>
+      )}
 
       <div className="flex items-center justify-between text-xs text-slate-400 pt-2 border-t border-white/[0.06]">
         <span className="font-mono tabular-nums text-slate-300">
@@ -61,9 +63,7 @@ export const StreamerCard: React.FC<StreamerCardProps> = ({
         </span>
         <span>
           {user.accountType === 'SUPER_AGENT'
-            ? isBdAgentProfile(user)
-              ? 'BD Agent'
-              : 'Super Agent'
+            ? 'BD Agent'
             : user.accountType === 'AGENT'
             ? 'Agent Host'
             : 'Creator'}

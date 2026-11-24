@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   BadgeCheck,
   Camera,
@@ -7,7 +7,6 @@ import {
   Coins,
   CreditCard,
   Crown,
-  Download,
   Edit3,
   Gamepad2,
   Gem,
@@ -20,6 +19,7 @@ import {
   Send,
   ShieldCheck,
   ShoppingBag,
+  Sparkles,
   TrendingUp,
   Trophy,
   UserPlus,
@@ -30,8 +30,9 @@ import {
 } from 'lucide-react';
 import { AppSection, GenderOption, UserProfile } from '../../types/app';
 import { Avatar } from '../ui/Avatar';
-import { ProfileImageKind, uploadProfileImage } from '../../lib/profileImages';
-import { isBdAgentProfile } from '../../lib/firestoreService';
+import { ProfileImageKind, compressProfileImage } from '../../lib/profileImages';
+import { fetchCoverImage, isBdAgentProfile, saveCoverImage } from '../../lib/firestoreService';
+import { visibleBio } from '../../lib/profileBio';
 import { COUNTRIES } from '../../data/countries';
 
 interface ProfileViewProps {
@@ -91,7 +92,6 @@ const FEATURE_TILES: Tile[] = [
   { id: 'honor', label: 'Honor Level', icon: ShieldCheck, tone: 'violet' },
   { id: 'deposit', label: 'Deposit', icon: CreditCard, tone: 'cyan' },
   { id: 'salary', label: 'Salary', icon: Gem, tone: 'fuchsia' },
-  { id: 'get-app', label: 'Get App', icon: Download, tone: 'emerald' },
 ];
 
 const AGENT_TILES: Tile[] = [
@@ -112,7 +112,7 @@ const SUPER_AGENT_TILES: Tile[] = [
 ];
 
 const BD_AGENT_TILES: Tile[] = [
-  { id: 'super-agent-list', label: 'Super Agent List', icon: BadgeCheck, tone: 'sky' },
+  { id: 'super-agent-list', label: 'BD Agent List', icon: BadgeCheck, tone: 'sky' },
   { id: 'agent-list', label: 'Agent List', icon: Users, tone: 'indigo' },
   { id: 'my-agent', label: 'My Agent', icon: Users, tone: 'violet' },
   { id: 'my-host', label: 'My Host', icon: Mic, tone: 'rose' },
@@ -141,7 +141,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 }) => {
   const [editing, setEditing] = useState(false);
   const [displayName, setDisplayName] = useState(currentUser?.displayName ?? '');
-  const [bio, setBio] = useState(currentUser?.bio ?? '');
+  const [bio, setBio] = useState(visibleBio(currentUser?.bio));
   const [country, setCountry] = useState(currentUser?.country ?? 'United States');
   const [gender, setGender] = useState<GenderOption>(
     currentUser?.gender ?? 'Prefer not to say'
@@ -153,6 +153,18 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const [photoMsg, setPhotoMsg] = useState<string | null>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
+  const [coverImage, setCoverImage] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!currentUser?.uid) return;
+    fetchCoverImage(currentUser.uid).then((dataUrl) => {
+      if (!cancelled && dataUrl) setCoverImage(dataUrl);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser?.uid]);
 
   if (!currentUser) {
     return (
@@ -188,7 +200,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const roleLabel = isBdAgent
     ? 'BD Agent'
     : currentUser.accountType === 'SUPER_AGENT'
-    ? 'Super Agent'
+    ? 'BD Agent'
     : currentUser.accountType === 'AGENT'
     ? 'Agent'
     : 'User';
@@ -227,16 +239,22 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       setPhotoBusy(kind);
       setPhotoMsg(null);
       try {
-        const url = await uploadProfileImage(currentUser.uid, kind, file);
-        await onUpdateProfile({
-          displayName: currentUser.displayName,
-          bio: currentUser.bio,
-          country: currentUser.country,
-          gender: currentUser.gender,
-          showPresence: currentUser.showPresence,
-          ...(kind === 'avatar' ? { avatarUrl: url } : { coverUrl: url }),
-        });
-        setPhotoMsg(kind === 'avatar' ? 'Profile photo updated.' : 'Wall photo updated.');
+        const dataUrl = await compressProfileImage(kind, file);
+        if (kind === 'avatar') {
+          await onUpdateProfile({
+            displayName: currentUser.displayName,
+            bio: currentUser.bio,
+            country: currentUser.country,
+            gender: currentUser.gender,
+            showPresence: currentUser.showPresence,
+            avatarUrl: dataUrl,
+          });
+          setPhotoMsg('Profile photo updated.');
+        } else {
+          await saveCoverImage(currentUser.uid, dataUrl);
+          setCoverImage(dataUrl);
+          setPhotoMsg('Wall photo updated.');
+        }
       } catch (err) {
         setPhotoMsg(err instanceof Error ? err.message : 'Photo upload failed.');
       } finally {
@@ -269,7 +287,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           else if (tile.id === 'salary') onOpenSection('salary');
           else if (tile.id === 'reward') onOpenSection('reward');
           else if (tile.id === 'host-rewards') onOpenSection('host-rewards');
-          else if (tile.id === 'get-app') window.location.href = '/downloads/AddaBuzzLive.apk';
           else setComingSoon(tile.label);
         }}
         className={`group relative overflow-hidden rounded-2xl bg-white/[0.035] border border-white/[0.07] hover:bg-white/[0.07] hover:border-white/[0.16] p-3.5 flex flex-col items-center gap-2.5 transition-all duration-200 hover:-translate-y-0.5 ${
@@ -299,7 +316,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         <div
           className="h-36 sm:h-44 w-full relative"
           style={{
-            background: currentUser.coverUrl
+            background: coverImage
+              ? `center / cover no-repeat url(${coverImage})`
+              : currentUser.coverUrl
               ? `center / cover no-repeat url(${currentUser.coverUrl})`
               : currentUser.coverGradient,
           }}
@@ -374,8 +393,15 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             </p>
           </div>
 
-          {currentUser.bio && (
-            <p className="text-sm text-slate-300 mt-3 leading-relaxed">{currentUser.bio}</p>
+          <p className="mt-2 inline-flex items-center gap-2 rounded-full border border-white/[0.09] bg-white/[0.04] px-3 py-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+            <Sparkles className="h-3 w-3 text-fuchsia-300" aria-hidden="true" />
+            <span className="bg-[linear-gradient(92deg,#7DD3FC_0%,#C4B5FD_50%,#F0ABFC_100%)] bg-clip-text text-[10px] font-extrabold uppercase tracking-[0.22em] text-transparent">
+              Connect · Stream · Chat · Enjoy
+            </span>
+          </p>
+
+          {visibleBio(currentUser.bio) && (
+            <p className="text-sm text-slate-300 mt-3 leading-relaxed">{visibleBio(currentUser.bio)}</p>
           )}
 
           {isBdAgent ? (

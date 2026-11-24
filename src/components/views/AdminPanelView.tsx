@@ -93,7 +93,7 @@ interface ConfirmState {
 }
 
 const roleLabel = (u: UserProfile): string =>
-  isBdAgentProfile(u) ? 'BD AGENT' : u.accountType;
+  u.accountType === 'SUPER_AGENT' ? 'BD AGENT' : u.accountType;
 
 const RoleBadge: React.FC<{ user: UserProfile }> = ({ user }) => {
   const label = roleLabel(user);
@@ -422,7 +422,7 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({
               <div className="space-y-2 text-xs">
                 {[
                   ['BD Agent', stats.bdAgents, 'text-amber-300'],
-                  ['Super Agents', stats.superAgents, 'text-violet-300'],
+                  ['BD Agents (Promoted)', stats.superAgents, 'text-violet-300'],
                   ['Agents', stats.agents, 'text-sky-300'],
                   ['Users', stats.users, 'text-slate-300'],
                 ].map(([label, count, cls]) => (
@@ -662,7 +662,7 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({
                     onClick={() =>
                       setConfirm({
                         title: 'Demote to USER?',
-                        body: `@${selectedUser.username} will lose the ${roleLabel(selectedUser)} role and become a regular USER. Promotions remain with the BD Agent / Super Agents.`,
+                        body: `@${selectedUser.username} will lose the ${roleLabel(selectedUser)} role and become a regular USER. Promotions remain with the BD Agent.`,
                         confirmLabel: 'Demote',
                         run: () =>
                           runAction(

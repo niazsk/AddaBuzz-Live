@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { ArrowLeft, BadgeCheck, Search, Users } from 'lucide-react';
 import { AccountType, UserProfile } from '../../types/app';
 import { Avatar } from '../ui/Avatar';
-import { isBdAgentProfile } from '../../lib/firestoreService';
 
 interface AgentDirectoryViewProps {
   kind: AccountType;
@@ -20,7 +19,7 @@ export const AgentDirectoryView: React.FC<AgentDirectoryViewProps> = ({
   const [query, setQuery] = useState('');
 
   const isSuper = kind === 'SUPER_AGENT';
-  const title = isSuper ? 'Super Agent List' : 'Agent List';
+  const title = isSuper ? 'BD Agent List' : 'Agent List';
   const normalized = query.trim().toLowerCase();
 
   const members = users
@@ -54,7 +53,7 @@ export const AgentDirectoryView: React.FC<AgentDirectoryViewProps> = ({
             <span>{title}</span>
           </h1>
           <p className="text-xs text-slate-400 mt-0.5">
-            {members.length} {isSuper ? 'Super Agent' : 'Agent'} account{members.length === 1 ? '' : 's'}
+            {members.length} {isSuper ? 'BD Agent' : 'Agent'} account{members.length === 1 ? '' : 's'}
           </p>
         </div>
       </div>
@@ -77,12 +76,12 @@ export const AgentDirectoryView: React.FC<AgentDirectoryViewProps> = ({
       {members.length === 0 ? (
         <div className="rounded-2xl bg-[#111420] border border-white/[0.08] p-10 text-center space-y-2">
           <p className="font-display text-base font-semibold text-white">
-            No {isSuper ? 'Super Agent' : 'Agent'} accounts found
+            No {isSuper ? 'BD Agent' : 'Agent'} accounts found
           </p>
           <p className="text-sm text-slate-400">
             {normalized
               ? 'Try a different name, username or ID.'
-              : `No ${isSuper ? 'Super Agent' : 'Agent'} accounts exist yet.`}
+              : `No ${isSuper ? 'BD Agent' : 'Agent'} accounts exist yet.`}
           </p>
         </div>
       ) : (
@@ -114,7 +113,7 @@ export const AgentDirectoryView: React.FC<AgentDirectoryViewProps> = ({
                     : 'bg-sky-600/20 border-sky-500/30 text-sky-200'
                 }`}
               >
-                {isSuper ? (isBdAgentProfile(u) ? 'BD Agent' : 'Super Agent') : 'Agent'}
+                {isSuper ? 'BD Agent' : 'Agent'}
               </span>
             </button>
           ))}

@@ -121,7 +121,7 @@ service cloud.firestore {
         data.accountType in ['USER', 'AGENT', 'SUPER_AGENT'] &&
         (!('avatarColor' in data) || (data.avatarColor is string && data.avatarColor.size() <= 24)) &&
         (!('coverGradient' in data) || (data.coverGradient is string && data.coverGradient.size() <= 160)) &&
-        (!('avatarUrl' in data) || (data.avatarUrl is string && data.avatarUrl.size() <= 2048)) &&
+        (!('avatarUrl' in data) || (data.avatarUrl is string && data.avatarUrl.size() <= 60000)) &&
         (!('coverUrl' in data) || (data.coverUrl is string && data.coverUrl.size() <= 2048)) &&
         data.followersCount is int && data.followersCount >= 0 &&
         data.followingCount is int && data.followingCount >= 0 &&
@@ -590,6 +590,18 @@ service cloud.firestore {
             incoming().visitorsCount == existing().get('visitorsCount', 0) + 1
           )
         );
+    }
+
+    // Profile wall (cover) images stored inline as compressed data URLs
+    match /userCovers/{uid} {
+      allow get: if isValidId(uid) && isSignedIn();
+      allow delete: if isOwner(uid) || isAdmin();
+      allow create, update: if isOwner(uid) &&
+        request.resource.data.uid == uid &&
+        request.resource.data.dataUrl is string &&
+        request.resource.data.dataUrl.size() <= 900000 &&
+        request.resource.data.dataUrl.matches('^data:image/jpeg;base64,.+') &&
+        request.resource.data.updatedAt == request.time;
     }
 
     // Owner-only PII

@@ -88,7 +88,7 @@ export const AgentRankingView: React.FC<AgentRankingViewProps> = ({
               filterType === 'SUPER_AGENT' ? 'bg-amber-500 text-[#111420] shadow-sm' : 'text-slate-400 hover:text-white'
             }`}
           >
-            Super Agents
+            BD Agents
           </button>
           <button
             type="button"
@@ -153,7 +153,7 @@ export const AgentRankingView: React.FC<AgentRankingViewProps> = ({
                           isSuper ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-violet-500/20 text-violet-300'
                         }`}
                       >
-                        {isSuper ? 'Super Agent' : 'Agent'}
+                        {isSuper ? 'BD Agent' : 'Agent'}
                       </span>
                     </p>
                     <p className="text-xs text-slate-400 font-mono">
