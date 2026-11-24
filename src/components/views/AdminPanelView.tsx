@@ -45,6 +45,7 @@ import {
   adminDeleteUserCascade,
   adminDemoteToUser,
   adminForceEndRoom,
+  adminSetRole,
   adminSetSuspended,
   endAnnouncement,
   isBdAgentProfile,
@@ -165,7 +166,8 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const [walletCurrency, setWalletCurrency] = useState<'COIN' | 'DIAMOND'>('COIN');
+  const [walletCurrency, setWalletCurrency] = useState<'COIN' | 'DIAMOND' | 'TRADING'>('COIN');
+  const [roleDraft, setRoleDraft] = useState<'USER' | 'AGENT' | 'SUPER_AGENT'>('USER');
   const [walletDirection, setWalletDirection] = useState<'CREDIT' | 'DEBIT'>('CREDIT');
   const [walletAmount, setWalletAmount] = useState('');
   const [walletReason, setWalletReason] = useState('');
@@ -219,6 +221,10 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({
   const selectedWallet = selectedUid ? walletByUid.get(selectedUid) : undefined;
   const ledgerUser = allUsers.find((u) => u.uid === ledgerUid) ?? null;
 
+  useEffect(() => {
+    if (selectedUser) setRoleDraft(selectedUser.accountType);
+  }, [selectedUser?.uid, selectedUser?.accountType]);
+
   const liveRooms = rooms.filter((r) => r.status === 'LIVE');
   const openReports = reports.filter((r) => r.status !== 'RESOLVED');
 
@@ -230,10 +236,12 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({
             u.platformId.toLowerCase().includes(q) ||
             u.username.toLowerCase().includes(q) ||
             u.displayName.toLowerCase().includes(q) ||
-            u.uid.toLowerCase() === q
+            u.uid.toLowerCase().includes(q)
         )
       : allUsers;
-    return [...list].sort((a, b) => a.platformId.localeCompare(b.platformId));
+    return [...list].sort((a, b) =>
+      a.platformId.localeCompare(b.platformId, undefined, { numeric: true })
+    );
   }, [allUsers, userSearch]);
 
   const stats = useMemo(() => {
@@ -259,16 +267,44 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({
     };
   }, [allUsers, wallets, liveRooms, openReports]);
 
-  const runAction = async (fn: () => Promise<void>, okTitle: string, okDesc?: string) => {
-    if (!currentUser || busy) return;
+  // A Firestore write can stay pending indefinitely (offline queue / quota
+  // backoff), which used to leave the whole panel disabled on "Applying…".
+  // Every action is therefore time-boxed so the UI always recovers.
+  const ACTION_TIMEOUT_MS = 20000;
+
+  const runAction = async (
+    fn: () => Promise<void>,
+    okTitle: string,
+    okDesc?: string
+  ): Promise<boolean> => {
+    if (!currentUser || busy) return false;
     setBusy(true);
+    let timer: ReturnType<typeof setTimeout> | undefined;
     try {
-      await fn();
+      await Promise.race([
+        fn(),
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(
+            () => reject(new Error('__timeout__')),
+            ACTION_TIMEOUT_MS
+          );
+        }),
+      ]);
       onToast(okTitle, okDesc, 'success');
       setConfirm(null);
+      return true;
     } catch (err) {
-      onToast('Action failed', err instanceof Error ? err.message : String(err), 'error');
+      const raw = err instanceof Error ? err.message : String(err);
+      onToast(
+        'Action failed',
+        raw === '__timeout__'
+          ? 'The server did not confirm in time. The change may still sync — reopen this user/ledger in a moment to check.'
+          : raw,
+        'error'
+      );
+      return false;
     } finally {
+      if (timer) clearTimeout(timer);
       setBusy(false);
     }
   };
@@ -285,6 +321,8 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({
       const available =
         walletCurrency === 'COIN'
           ? selectedWallet.coinBalance
+          : walletCurrency === 'TRADING'
+          ? selectedWallet.tradingCoinBalance
           : selectedWallet.diamondBalance;
       if (value > available) {
         onToast('Insufficient balance', `User only has ${available.toLocaleString()}.`, 'error');
@@ -304,9 +342,37 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({
         ),
       walletDirection === 'CREDIT' ? 'Balance credited' : 'Balance deducted',
       `${value.toLocaleString()} ${walletCurrency} · @${target.username}`
-    );
-    setWalletAmount('');
-    setWalletReason('');
+    ).then((ok) => {
+      if (ok) {
+        setWalletAmount('');
+        setWalletReason('');
+      }
+    });
+  };
+
+  const handleChangeRole = () => {
+    if (!currentUser || !selectedUser) return;
+    if (roleDraft === selectedUser.accountType) {
+      onToast('No change', 'Pick a different role first.', 'info');
+      return;
+    }
+    const nextRole = roleDraft;
+    const nextLabel =
+      nextRole === 'SUPER_AGENT' ? 'Super Agent' : nextRole === 'AGENT' ? 'Agent' : 'User';
+    setConfirm({
+      title: `Change role to ${nextLabel}?`,
+      body: `@${selectedUser.username} (${selectedUser.platformId}) will change from ${roleLabel(
+        selectedUser
+      )} to ${nextLabel}. Agency rights are granted or removed immediately.`,
+      confirmLabel: 'Change role',
+      run: async () => {
+        await runAction(
+          () => adminSetRole(currentUser, selectedUser, nextRole),
+          'Role updated',
+          `@${selectedUser.username} → ${nextLabel}`
+        );
+      },
+    });
   };
 
   const handlePublishAnnouncement = (e: React.FormEvent) => {
@@ -316,9 +382,12 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({
       () => publishAnnouncement(currentUser, annTitle, annMessage),
       'Announcement published',
       'It is now visible to all users.'
-    );
-    setAnnTitle('');
-    setAnnMessage('');
+    ).then((ok) => {
+      if (ok) {
+        setAnnTitle('');
+        setAnnMessage('');
+      }
+    });
   };
 
   const handleSaveGfConfig = () => {
@@ -577,6 +646,41 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({
                   </div>
                 </div>
 
+                {/* Role management */}
+                <div className="rounded-xl bg-[#0B0D14] border border-white/[0.06] p-3 space-y-2.5">
+                  <p className="text-xs font-semibold text-slate-300 inline-flex items-center gap-1.5">
+                    <ShieldCheck className="w-3.5 h-3.5 text-violet-400" /> Account Role
+                  </p>
+                  {selectedUser.platformId === '111112' ? (
+                    <p className="text-[11px] text-slate-500">
+                      The main BD Agent role is fixed and cannot be changed or demoted.
+                    </p>
+                  ) : (
+                    <>
+                      <select
+                        value={roleDraft}
+                        onChange={(e) =>
+                          setRoleDraft(e.target.value as 'USER' | 'AGENT' | 'SUPER_AGENT')
+                        }
+                        disabled={busy || isOffline}
+                        className="w-full h-9 px-2 rounded-lg bg-[#111420] border border-white/[0.09] text-xs text-white focus:outline-none disabled:opacity-50"
+                      >
+                        <option value="USER">User</option>
+                        <option value="AGENT">Agent</option>
+                        <option value="SUPER_AGENT">Super Agent</option>
+                      </select>
+                      <button
+                        type="button"
+                        disabled={busy || isOffline || roleDraft === selectedUser.accountType}
+                        onClick={handleChangeRole}
+                        className="w-full h-9 rounded-lg bg-violet-600 hover:bg-violet-500 disabled:opacity-40 text-xs font-semibold text-white transition-colors"
+                      >
+                        Apply Role Change
+                      </button>
+                    </>
+                  )}
+                </div>
+
                 {/* Wallet adjustment */}
                 <form onSubmit={handleWalletAdjust} className="rounded-xl bg-[#0B0D14] border border-white/[0.06] p-3 space-y-2.5">
                   <p className="text-xs font-semibold text-slate-300 inline-flex items-center gap-1.5">
@@ -585,11 +689,12 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({
                   <div className="grid grid-cols-2 gap-2">
                     <select
                       value={walletCurrency}
-                      onChange={(e) => setWalletCurrency(e.target.value as 'COIN' | 'DIAMOND')}
+                      onChange={(e) => setWalletCurrency(e.target.value as 'COIN' | 'DIAMOND' | 'TRADING')}
                       className="h-9 px-2 rounded-lg bg-[#111420] border border-white/[0.09] text-xs text-white focus:outline-none"
                     >
                       <option value="COIN">Coins</option>
                       <option value="DIAMOND">Diamonds</option>
+                      <option value="TRADING">Trading Coins</option>
                     </select>
                     <select
                       value={walletDirection}
@@ -662,7 +767,7 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({
                   </button>
                   <button
                     type="button"
-                    disabled={busy || isOffline || selectedUser.accountType === 'USER' || selectedUser.uid === currentUser?.uid}
+                    disabled={busy || isOffline || selectedUser.accountType === 'USER' || selectedUser.uid === currentUser?.uid || selectedUser.platformId === '111112'}
                     onClick={() =>
                       setConfirm({
                         title: 'Demote to USER?',
@@ -682,7 +787,7 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({
                   </button>
                   <button
                     type="button"
-                    disabled={busy || isOffline || selectedUser.uid === currentUser?.uid}
+                    disabled={busy || isOffline || selectedUser.uid === currentUser?.uid || selectedUser.platformId === '111112'}
                     onClick={() =>
                       setConfirm({
                         title: 'Delete this account?',

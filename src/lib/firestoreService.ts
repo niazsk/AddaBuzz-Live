@@ -3321,10 +3321,34 @@ export async function adminDemoteToUser(
   }
 }
 
+export async function adminSetRole(
+  actor: UserProfile,
+  target: UserProfile,
+  newRole: 'USER' | 'AGENT' | 'SUPER_AGENT'
+): Promise<void> {
+  const batch = writeBatch(db);
+  batch.update(doc(db, 'users', target.uid), {
+    accountType: newRole,
+    updatedAt: serverTimestamp(),
+  });
+  addAudit(
+    batch,
+    actor,
+    'UPDATE_ROLE',
+    target.uid,
+    `@${target.username} ${target.accountType} → ${newRole}`
+  );
+  try {
+    await batch.commit();
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, `users/${target.uid}`);
+  }
+}
+
 export async function adminAdjustWallet(
   actor: UserProfile,
   targetUid: string,
-  currency: 'COIN' | 'DIAMOND',
+  currency: 'COIN' | 'DIAMOND' | 'TRADING',
   direction: 'CREDIT' | 'DEBIT',
   amount: number,
   reason: string
@@ -3333,7 +3357,12 @@ export async function adminAdjustWallet(
   if (!Number.isFinite(value) || value <= 0) {
     throw new Error('Enter a valid amount.');
   }
-  const field = currency === 'COIN' ? 'coinBalance' : 'diamondBalance';
+  const field =
+    currency === 'COIN'
+      ? 'coinBalance'
+      : currency === 'TRADING'
+      ? 'tradingCoinBalance'
+      : 'diamondBalance';
   const txId = `tx_admin_${Date.now()}_${targetUid.slice(0, 8)}`;
   const batch = writeBatch(db);
   batch.update(doc(db, 'wallets', targetUid), {
