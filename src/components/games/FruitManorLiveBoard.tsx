@@ -9,6 +9,7 @@ import {
 } from '../../games/fruitManor/config';
 import { FmSnapshot, FruitManorEngine, RoundPhase } from '../../games/fruitManor/engine';
 import { FruitIcon } from './FruitIcon';
+import { FruitWheel } from './FruitWheel';
 
 const CFG = FRUIT_MANOR_CONFIG;
 
@@ -160,6 +161,23 @@ export const FruitManorLiveBoard: React.FC<FruitManorLiveBoardProps> = ({
             <span className="text-[#EAF5EC]">×{lastFruit.multiplier}</span>
           </span>
         )}
+      </div>
+
+      <div className="mx-auto w-full max-w-[92px]">
+        <FruitWheel
+          fruits={CFG.fruits}
+          roundId={round?.roundId ?? ''}
+          phase={phase}
+          resultFruitId={round?.resultFruitId}
+          lastFruitId={last?.fruitId}
+          spinMs={CFG.spinMs}
+          reducedMotion={false}
+          burstKey={0}
+          burstAccent={lastFruit?.accentHex ?? '#F5B93F'}
+          burstBig={false}
+          onPeg={() => {}}
+          onSpinEnd={() => {}}
+        />
       </div>
 
       <div className="grid grid-cols-4 gap-1">

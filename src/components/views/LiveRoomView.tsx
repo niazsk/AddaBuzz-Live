@@ -1199,7 +1199,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
         </div>
         ) : (
           <div
-            className="max-h-[38vh] max-w-md overflow-y-auto rounded-2xl border border-white/10 bg-black/55 backdrop-blur-md [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            className="max-h-[50vh] sm:max-h-[52vh] max-w-lg w-full overflow-y-auto rounded-3xl border border-white/10 bg-black/75 backdrop-blur-xl shadow-2xl [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           >
             {!currentUser ? (
               <button
