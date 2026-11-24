@@ -163,6 +163,7 @@ export async function advanceSupabaseBoard(
   const updateData: any = {
     id: targetId,
     game_type: gameType,
+    seq: patch.seq ?? (parseInt(targetId.replace(/^[A-Z]+-/, ''), 10) || 1),
     phase: patch.phase,
     ends_at: new Date(patch.phaseEndsAt).toISOString(),
     leader_id: leaderUid,
@@ -176,7 +177,7 @@ export async function advanceSupabaseBoard(
     },
   };
 
-  if (patch.seq) updateData.seq = patch.seq;
+  if (patch.seq !== undefined) updateData.seq = patch.seq;
 
   await supabase.from('game_rounds').upsert(updateData);
 }

@@ -494,6 +494,7 @@ export class GfBoardEngine {
     this.leaderBusy = true;
     try {
       await advanceSupabaseBoard('golden_flower', board.roundId, this.uid, {
+        seq: board.seq,
         ...patch,
       });
       this.lastError = null;

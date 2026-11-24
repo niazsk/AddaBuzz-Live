@@ -529,6 +529,7 @@ export class FruitManorEngine {
     this.leaderBusy = true;
     try {
       await advanceSupabaseBoard('fruit_manor', board.roundId, this.uid, {
+        seq: board.seq,
         ...patch,
         resultFruitId: patch.resultFruitId ?? (board.resultFruitId as any),
       });
