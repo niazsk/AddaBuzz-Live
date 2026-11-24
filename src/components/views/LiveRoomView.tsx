@@ -5,6 +5,7 @@ import {
   Coins,
   Eye,
   Flower2,
+  Gamepad2,
   Gift,
   Heart,
   Lock,
@@ -199,6 +200,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
 
   const [chatInput, setChatInput] = useState('');
   const [boardTab, setBoardTab] = useState<'chat' | 'fruit' | 'golden'>('chat');
+  const [showGamesModal, setShowGamesModal] = useState(false);
   const [guestPanelOpen, setGuestPanelOpen] = useState(false);
   const [showGiftTray, setShowGiftTray] = useState(false);
   const [selectedGiftId, setSelectedGiftId] = useState<string>(gifts[0]?.giftId ?? '');
@@ -1153,6 +1155,15 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
               <span>{tab.label}</span>
             </button>
           ))}
+          <button
+            type="button"
+            onClick={() => setShowGamesModal(true)}
+            aria-label="Open Games"
+            className="inline-flex h-7 items-center gap-1 rounded-full border border-violet-400/30 bg-violet-600/30 text-violet-200 hover:bg-violet-600/50 hover:text-white px-2.5 text-[9px] font-bold backdrop-blur-md transition-colors ml-auto"
+          >
+            <Gamepad2 className="h-3.5 w-3.5 text-violet-300" />
+            <span>Games</span>
+          </button>
         </div>
 
         {boardTab === 'chat' ? (
@@ -1453,6 +1464,14 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
               </button>
               <button
                 type="button"
+                onClick={() => setShowGamesModal(true)}
+                aria-label="Play Games"
+                className="w-11 h-11 rounded-full bg-gradient-to-br from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 flex items-center justify-center text-white shrink-0 transition-colors shadow-lg shadow-violet-900/30"
+              >
+                <Gamepad2 className="w-5 h-5 text-violet-200" />
+              </button>
+              <button
+                type="button"
                 onClick={() => setGuestPanelOpen(true)}
                 aria-label="More options"
                 className="w-11 h-11 rounded-full bg-[#232456]/90 hover:bg-[#2E2F6E] flex items-center justify-center text-white shrink-0 transition-colors"
@@ -1462,6 +1481,14 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
             </>
           ) : (
             <>
+              <button
+                type="button"
+                onClick={() => setShowGamesModal(true)}
+                aria-label="Play Games"
+                className="w-11 h-11 rounded-full bg-gradient-to-br from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 flex items-center justify-center text-white shrink-0 transition-colors shadow-lg shadow-violet-900/30"
+              >
+                <Gamepad2 className="w-5 h-5 text-violet-200" />
+              </button>
               <button
                 type="button"
                 onClick={() => setLikes((n) => n + 1)}
@@ -2065,6 +2092,79 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
                   </div>
                 ))}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Games Selection Modal */}
+      {showGamesModal && (
+        <div className="absolute inset-x-0 bottom-0 z-40 rounded-t-3xl bg-[#0F111D]/95 backdrop-blur-2xl border-t border-violet-500/20 p-4 sm:p-5 space-y-4 max-h-[70vh] overflow-y-auto">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="p-2 rounded-xl bg-violet-600/20 text-violet-300">
+                <Gamepad2 className="w-5 h-5" />
+              </span>
+              <div>
+                <h3 className="font-display text-sm font-bold text-white">Live Room Games</h3>
+                <p className="text-[11px] text-slate-400">Play multiplayer games right inside the live stage</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowGamesModal(false)}
+              aria-label="Close games panel"
+              className="w-8 h-8 rounded-full bg-white/[0.08] hover:bg-white/[0.15] flex items-center justify-center text-slate-300"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2.5">
+            <button
+              type="button"
+              onClick={() => {
+                setBoardTab('fruit');
+                setShowGamesModal(false);
+              }}
+              className="flex items-start gap-3 p-3 rounded-2xl bg-gradient-to-br from-emerald-950/40 via-[#101420] to-[#0D101A] border border-emerald-500/30 hover:border-emerald-400/60 text-left transition-all group"
+            >
+              <span className="p-2.5 rounded-xl bg-emerald-500/20 text-emerald-300 group-hover:scale-105 transition-transform shrink-0">
+                <Cherry className="w-5 h-5" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-white group-hover:text-emerald-300 transition-colors">Fruit Manor</p>
+                <p className="text-[10px] text-slate-400 mt-0.5 leading-tight">Pick fruit multipliers with live room</p>
+                <span className="inline-block mt-2 px-1.5 py-0.5 rounded-md bg-emerald-400/10 text-emerald-300 text-[9px] font-semibold">
+                  Live Multiplayer
+                </span>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setBoardTab('golden');
+                setShowGamesModal(false);
+              }}
+              className="flex items-start gap-3 p-3 rounded-2xl bg-gradient-to-br from-amber-950/40 via-[#101420] to-[#0D101A] border border-amber-500/30 hover:border-amber-400/60 text-left transition-all group"
+            >
+              <span className="p-2.5 rounded-xl bg-amber-500/20 text-amber-300 group-hover:scale-105 transition-transform shrink-0">
+                <Flower2 className="w-5 h-5" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-white group-hover:text-amber-300 transition-colors">Golden Flower</p>
+                <p className="text-[10px] text-slate-400 mt-0.5 leading-tight">Dragon vs Phoenix live cards battle</p>
+                <span className="inline-block mt-2 px-1.5 py-0.5 rounded-md bg-amber-400/10 text-amber-300 text-[9px] font-semibold">
+                  Live Multiplayer
+                </span>
+              </div>
+            </button>
+          </div>
+
+          <div className="rounded-2xl bg-white/[0.03] border border-white/[0.06] p-3 text-center">
+            <p className="text-[11px] text-slate-400">
+              Playing inside the live room allows host, guests and viewers to bet together with instant win alerts!
+            </p>
           </div>
         </div>
       )}
