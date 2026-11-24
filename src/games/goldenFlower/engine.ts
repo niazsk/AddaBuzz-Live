@@ -33,9 +33,12 @@ import {
   subscribeGfConfig,
 } from '../../lib/firestoreService';
 import {
-  placeSupabaseBet,
-  updateSupabaseBetPayout,
-  upsertSupabaseRound,
+  advanceSupabaseBoard,
+  claimSupabaseLeadership,
+  createSupabaseBetRecord,
+  resolveSupabaseBetRecord,
+  subscribeSupabaseLiveBets,
+  subscribeSupabaseLiveBoard,
 } from '../../lib/supabaseGameService';
 
 export type { GfRemoteConfig };
@@ -206,18 +209,19 @@ export class GfBoardEngine {
     this.pending = readJson<PendingCredit[]>(this.key('pending'), []);
     this.settledBetIds = readJson<string[]>(this.key('settledBets'), []);
 
-    this.boardUnsub = subscribeGfBoard(
+    this.boardUnsub = subscribeSupabaseLiveBoard(
+      'golden_flower',
       (board) => {
         this.connected = true;
         const prev = this.board;
-        this.board = board;
+        this.board = board as any;
         if (board && board.roundId !== this.betsRoundId) {
           this.watchRound(board.roundId);
         }
         if (board && prev && prev.roundId !== board.roundId) {
           this.idempotency.clear();
         }
-        this.detectEvents(prev, board);
+        this.detectEvents(prev, board as any);
         this.emit();
       },
       (message) => {
@@ -245,10 +249,10 @@ export class GfBoardEngine {
     this.betsRoundId = roundId;
     this.bets = [];
     if (!roundId) return;
-    this.betsUnsub = subscribeGfBets(
+    this.betsUnsub = subscribeSupabaseLiveBets(
       roundId,
       (list) => {
-        this.bets = list;
+        this.bets = list as any;
         this.emit();
         void this.settleMyBets();
       },
@@ -412,10 +416,9 @@ export class GfBoardEngine {
     this.lastClaimAttempt = now;
     this.leaderBusy = true;
     try {
-      await claimGfLeadership(this.uid, {
+      await claimSupabaseLeadership('golden_flower', this.uid, {
         roundId: `GF-${GF_FIRST_SEQ}`,
         seq: GF_FIRST_SEQ,
-        configVersion: GF_CONFIG_VERSION,
         phaseEndsAtMs: Date.now() + this.config.openMs,
       });
       this.lastError = null;
@@ -490,16 +493,8 @@ export class GfBoardEngine {
     this.lastAdvanceAttempt = now;
     this.leaderBusy = true;
     try {
-      await advanceGfBoard(this.uid, board.roundId, phase, patch);
-      void upsertSupabaseRound({
-        id: board.roundId,
-        game_type: 'golden_flower',
-        seq: patch.seq ?? board.seq,
-        phase: (patch.phase as any) ?? board.phase,
-        result_data: patch.winnerSeat !== undefined ? { winnerSeat: patch.winnerSeat, seatCats: patch.seatCats } : (board.winnerSeat !== null ? { winnerSeat: board.winnerSeat, seatCats: board.seatCats } : {}),
-        started_at: new Date().toISOString(),
-        ends_at: new Date(patch.phaseEndsAt ?? board.phaseEndsAt).toISOString(),
-        leader_id: this.uid,
+      await advanceSupabaseBoard('golden_flower', board.roundId, this.uid, {
+        ...patch,
       });
       this.lastError = null;
       this.noteSyncResult();
@@ -608,14 +603,12 @@ export class GfBoardEngine {
     betId: string,
     status: 'WON' | 'LOST' | 'REFUNDED',
     payout: number,
-    creditRef?: string
+    _creditRef?: string
   ) {
     try {
-      await resolveGfBet(betId, status, payout, creditRef);
-      void updateSupabaseBetPayout(betId, status, payout);
+      await resolveSupabaseBetRecord(betId, status, payout);
     } catch {
-      // Wallet move is already idempotent; the bet stays ACCEPTED and the
-      // next pass retries the document update.
+      // Wallet move is already idempotent
     }
   }
 
@@ -705,26 +698,14 @@ export class GfBoardEngine {
 
     const betId = randId('GF-B-');
     try {
-      await createGfBet({
+      await createSupabaseBetRecord({
         betId,
         roundId,
+        gameType: 'golden_flower',
         uid: this.uid,
         username: this.username,
         seat,
         stake,
-        debitRef,
-      });
-      void placeSupabaseBet({
-        id: betId,
-        round_id: roundId,
-        game_type: 'golden_flower',
-        user_id: this.uid,
-        username: this.username,
-        bet_data: { seat },
-        stake,
-        status: 'ACCEPTED',
-        payout: 0,
-        created_at: new Date().toISOString(),
       });
     } catch {
       // Debit went through but the bet slip could not be recorded — refund so

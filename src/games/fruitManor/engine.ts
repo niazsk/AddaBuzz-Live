@@ -15,9 +15,12 @@ import {
   subscribeFruitManorBoard,
 } from '../../lib/firestoreService';
 import {
-  placeSupabaseBet,
-  updateSupabaseBetPayout,
-  upsertSupabaseRound,
+  advanceSupabaseBoard,
+  claimSupabaseLeadership,
+  createSupabaseBetRecord,
+  resolveSupabaseBetRecord,
+  subscribeSupabaseLiveBets,
+  subscribeSupabaseLiveBoard,
 } from '../../lib/supabaseGameService';
 
 export type RoundPhase = SharedBoardPhase;
@@ -232,7 +235,8 @@ export class FruitManorEngine {
       }
     }
 
-    this.boardUnsub = subscribeFruitManorBoard(
+    this.boardUnsub = subscribeSupabaseLiveBoard(
+      'fruit_manor',
       (board) => {
         this.connected = true;
         const prev = this.board;
@@ -266,7 +270,7 @@ export class FruitManorEngine {
     this.betsRoundId = roundId;
     this.bets = [];
     if (!roundId) return;
-    this.betsUnsub = subscribeFruitManorBets(
+    this.betsUnsub = subscribeSupabaseLiveBets(
       roundId,
       (list) => {
         this.bets = list;
@@ -459,10 +463,9 @@ export class FruitManorEngine {
     this.lastClaimAttempt = now;
     this.leaderBusy = true;
     try {
-      await claimFruitManorLeadership(this.uid, {
+      await claimSupabaseLeadership('fruit_manor', this.uid, {
         roundId: `FM-${FIRST_SEQ}`,
         seq: FIRST_SEQ,
-        configVersion: CFG.configVersion,
         phaseEndsAtMs: Date.now() + CFG.scheduledMs,
       });
       this.lastError = null;
@@ -525,16 +528,9 @@ export class FruitManorEngine {
     this.lastAdvanceAttempt = now;
     this.leaderBusy = true;
     try {
-      await advanceFruitManorBoard(this.uid, board.roundId, phase, patch);
-      void upsertSupabaseRound({
-        id: board.roundId,
-        game_type: 'fruit_manor',
-        seq: patch.seq ?? board.seq,
-        phase: (patch.phase as any) ?? board.phase,
-        result_data: patch.resultFruitId ? { fruitId: patch.resultFruitId } : (board.resultFruitId ? { fruitId: board.resultFruitId } : {}),
-        started_at: new Date().toISOString(),
-        ends_at: new Date(patch.phaseEndsAt ?? board.phaseEndsAt).toISOString(),
-        leader_id: this.uid,
+      await advanceSupabaseBoard('fruit_manor', board.roundId, this.uid, {
+        ...patch,
+        resultFruitId: patch.resultFruitId ?? (board.resultFruitId as any),
       });
       this.lastError = null;
       this.noteSyncResult();
@@ -653,14 +649,12 @@ export class FruitManorEngine {
     betId: string,
     status: 'WON' | 'LOST' | 'REFUNDED',
     payout: number,
-    creditRef?: string
+    _creditRef?: string
   ) {
     try {
-      await resolveFruitManorBet(betId, status, payout, creditRef);
-      void updateSupabaseBetPayout(betId, status, payout);
+      await resolveSupabaseBetRecord(betId, status, payout);
     } catch {
-      // Bet document update failed; the wallet move is already idempotent and
-      // the bet stays ACCEPTED, so the next pass retries it.
+      // Retried on next pass
     }
   }
 
@@ -754,27 +748,15 @@ export class FruitManorEngine {
 
     const betId = randId('FM-B-');
     try {
-      await createFruitManorBet({
+      await createSupabaseBetRecord({
         betId,
         roundId,
+        gameType: 'fruit_manor',
         uid: this.uid,
         username: this.username,
         fruitId,
         stake,
         multiplier: fruit.multiplier,
-        debitRef,
-      });
-      void placeSupabaseBet({
-        id: betId,
-        round_id: roundId,
-        game_type: 'fruit_manor',
-        user_id: this.uid,
-        username: this.username,
-        bet_data: { fruitId, multiplier: fruit.multiplier },
-        stake,
-        status: 'ACCEPTED',
-        payout: 0,
-        created_at: new Date().toISOString(),
       });
     } catch {
       // The debit went through but the shared bet could not be recorded —
