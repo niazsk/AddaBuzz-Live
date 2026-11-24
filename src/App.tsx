@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { WifiOff, RefreshCw, Loader2, Megaphone, X } from 'lucide-react';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import {
@@ -87,8 +87,14 @@ import { GamesView } from './components/views/GamesView';
 import { GameHistoryView } from './components/views/GameHistoryView';
 import { GoldenFlowerView } from './components/views/GoldenFlowerView';
 import { GfHistoryView } from './components/views/GfHistoryView';
+import { CoinFlipView } from './components/views/CoinFlipView';
+import { BingoView } from './components/views/BingoView';
+import { PlinkoView } from './components/views/PlinkoView';
+import { CrashView } from './components/views/CrashView';
+import { MinesView } from './components/views/MinesView';
+import { HiLoView } from './components/views/HiLoView';
+import { RouletteView } from './components/views/RouletteView';
 import { ProfileView } from './components/views/ProfileView';
-import { AdminRolesView } from './components/views/AdminRolesView';
 import { AdminPanelView } from './components/views/AdminPanelView';
 import { AgentPromoteView } from './components/views/AgentPromoteView';
 import { RankView } from './components/views/RankView';
@@ -364,9 +370,9 @@ export default function App() {
     return subscribeWalletTransactions(currentUser.uid, setTransactions);
   }, [currentUser?.uid, activeSection]);
 
-  // Admin-only directories stay detached until Roles & Safety / Admin Panel is opened.
+  // Admin-only directories stay detached until the Admin Panel is opened.
   useEffect(() => {
-    if (!currentUser || (activeSection !== 'admin' && activeSection !== 'admin-panel')) return;
+    if (!currentUser || activeSection !== 'admin-panel') return;
     const isSuperAgentUser = currentUser.accountType === 'SUPER_AGENT';
     const unsubPromos =
       isSuperAgentUser || isAdminUser
@@ -387,6 +393,12 @@ export default function App() {
   useEffect(() => {
     return subscribeActiveAnnouncement(setAnnouncement);
   }, []);
+
+  // Every section opens at the top — otherwise a page opened from a scrolled
+  // list (e.g. Profile tiles) lands mid-page and shows its bottom half.
+  useLayoutEffect(() => {
+    window.scrollTo(0, 0);
+  }, [activeSection]);
 
   useEffect(() => {
     const target = inspectedUser;
@@ -410,8 +422,8 @@ export default function App() {
   const handleSelectSection = (section: AppSection) => {
     if (section === 'wallet') {
       handleToggleWallet();
-    } else if (section === 'admin' || section === 'admin-panel') {
-      // Roles & Safety and the Admin Panel are admin-only areas.
+    } else if (section === 'admin-panel') {
+      // The Admin Panel is an admin-only area.
       if (!isAdminUser) return;
       if (activeSection !== section) adminReturnRef.current = activeSection;
       setActiveSection(section);
@@ -1071,7 +1083,7 @@ export default function App() {
       setReportTarget(null);
       pushToast(
         'Safety report saved',
-        'Queued in Roles & Safety for moderation review.',
+        'Queued for moderation review.',
         'success'
       );
     } catch (err) {
@@ -1164,7 +1176,7 @@ export default function App() {
             await signOutFirebase();
             pushToast('Signed out');
           }}
-          onOpenAdminPanel={() => setActiveSection('admin')}
+          onOpenAdminPanel={() => setActiveSection('admin-panel')}
         />
         {isLocalDev && (
           <div className="mt-4">
@@ -1455,6 +1467,9 @@ export default function App() {
               onOpenGoLive={() => {
                 if (requireSignedIn()) setGoLiveOpen(true);
               }}
+              onOpenGames={() => setActiveSection('games')}
+              onOpenReward={() => setActiveSection('reward')}
+              onOpenStore={() => setActiveSection('store')}
               unreadNotificationsCount={unreadNotificationsCount}
             />
           )}
@@ -1497,6 +1512,83 @@ export default function App() {
               onBack={() => setActiveSection('profile')}
               onOpenFruitManor={() => setActiveSection('fruit-manor')}
               onOpenGoldenFlower={() => setActiveSection('golden-flower')}
+              onOpenCoinFlip={() => setActiveSection('coin-flip')}
+              onOpenBingoBazaar={() => setActiveSection('bingo-bazaar')}
+              onOpenPlinko={() => setActiveSection('plinko')}
+              onOpenCrash={() => setActiveSection('crash')}
+              onOpenMines={() => setActiveSection('mines')}
+              onOpenHiLo={() => setActiveSection('hi-lo')}
+              onOpenRoulette={() => setActiveSection('roulette')}
+            />
+          )}
+
+          {activeSection === 'coin-flip' && (
+            <CoinFlipView
+              currentUser={currentUser}
+              coinBalance={coinBalance}
+              isOffline={isOffline}
+              onBack={() => setActiveSection('games')}
+              onOpenAuth={() => setActiveSection('signin')}
+            />
+          )}
+
+          {activeSection === 'bingo-bazaar' && (
+            <BingoView
+              currentUser={currentUser}
+              coinBalance={coinBalance}
+              isOffline={isOffline}
+              onBack={() => setActiveSection('games')}
+              onOpenAuth={() => setActiveSection('signin')}
+            />
+          )}
+
+          {activeSection === 'plinko' && (
+            <PlinkoView
+              currentUser={currentUser}
+              coinBalance={coinBalance}
+              isOffline={isOffline}
+              onBack={() => setActiveSection('games')}
+              onOpenAuth={() => setActiveSection('signin')}
+            />
+          )}
+
+          {activeSection === 'crash' && (
+            <CrashView
+              currentUser={currentUser}
+              coinBalance={coinBalance}
+              isOffline={isOffline}
+              onBack={() => setActiveSection('games')}
+              onOpenAuth={() => setActiveSection('signin')}
+            />
+          )}
+
+          {activeSection === 'mines' && (
+            <MinesView
+              currentUser={currentUser}
+              coinBalance={coinBalance}
+              isOffline={isOffline}
+              onBack={() => setActiveSection('games')}
+              onOpenAuth={() => setActiveSection('signin')}
+            />
+          )}
+
+          {activeSection === 'hi-lo' && (
+            <HiLoView
+              currentUser={currentUser}
+              coinBalance={coinBalance}
+              isOffline={isOffline}
+              onBack={() => setActiveSection('games')}
+              onOpenAuth={() => setActiveSection('signin')}
+            />
+          )}
+
+          {activeSection === 'roulette' && (
+            <RouletteView
+              currentUser={currentUser}
+              coinBalance={coinBalance}
+              isOffline={isOffline}
+              onBack={() => setActiveSection('games')}
+              onOpenAuth={() => setActiveSection('signin')}
             />
           )}
 
@@ -1729,24 +1821,6 @@ export default function App() {
             />
           )}
 
-          {activeSection === 'admin' && isAdminUser && (
-            <AdminRolesView
-              currentUser={currentUser}
-              isAdminUser={isAdminUser}
-              users={users}
-              promotions={promotions}
-              reports={reports}
-              onPromoteUser={handlePromoteUser}
-              onResolveReport={async (reportId) => {
-                await resolveReportDoc(reportId);
-                pushToast('Report marked resolved', undefined, 'success');
-              }}
-              onOpenAuth={() => setActiveSection('signin')}
-              onClose={handleCloseAdmin}
-              isOffline={isOffline}
-            />
-          )}
-
           {activeSection === 'admin-panel' && isAdminUser && (
             <AdminPanelView
               currentUser={currentUser}
@@ -1800,7 +1874,7 @@ export default function App() {
                 await signOutFirebase();
                 pushToast('Signed out');
               }}
-              onOpenAdminPanel={() => setActiveSection('admin')}
+              onOpenAdminPanel={() => setActiveSection('admin-panel')}
             />
           )}
           </div>

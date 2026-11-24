@@ -1,4 +1,5 @@
 import React from 'react';
+import { UsersRound } from 'lucide-react';
 import { LiveRoom, UserProfile } from '../../types/app';
 import { RoomCard } from '../cards/RoomCard';
 import { StreamerCard } from '../cards/StreamerCard';
@@ -41,15 +42,20 @@ export const FollowingView: React.FC<FollowingViewProps> = ({
 
   return (
     <div className="space-y-8 pb-8">
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
-        <div>
-          <h1 className="font-display text-2xl font-bold text-white">Friends Feed</h1>
-          <p className="text-sm text-slate-400 mt-1">
-            Live rooms and creators you follow across AddaBuzz Live.
-          </p>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3 min-w-0">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-rose-300 via-pink-500 to-fuchsia-600 ring-1 ring-white/25 shadow-lg shadow-rose-500/40">
+            <UsersRound className="h-5 w-5 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]" />
+          </span>
+          <div className="min-w-0">
+            <h1 className="font-display text-2xl font-bold text-white">Friends</h1>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Live rooms and creators you follow across AddaBuzz Live.
+            </p>
+          </div>
         </div>
-        <span className="text-xs font-mono tabular-nums text-slate-400">
-          {followedUsers.length} friends · {followedLiveRooms.length} live now
+        <span className="shrink-0 rounded-full border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-[10px] font-semibold tabular-nums text-slate-300">
+          {followedUsers.length} friends · {followedLiveRooms.length} live
         </span>
       </div>
 

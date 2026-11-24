@@ -23,7 +23,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
     room.mode === 'MULTI_GUEST'
       ? `Multi-Guest (${occupiedSeats}/8)`
       : room.mode === 'AUDIO'
-      ? 'Audio Live'
+      ? 'Audio Board'
       : 'Video Live';
 
   const ModeIcon = room.mode === 'MULTI_GUEST' ? Users : room.mode === 'AUDIO' ? Mic : Video;

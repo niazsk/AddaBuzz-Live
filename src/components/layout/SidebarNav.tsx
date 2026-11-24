@@ -1,14 +1,13 @@
 import React from 'react';
 import {
-  Compass,
-  Heart,
-  MessageSquare,
-  User,
-  ShieldCheck,
+  House,
+  UsersRound,
+  MessagesSquare,
+  CircleUserRound,
   Radio,
   LogIn,
   LogOut,
-  Gamepad2,
+  Joystick,
   LayoutDashboard,
 } from 'lucide-react';
 import { AppSection, UserProfile } from '../../types/app';
@@ -29,14 +28,63 @@ interface SidebarNavProps {
   hideWallet?: boolean;
 }
 
-const NAV_ITEMS: { id: AppSection; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-  { id: 'discover', label: 'Home', icon: Compass },
-  { id: 'following', label: 'Friends', icon: Heart },
-  { id: 'messages', label: 'Messages', icon: MessageSquare },
-  { id: 'games', label: 'Games', icon: Gamepad2 },
-  { id: 'profile', label: 'Profile', icon: User },
-  { id: 'admin-panel', label: 'Admin Panel', icon: LayoutDashboard },
-  { id: 'admin', label: 'Roles & Safety', icon: ShieldCheck },
+type NavItem = {
+  id: AppSection;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  idleChip: string;
+  activeChip: string;
+};
+
+const NAV_ITEMS: NavItem[] = [
+  {
+    id: 'discover',
+    label: 'Home',
+    icon: House,
+    idleChip: 'bg-sky-500/12 text-sky-300',
+    activeChip:
+      'bg-gradient-to-br from-sky-300 via-sky-500 to-blue-600 text-white shadow-lg shadow-sky-500/40 ring-1 ring-white/25',
+  },
+  {
+    id: 'following',
+    label: 'Friends',
+    icon: UsersRound,
+    idleChip: 'bg-rose-500/12 text-rose-300',
+    activeChip:
+      'bg-gradient-to-br from-rose-300 via-pink-500 to-fuchsia-600 text-white shadow-lg shadow-rose-500/40 ring-1 ring-white/25',
+  },
+  {
+    id: 'messages',
+    label: 'Messages',
+    icon: MessagesSquare,
+    idleChip: 'bg-emerald-500/12 text-emerald-300',
+    activeChip:
+      'bg-gradient-to-br from-emerald-300 via-teal-500 to-cyan-600 text-white shadow-lg shadow-emerald-500/40 ring-1 ring-white/25',
+  },
+  {
+    id: 'games',
+    label: 'Games',
+    icon: Joystick,
+    idleChip: 'bg-violet-500/12 text-violet-300',
+    activeChip:
+      'bg-gradient-to-br from-violet-300 via-purple-500 to-fuchsia-600 text-white shadow-lg shadow-violet-500/40 ring-1 ring-white/25',
+  },
+  {
+    id: 'profile',
+    label: 'Profile',
+    icon: CircleUserRound,
+    idleChip: 'bg-amber-500/12 text-amber-300',
+    activeChip:
+      'bg-gradient-to-br from-amber-300 via-orange-500 to-rose-500 text-white shadow-lg shadow-amber-500/40 ring-1 ring-white/25',
+  },
+  {
+    id: 'admin-panel',
+    label: 'Admin Panel',
+    icon: LayoutDashboard,
+    idleChip: 'bg-slate-500/15 text-slate-300',
+    activeChip:
+      'bg-gradient-to-br from-slate-300 via-slate-400 to-slate-500 text-slate-900 shadow-lg shadow-slate-500/40 ring-1 ring-white/25',
+  },
 ];
 
 export const SidebarNav: React.FC<SidebarNavProps> = ({
@@ -56,10 +104,6 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
       <div className="space-y-6">
         <div className="px-2 pt-1 flex items-center justify-between">
           <BrandLogo />
-          <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/12 border border-rose-500/25 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-rose-200">
-            <span className="w-1.5 h-1.5 rounded-full bg-rose-400 live-dot" />
-            LIVE
-          </span>
         </div>
 
         <button
@@ -75,7 +119,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
         <nav className="space-y-1" aria-label="Primary navigation">
           <p className="section-label px-3 pb-1.5">Menu</p>
           {NAV_ITEMS.filter(
-            (item) => !((item.id === 'admin' || item.id === 'admin-panel') && !isAdminUser)
+            (item) => !(item.id === 'admin-panel' && !isAdminUser)
           ).map((item) => {
             const Icon = item.icon;
             const isActive = activeSection === item.id;
@@ -94,11 +138,15 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
                   <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-full bg-gradient-to-b from-sky-400 to-violet-400" />
                 )}
                 <span className="flex items-center gap-3">
-                  <Icon
-                    className={`w-[18px] h-[18px] shrink-0 transition-colors ${
-                      isActive ? 'text-sky-300' : 'text-slate-400 group-hover:text-slate-200'
+                  <span
+                    className={`grid h-8 w-8 shrink-0 place-items-center rounded-[10px] transition-all duration-200 ${
+                      isActive
+                        ? item.activeChip
+                        : `${item.idleChip} group-hover:scale-105 group-hover:brightness-125`
                     }`}
-                  />
+                  >
+                    <Icon className="w-4 h-4" />
+                  </span>
                   <span>{item.label}</span>
                 </span>
                 {item.id === 'messages' && unreadMessagesCount > 0 && (
@@ -120,11 +168,15 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
               }`}
             >
               <span className="flex items-center gap-3">
-                <LogIn
-                  className={`w-[18px] h-[18px] shrink-0 ${
-                    activeSection === 'signin' ? 'text-sky-300' : 'text-slate-400'
+                <span
+                  className={`grid h-8 w-8 shrink-0 place-items-center rounded-[10px] ${
+                    activeSection === 'signin'
+                      ? 'bg-gradient-to-br from-sky-300 via-sky-500 to-blue-600 text-white shadow-lg shadow-sky-500/40 ring-1 ring-white/25'
+                      : 'bg-white/[0.06] text-slate-300'
                   }`}
-                />
+                >
+                  <LogIn className="w-4 h-4" />
+                </span>
                 <span>Sign In</span>
               </span>
             </button>

@@ -28,6 +28,13 @@ export type AppSection =
   | 'game-history'
   | 'golden-flower'
   | 'gf-history'
+  | 'coin-flip'
+  | 'bingo-bazaar'
+  | 'plinko'
+  | 'crash'
+  | 'mines'
+  | 'hi-lo'
+  | 'roulette'
   | 'wallet'
   | 'coins-trading'
   | 'super-agent-list'
@@ -47,7 +54,6 @@ export type AppSection =
   | 'host-rewards'
   | 'withdraw'
   | 'profile'
-  | 'admin'
   | 'admin-panel'
   | 'signin';
 

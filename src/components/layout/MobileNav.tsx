@@ -1,10 +1,10 @@
 import React from 'react';
 import {
-  Compass,
-  Heart,
-  MessageSquare,
+  House,
+  UsersRound,
+  MessagesSquare,
+  CircleUserRound,
   Radio,
-  User,
   Bell,
 } from 'lucide-react';
 import { AppSection } from '../../types/app';
@@ -49,12 +49,12 @@ export const MobileTopBar: React.FC<MobileNavProps> = ({
           type="button"
           onClick={onOpenNotifications}
           aria-label="Open Notifications"
-          className="relative min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-slate-300 hover:text-white hover:bg-white/[0.05]"
+          className="relative min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-slate-300 hover:text-white hover:bg-white/[0.05] transition-colors"
         >
           <Bell className="w-5 h-5" />
           {unreadNotificationsCount > 0 && (
-            <span className="absolute top-2.5 right-2.5 text-[10px] font-mono font-bold text-sky-400">
-              {unreadNotificationsCount}
+            <span className="absolute top-1.5 right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-gradient-to-r from-rose-500 to-fuchsia-500 text-[9px] leading-4 font-bold text-white text-center shadow-[0_4px_10px_-2px_rgba(244,63,94,0.8)]">
+              {unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}
             </span>
           )}
         </button>
@@ -63,6 +63,68 @@ export const MobileTopBar: React.FC<MobileNavProps> = ({
   );
 };
 
+const PROFILE_GROUP: AppSection[] = [
+  'profile',
+  'wallet',
+  'coins-trading',
+  'super-agent-list',
+  'agent-list',
+  'agent-promote',
+  'rank',
+  'agent-ranking',
+  'invite',
+  'invite-agent',
+  'deposit',
+  'salary',
+  'fruit-manor',
+  'game-history',
+  'games',
+  'golden-flower',
+  'gf-history',
+  'coin-flip',
+  'bingo-bazaar',
+  'plinko',
+  'crash',
+  'mines',
+  'hi-lo',
+  'roulette',
+];
+
+interface TabProps {
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  active: boolean;
+  onClick: () => void;
+  badge?: number;
+  gradient: string;
+}
+
+const Tab: React.FC<TabProps> = ({ label, icon: Icon, active, onClick, badge, gradient }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className={`relative min-h-[44px] flex flex-col items-center justify-center gap-1 text-[10px] font-medium transition-colors ${
+      active ? 'text-white' : 'text-slate-400'
+    }`}
+  >
+    <span
+      className={`relative flex h-8 w-12 items-center justify-center rounded-xl transition-all duration-200 ${
+        active
+          ? `bg-gradient-to-br ${gradient} ring-1 ring-white/25 shadow-[0_10px_22px_-10px_rgba(0,0,0,0.9)]`
+          : ''
+      }`}
+    >
+      <Icon className={`w-[19px] h-[19px] ${active ? 'text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]' : ''}`} />
+      {typeof badge === 'number' && badge > 0 && (
+        <span className="absolute -top-1 -right-1 min-w-[15px] h-[15px] px-0.5 rounded-full bg-gradient-to-r from-rose-500 to-fuchsia-500 text-[9px] leading-[15px] font-bold text-white text-center shadow-[0_3px_8px_-2px_rgba(244,63,94,0.9)]">
+          {badge > 9 ? '9+' : badge}
+        </span>
+      )}
+    </span>
+    <span>{label}</span>
+  </button>
+);
+
 export const MobileBottomBar: React.FC<MobileNavProps> = ({
   activeSection,
   onSelectSection,
@@ -70,39 +132,26 @@ export const MobileBottomBar: React.FC<MobileNavProps> = ({
   unreadMessagesCount,
   isOfflineSimulated,
 }) => {
+  const isProfileGroup = PROFILE_GROUP.includes(activeSection);
   return (
     <nav
       aria-label="Mobile navigation"
-      className="lg:hidden fixed bottom-0 left-0 right-0 z-30 h-[60px] bg-[#0A0C13]/92 backdrop-blur-xl border-t border-white/[0.08] grid grid-cols-5 items-center px-1 shadow-[0_-16px_40px_-30px_rgba(0,0,0,0.95)]"
+      className="lg:hidden fixed bottom-0 left-0 right-0 z-30 h-[62px] bg-[#0A0C13]/92 backdrop-blur-xl border-t border-white/[0.08] grid grid-cols-5 items-center px-1 pb-[env(safe-area-inset-bottom)] shadow-[0_-16px_40px_-30px_rgba(0,0,0,0.95)]"
     >
-      <button
-        type="button"
+      <Tab
+        label="Home"
+        icon={House}
+        active={activeSection === 'discover'}
         onClick={() => onSelectSection('discover')}
-        className={`relative min-h-[44px] flex flex-col items-center justify-center gap-0.5 text-[11px] font-medium transition-colors ${
-          activeSection === 'discover' ? 'text-sky-300' : 'text-slate-400'
-        }`}
-      >
-        {activeSection === 'discover' && (
-          <span className="absolute top-0 w-8 h-[2px] rounded-full bg-gradient-to-r from-sky-400 to-violet-400" />
-        )}
-        <Compass className="w-5 h-5" />
-        <span>Home</span>
-      </button>
-
-      <button
-        type="button"
+        gradient="from-sky-300 via-sky-500 to-blue-600"
+      />
+      <Tab
+        label="Friends"
+        icon={UsersRound}
+        active={activeSection === 'following'}
         onClick={() => onSelectSection('following')}
-        className={`relative min-h-[44px] flex flex-col items-center justify-center gap-0.5 text-[11px] font-medium transition-colors ${
-          activeSection === 'following' ? 'text-sky-300' : 'text-slate-400'
-        }`}
-      >
-        {activeSection === 'following' && (
-          <span className="absolute top-0 w-8 h-[2px] rounded-full bg-gradient-to-r from-sky-400 to-violet-400" />
-        )}
-        <Heart className="w-5 h-5" />
-        <span>Friends</span>
-      </button>
-
+        gradient="from-rose-300 via-pink-500 to-fuchsia-600"
+      />
       <button
         type="button"
         onClick={onOpenGoLive}
@@ -110,53 +159,25 @@ export const MobileBottomBar: React.FC<MobileNavProps> = ({
         aria-label="Go Live"
         className="min-h-[44px] flex items-center justify-center disabled:opacity-45"
       >
-        <span className="w-11 h-9 rounded-xl bg-gradient-to-r from-violet-600 via-indigo-600 to-sky-500 flex items-center justify-center text-white shadow-[0_10px_24px_-10px_rgba(99,102,241,0.95)] ring-1 ring-white/20">
+        <span className="w-12 h-9 rounded-2xl bg-gradient-to-r from-violet-600 via-fuchsia-600 to-sky-500 flex items-center justify-center text-white shadow-[0_12px_28px_-10px_rgba(139,92,246,0.95)] ring-1 ring-white/25 transition-transform active:scale-95">
           <Radio className="w-5 h-5" />
         </span>
       </button>
-
-      <button
-        type="button"
+      <Tab
+        label="Messages"
+        icon={MessagesSquare}
+        active={activeSection === 'messages'}
         onClick={() => onSelectSection('messages')}
-        className={`relative min-h-[44px] flex flex-col items-center justify-center gap-0.5 text-[11px] font-medium transition-colors ${
-          activeSection === 'messages' ? 'text-sky-300' : 'text-slate-400'
-        }`}
-      >
-        {activeSection === 'messages' && (
-          <span className="absolute top-0 w-8 h-[2px] rounded-full bg-gradient-to-r from-sky-400 to-violet-400" />
-        )}
-        <MessageSquare className="w-5 h-5" />
-        <span>Messages</span>
-        {unreadMessagesCount > 0 && (
-          <span className="absolute top-1 right-3 text-[10px] font-mono font-bold text-sky-400">
-            {unreadMessagesCount}
-          </span>
-        )}
-      </button>
-
-      <button
-        type="button"
+        badge={unreadMessagesCount}
+        gradient="from-emerald-300 via-teal-500 to-cyan-600"
+      />
+      <Tab
+        label="Profile"
+        icon={CircleUserRound}
+        active={isProfileGroup}
         onClick={() => onSelectSection('profile')}
-        className={`relative min-h-[44px] flex flex-col items-center justify-center gap-0.5 text-[11px] font-medium transition-colors ${
-          activeSection === 'profile' || activeSection === 'admin' || activeSection === 'wallet' ||
-          activeSection === 'coins-trading' || activeSection === 'super-agent-list' || activeSection === 'agent-list' || activeSection === 'agent-promote' ||
-          activeSection === 'rank' || activeSection === 'agent-ranking' || activeSection === 'invite' || activeSection === 'invite-agent' || activeSection === 'deposit' || activeSection === 'salary' ||
-          activeSection === 'fruit-manor' || activeSection === 'game-history' || activeSection === 'games' ||
-          activeSection === 'golden-flower' || activeSection === 'gf-history'
-            ? 'text-sky-300'
-            : 'text-slate-400'
-        }`}
-      >
-        {(activeSection === 'profile' || activeSection === 'admin' || activeSection === 'wallet' ||
-          activeSection === 'coins-trading' || activeSection === 'super-agent-list' || activeSection === 'agent-list' || activeSection === 'agent-promote' ||
-          activeSection === 'rank' || activeSection === 'agent-ranking' || activeSection === 'invite' || activeSection === 'invite-agent' || activeSection === 'deposit' || activeSection === 'salary' ||
-          activeSection === 'fruit-manor' || activeSection === 'game-history' || activeSection === 'games' ||
-          activeSection === 'golden-flower' || activeSection === 'gf-history') && (
-          <span className="absolute top-0 w-8 h-[2px] rounded-full bg-gradient-to-r from-sky-400 to-violet-400" />
-        )}
-        <User className="w-5 h-5" />
-        <span>Profile</span>
-      </button>
+        gradient="from-amber-300 via-orange-500 to-rose-500"
+      />
     </nav>
   );
 };

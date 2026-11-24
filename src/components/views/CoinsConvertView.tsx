@@ -157,7 +157,10 @@ export const CoinsConvertView: React.FC<CoinsConvertViewProps> = ({
             <div className="text-xs space-y-1">
               <p className="font-bold text-emerald-300">Conversion Successful!</p>
               <p className="text-slate-300">
-                Converted <span className="font-mono font-bold text-white">{successMsg.coins.toLocaleString()} Coins</span> to Diamonds.
+                Converted <span className="font-mono font-bold text-white">{successMsg.coins.toLocaleString()} Coins</span>{' '}
+                → received{' '}
+                <span className="font-mono font-bold text-sky-300">{successMsg.diamonds.toLocaleString()} Diamonds</span>{' '}
+                (30% conversion fee).
               </p>
             </div>
           </div>

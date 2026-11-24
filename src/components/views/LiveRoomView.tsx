@@ -1,12 +1,15 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Check,
+  Cherry,
   Coins,
   Eye,
+  Flower2,
   Gift,
   Heart,
   Lock,
   LogOut,
+  MessagesSquare,
   Mic,
   MicOff,
   Radio,
@@ -49,6 +52,8 @@ import { MediaImage } from '../ui/MediaImage';
 import { GiftArtwork } from '../ui/GiftArtwork';
 import { GiftEffectsOverlay, GiftFx } from '../ui/GiftEffectsOverlay';
 import { GIFT_BY_ID, giftTier, GiftTier } from '../../data/gifts';
+import { FruitManorLiveBoard } from '../games/FruitManorLiveBoard';
+import { GoldenFlowerLiveBoard } from '../games/GoldenFlowerLiveBoard';
 
 const GuestTileMedia: React.FC<{
   stream: MediaStream;
@@ -155,7 +160,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
     [seats, currentUser]
   );
   const canPublishLocalMedia = Boolean(isOwnerHost || mySeat);
-  const isSolo = room.mode !== 'MULTI_GUEST';
+  const isSolo = room.mode === 'VIDEO';
 
   const [likes, setLikes] = useState(0);
 
@@ -177,6 +182,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
   const [guestStreams, setGuestStreams] = useState<Record<string, MediaStream>>({});
 
   const [chatInput, setChatInput] = useState('');
+  const [boardTab, setBoardTab] = useState<'chat' | 'fruit' | 'golden'>('chat');
   const [guestPanelOpen, setGuestPanelOpen] = useState(false);
   const [showGiftTray, setShowGiftTray] = useState(false);
   const [selectedGiftId, setSelectedGiftId] = useState<string>(gifts[0]?.giftId ?? '');
@@ -1068,7 +1074,46 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
 
       {/* Bottom stack: chat, controls, input */}
       <div className={`${isSolo ? 'absolute inset-x-0 bottom-0' : 'relative order-3 shrink-0'} z-10 flex flex-col gap-2.5 px-3 sm:px-4 pb-3`}>
-        {/* Floating chat overlay */}
+        {/* Live boards: chat, Fruit Manor and Golden Flower share this slot */}
+        <div className="flex items-center gap-1.5">
+          {([
+            {
+              id: 'chat' as const,
+              label: 'Chat',
+              icon: <MessagesSquare className="h-3 w-3" />,
+              activeCls: 'border-white/30 bg-white/15 text-white',
+            },
+            {
+              id: 'fruit' as const,
+              label: 'Fruit Manor',
+              icon: <Cherry className="h-3 w-3" />,
+              activeCls: 'border-emerald-300/45 bg-emerald-500/25 text-emerald-100',
+            },
+            {
+              id: 'golden' as const,
+              label: 'Golden Flower',
+              icon: <Flower2 className="h-3 w-3" />,
+              activeCls: 'border-amber-300/45 bg-amber-500/25 text-amber-100',
+            },
+          ]).map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setBoardTab(tab.id)}
+              aria-pressed={boardTab === tab.id}
+              className={`inline-flex h-7 items-center gap-1 rounded-full border px-2 text-[9px] font-bold backdrop-blur-md transition-colors ${
+                boardTab === tab.id
+                  ? tab.activeCls
+                  : 'border-white/10 bg-black/40 text-slate-300 hover:bg-black/60 hover:text-white'
+              }`}
+            >
+              {tab.icon}
+              <span>{tab.label}</span>
+            </button>
+          ))}
+        </div>
+
+        {boardTab === 'chat' ? (
         <div
           ref={chatScrollRef}
           className={`overflow-y-auto space-y-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
@@ -1129,6 +1174,38 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
             )
           )}
         </div>
+        ) : (
+          <div
+            className="max-h-[38vh] max-w-md overflow-y-auto rounded-2xl border border-white/10 bg-black/55 backdrop-blur-md [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
+            {!currentUser ? (
+              <button
+                type="button"
+                onClick={onOpenAuth}
+                className="block w-full px-3 py-4 text-left"
+              >
+                <span className="text-xs font-semibold text-white">Sign in to play the live boards</span>
+                <span className="mt-0.5 block text-[10px] text-slate-400">
+                  Fruit Manor and Golden Flower run live with everyone in this room.
+                </span>
+              </button>
+            ) : boardTab === 'fruit' ? (
+              <FruitManorLiveBoard
+                currentUser={currentUser}
+                coinBalance={coinBalance}
+                isOffline={isOfflineSimulated}
+                onBack={() => setBoardTab('chat')}
+              />
+            ) : (
+              <GoldenFlowerLiveBoard
+                currentUser={currentUser}
+                coinBalance={coinBalance}
+                isOffline={isOfflineSimulated}
+                onBack={() => setBoardTab('chat')}
+              />
+            )}
+          </div>
+        )}
 
         {/* Publisher media controls (multi-guest only; solo controls live in the bottom bar) */}
         {canPublishLocalMedia && !isSolo && (
@@ -1151,7 +1228,11 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
                 onClick={() => {
                   void startOrRestartMedia(cameraFacing);
                 }}
-                aria-label="Enable camera and microphone"
+                aria-label={
+                  room.mode === 'AUDIO'
+                    ? 'Enable microphone'
+                    : 'Enable camera and microphone'
+                }
                 className="w-10 h-10 rounded-full bg-emerald-600/80 hover:bg-emerald-500 disabled:opacity-45 flex items-center justify-center text-white transition-colors"
               >
                 {room.mode === 'AUDIO' ? (
@@ -1167,7 +1248,11 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
                 aria-label="Stop preview"
                 className="w-10 h-10 rounded-full bg-black/45 backdrop-blur-md border border-white/15 hover:bg-black/65 flex items-center justify-center text-amber-300 transition-colors"
               >
-                <VideoOff className="w-4.5 h-4.5" />
+                {room.mode === 'AUDIO' ? (
+                  <MicOff className="w-4.5 h-4.5" />
+                ) : (
+                  <VideoOff className="w-4.5 h-4.5" />
+                )}
               </button>
             )}
             <button

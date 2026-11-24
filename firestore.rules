@@ -167,7 +167,7 @@ service cloud.firestore {
         data.followsMade is int && data.followsMade >= 0 && data.followsMade <= 100000 &&
         data.gamesPlayed is int && data.gamesPlayed >= 0 && data.gamesPlayed <= 100000 &&
         data.claimed is list && data.claimed.size() <= 6 &&
-        data.claimed.hasOnly(['reward_checkin_' + data.day, 'reward_watch_' + data.day, 'reward_gift_' + data.day, 'reward_follow_' + data.day, 'reward_game_' + data.day].toSet()) &&
+        data.claimed.hasOnly(['reward_checkin_' + data.day, 'reward_watch_' + data.day, 'reward_gift_' + data.day, 'reward_follow_' + data.day, 'reward_game_' + data.day]) &&
         data.updatedAt is timestamp;
     }
 
@@ -183,7 +183,7 @@ service cloud.firestore {
         data.firstLiveDone is bool &&
         data.validDays is int && data.validDays >= 0 && data.validDays <= 1000 &&
         data.claimed is list && data.claimed.size() <= 6 &&
-        data.claimed.hasOnly(['host_live30_' + data.day, 'host_live60_' + data.day, 'host_gift_' + data.day, 'host_follow_' + data.day, 'host_valid_' + data.day, 'host_newbie'].toSet()) &&
+        data.claimed.hasOnly(['host_live30_' + data.day, 'host_live60_' + data.day, 'host_gift_' + data.day, 'host_follow_' + data.day, 'host_valid_' + data.day, 'host_newbie']) &&
         data.updatedAt is timestamp;
     }
 
@@ -1278,6 +1278,17 @@ service cloud.firestore {
             incoming().coinBalance - existing().coinBalance <= 1900000
           ) ||
           (
+            // Coins -> Diamonds conversion: the owner trades Main Coins for
+            // Diamonds at the 70% yield (30% fee). Diamonds minted may never
+            // exceed 70% of the coins spent.
+            isOwner(uid) &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['coinBalance', 'diamondBalance', 'updatedAt']) &&
+            incoming().coinBalance < existing().coinBalance &&
+            incoming().diamondBalance > existing().diamondBalance &&
+            (incoming().diamondBalance - existing().diamondBalance) * 10 <=
+              (existing().coinBalance - incoming().coinBalance) * 7
+          ) ||
+          (
             // Host Reward Center: female hosts earn Diamonds. The credit must
             // coincide with a reward claim in the same transaction (claimed
             // list grows or 5 valid days are redeemed) and never exceed 5,000.
@@ -1533,6 +1544,24 @@ service cloud.firestore {
               incoming().amount ==
                 getAfter(/databases/$(database)/documents/wallets/$(uid)).data.coinBalance -
                 get(/databases/$(database)/documents/wallets/$(uid)).data.coinBalance
+            ) ||
+            (
+              // Coins -> Diamonds conversion credit: exact diamond increase,
+              // bounded by 70% of the same-batch coin debit.
+              isOwner(uid) &&
+              incoming().direction == 'CREDIT' &&
+              incoming().currency == 'DIAMOND' &&
+              incoming().idempotencyKey.matches('^tx_conv_c_.*$') &&
+              incoming().amount ==
+                getAfter(/databases/$(database)/documents/wallets/$(uid)).data.diamondBalance -
+                get(/databases/$(database)/documents/wallets/$(uid)).data.diamondBalance &&
+              getAfter(/databases/$(database)/documents/wallets/$(uid)).data.coinBalance <
+                get(/databases/$(database)/documents/wallets/$(uid)).data.coinBalance &&
+              incoming().amount * 10 <=
+                (
+                  get(/databases/$(database)/documents/wallets/$(uid)).data.coinBalance -
+                  getAfter(/databases/$(database)/documents/wallets/$(uid)).data.coinBalance
+                ) * 7
             )
           );
       }

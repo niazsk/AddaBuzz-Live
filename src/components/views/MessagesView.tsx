@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Coins, Gift, LogIn, Plus, Search, Send, ShieldBan, X } from 'lucide-react';
+import { Coins, Gift, LogIn, MessagesSquare, Plus, Search, Send, ShieldBan, X } from 'lucide-react';
 import { Conversation, DirectMessage, GiftCatalogItem, UserProfile } from '../../types/app';
 import { Avatar } from '../ui/Avatar';
 import { GiftArtwork } from '../ui/GiftArtwork';
@@ -153,11 +153,16 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
   return (
     <div className="space-y-5 pb-8">
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="font-display text-2xl font-bold text-white">Direct Messages</h1>
-          <p className="text-sm text-slate-400 mt-1">
-            Real-time conversations subject to block and privacy rules.
-          </p>
+        <div className="flex items-start gap-3 min-w-0">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-emerald-300 via-teal-500 to-cyan-600 ring-1 ring-white/25 shadow-lg shadow-emerald-500/40">
+            <MessagesSquare className="h-5 w-5 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]" />
+          </span>
+          <div className="min-w-0">
+            <h1 className="font-display text-2xl font-bold text-white">Messages</h1>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Private conversations subject to block and privacy rules.
+            </p>
+          </div>
         </div>
         <button
           type="button"
@@ -166,10 +171,11 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
             setPeopleSearch('');
           }}
           disabled={isOfflineSimulated}
-          className="shrink-0 h-9 px-3 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:opacity-45 text-white text-xs font-semibold inline-flex items-center gap-1.5"
+          aria-label="New message"
+          className="shrink-0 h-10 px-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 disabled:opacity-45 text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-lg shadow-emerald-900/40 active:scale-[0.98] transition-transform"
         >
           <Plus className="w-4 h-4" />
-          <span>New message</span>
+          <span className="hidden sm:inline">New message</span>
         </button>
       </div>
 
@@ -230,8 +236,27 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
             </div>
           )}
           {conversations.length === 0 ? (
-            <div className="p-6 text-xs text-slate-400 leading-relaxed">
-              No conversations yet. Tap <span className="text-slate-200 font-semibold">New message</span> above to pick someone and start chatting.
+            <div className="flex flex-col items-center justify-center gap-3 px-6 py-16 text-center">
+              <span className="grid h-12 w-12 place-items-center rounded-2xl border border-emerald-300/20 bg-gradient-to-br from-emerald-400/20 to-teal-600/10 text-emerald-300">
+                <MessagesSquare className="h-5 w-5" />
+              </span>
+              <div>
+                <p className="text-sm font-semibold text-white">No conversations yet</p>
+                <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
+                  Pick someone from the community and start chatting.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowNewChat(true);
+                  setPeopleSearch('');
+                }}
+                disabled={isOfflineSimulated}
+                className="mt-1 h-9 px-4 rounded-xl border border-emerald-300/25 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-100 text-xs font-semibold inline-flex items-center gap-1.5 disabled:opacity-45 transition-colors"
+              >
+                <Plus className="h-3.5 w-3.5" /> Start a chat
+              </button>
             </div>
           ) : (
             conversations.map((conv) => {
@@ -272,7 +297,11 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
         </div>
 
         {/* Active Thread */}
-        <div className="md:col-span-8 flex flex-col justify-between">
+        <div
+          className={`md:col-span-8 flex-col justify-between ${
+            selectedConv && selectedPartner ? 'flex' : 'hidden md:flex'
+          }`}
+        >
           {selectedConv && selectedPartner ? (
             <>
               <div className="p-4 border-b border-white/[0.08] flex items-center justify-between gap-3">

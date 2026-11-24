@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bell, Eye, Radio, Search, Users, Play, X } from 'lucide-react';
+import { ArrowRight, Bell, Eye, Gamepad2, Gift, Radio, Search, Sparkles, Users, Play, X } from 'lucide-react';
 import { LiveRoom, RoomCategory, RoomMode, UserProfile } from '../../types/app';
 import { ROOM_CATEGORIES } from '../../data/previewData';
 import { RoomCard } from '../cards/RoomCard';
@@ -20,6 +20,9 @@ interface DiscoverViewProps {
   onOpenUserProfile: (user: UserProfile) => void;
   onOpenNotifications: () => void;
   onOpenGoLive: () => void;
+  onOpenGames: () => void;
+  onOpenReward: () => void;
+  onOpenStore: () => void;
   unreadNotificationsCount: number;
 }
 
@@ -37,6 +40,9 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
   onOpenUserProfile,
   onOpenNotifications,
   onOpenGoLive,
+  onOpenGames,
+  onOpenReward,
+  onOpenStore,
   unreadNotificationsCount,
 }) => {
   const getHost = (hostUid: string): UserProfile =>
@@ -81,7 +87,28 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
   const featuredHost = featuredRoom ? getHost(featuredRoom.hostUid) : undefined;
 
   return (
-    <div className="space-y-8 pb-8">
+    <div className="space-y-6 pb-8">
+      {/* Page header */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-400/25 bg-rose-500/10 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.2em] text-rose-200">
+            <span className="live-dot h-1.5 w-1.5 rounded-full bg-rose-400" />
+            {rooms.length > 0 ? `${rooms.length} live now` : 'Live now'}
+          </span>
+          <h1 className="mt-2.5 font-display text-[27px] font-black leading-tight">
+            <span className="bg-gradient-to-r from-white via-sky-100 to-cyan-200 bg-clip-text text-transparent">
+              Discover
+            </span>
+          </h1>
+          <p className="mt-1 text-xs text-slate-400">
+            Live rooms, creators and moments happening right now.
+          </p>
+        </div>
+        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-sky-300 via-blue-500 to-indigo-600 ring-1 ring-white/25 shadow-lg shadow-sky-500/40">
+          <Radio className="h-5 w-5 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]" />
+        </span>
+      </div>
+
       {/* Desktop Top Utility Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="relative flex-1 max-w-xl">
@@ -129,22 +156,78 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
 
       {/* Empty state (only shown when there are 0 live rooms) */}
       {rooms.length === 0 && (
-        <section className="rounded-2xl bg-[#111420] border border-white/[0.08] p-8 text-center space-y-4">
-          <h1 className="font-display text-2xl font-bold text-white">
+        <section className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-[linear-gradient(160deg,rgba(32,20,64,0.55),rgba(17,20,32,0.98)_55%,rgba(10,24,40,0.9))] p-7 text-center">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -top-24 left-1/2 h-48 w-[420px] -translate-x-1/2 rounded-full bg-gradient-to-r from-violet-600/25 via-fuchsia-500/12 to-sky-500/25 blur-3xl"
+          />
+          <span className="relative mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-600 via-fuchsia-600 to-sky-500 text-white shadow-[0_18px_42px_-16px_rgba(139,92,246,0.95)] ring-1 ring-white/20">
+            <Radio className="w-6 h-6" />
+          </span>
+          <h2 className="relative mt-4 font-display text-xl font-bold text-white">
             No live rooms right now
-          </h1>
-          <p className="text-sm text-slate-400 max-w-lg mx-auto leading-relaxed">
+          </h2>
+          <p className="relative mt-1.5 text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
             Be the first one to go live and start the conversation.
           </p>
-          <div className="flex flex-wrap items-center justify-center gap-3">
+          <div className="relative mt-4 flex flex-wrap items-center justify-center gap-3">
             <button
               type="button"
               onClick={onOpenGoLive}
-              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 via-indigo-600 to-sky-500 hover:from-violet-500 hover:via-indigo-500 hover:to-sky-400 text-white text-sm font-medium inline-flex items-center gap-2 shadow-[0_16px_34px_-20px_rgba(99,102,241,0.95)]"
+              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 via-indigo-600 to-sky-500 hover:from-violet-500 hover:via-indigo-500 hover:to-sky-400 text-white text-sm font-semibold inline-flex items-center gap-2 shadow-[0_16px_34px_-20px_rgba(99,102,241,0.95)] active:scale-[0.98] transition-transform"
             >
               <Radio className="w-4 h-4" />
               <span>Start First Live Room</span>
             </button>
+          </div>
+
+          <div className="relative mt-6 grid grid-cols-3 gap-2.5">
+            {[
+              {
+                label: 'Coin Arcade',
+                sub: '9 games',
+                icon: <Gamepad2 className="h-[18px] w-[18px] text-white" />,
+                chip: 'from-violet-300 via-purple-500 to-fuchsia-600',
+                glow: 'shadow-violet-500/30',
+                onOpen: onOpenGames,
+              },
+              {
+                label: 'Rewards',
+                sub: 'Daily coins',
+                icon: <Sparkles className="h-[18px] w-[18px] text-white" />,
+                chip: 'from-amber-300 via-orange-500 to-rose-500',
+                glow: 'shadow-amber-500/30',
+                onOpen: onOpenReward,
+              },
+              {
+                label: 'Gift Store',
+                sub: '44 gifts',
+                icon: <Gift className="h-[18px] w-[18px] text-white" />,
+                chip: 'from-fuchsia-300 via-pink-500 to-rose-600',
+                glow: 'shadow-fuchsia-500/30',
+                onOpen: onOpenStore,
+              },
+            ].map((tile) => (
+              <button
+                key={tile.label}
+                type="button"
+                onClick={tile.onOpen}
+                className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.04] p-3 text-left transition-all hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/[0.07] active:scale-[0.99]"
+              >
+                <span
+                  className={`grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br ${tile.chip} ring-1 ring-white/25 shadow-lg ${tile.glow}`}
+                >
+                  {tile.icon}
+                </span>
+                <span className="mt-2.5 flex items-center gap-1 text-[11px] font-bold text-white">
+                  {tile.label}
+                  <ArrowRight className="h-3 w-3 text-slate-500 transition-transform group-hover:translate-x-0.5 group-hover:text-white" />
+                </span>
+                <span className="mt-0.5 block text-[9px] font-semibold uppercase tracking-wide text-slate-500">
+                  {tile.sub}
+                </span>
+              </button>
+            ))}
           </div>
         </section>
       )}
@@ -184,7 +267,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
                     {featuredRoom.mode === 'MULTI_GUEST'
                       ? 'Multi-Guest Room'
                       : featuredRoom.mode === 'AUDIO'
-                      ? 'Audio Live'
+                      ? 'Audio Board'
                       : 'Video Live'}
                   </span>
                   <span aria-hidden="true">·</span>

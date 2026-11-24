@@ -1,7 +1,6 @@
 import React, { useRef, useState } from 'react';
 import {
   BadgeCheck,
-  Banknote,
   Camera,
   Check,
   ChevronRight,
@@ -12,13 +11,12 @@ import {
   Gamepad2,
   Gem,
   Gift,
-  Heart,
-  Layers,
   LayoutDashboard,
   LogIn,
   LogOut,
   MapPin,
   Mic,
+  Send,
   ShieldCheck,
   ShoppingBag,
   TrendingUp,
@@ -60,52 +58,67 @@ interface ProfileViewProps {
   onSignOut: () => void;
 }
 
+type TileTone = 'amber' | 'rose' | 'gold' | 'emerald' | 'sky' | 'indigo' | 'violet' | 'fuchsia' | 'cyan';
+
+const TONE_STYLES: Record<TileTone, { chip: string; glow: string }> = {
+  amber: { chip: 'from-amber-300 via-orange-500 to-rose-500', glow: 'shadow-amber-500/40' },
+  rose: { chip: 'from-rose-300 via-pink-500 to-fuchsia-600', glow: 'shadow-rose-500/40' },
+  gold: { chip: 'from-yellow-200 via-amber-400 to-orange-500', glow: 'shadow-amber-400/40' },
+  emerald: { chip: 'from-emerald-300 via-teal-500 to-cyan-600', glow: 'shadow-emerald-500/40' },
+  sky: { chip: 'from-sky-300 via-blue-500 to-indigo-600', glow: 'shadow-sky-500/40' },
+  indigo: { chip: 'from-indigo-300 via-violet-500 to-purple-600', glow: 'shadow-indigo-500/40' },
+  violet: { chip: 'from-violet-300 via-purple-500 to-fuchsia-600', glow: 'shadow-violet-500/40' },
+  fuchsia: { chip: 'from-fuchsia-300 via-pink-500 to-rose-600', glow: 'shadow-fuchsia-500/40' },
+  cyan: { chip: 'from-cyan-300 via-sky-500 to-blue-600', glow: 'shadow-cyan-500/40' },
+};
+
 type Tile = {
   id: string;
   label: string;
   icon: React.FC<{ className?: string }>;
+  tone: TileTone;
   wide?: boolean;
 };
 
 const FEATURE_TILES: Tile[] = [
-  { id: 'reward', label: 'Reward', icon: Gift },
-  { id: 'host-rewards', label: 'Host Reward', icon: Crown },
-  { id: 'rank', label: 'Rank', icon: Trophy },
-  { id: 'games', label: 'Games', icon: Gamepad2 },
-  { id: 'store', label: 'Store', icon: ShoppingBag },
-  { id: 'invite', label: 'Invite', icon: Users },
-  { id: 'honor', label: 'Honor Level', icon: ShieldCheck },
-  { id: 'deposit', label: 'Deposit', icon: CreditCard },
-  { id: 'salary', label: 'Salary', icon: Gem },
+  { id: 'reward', label: 'Reward', icon: Gift, tone: 'amber' },
+  { id: 'host-rewards', label: 'Host Reward', icon: Crown, tone: 'rose' },
+  { id: 'rank', label: 'Rank', icon: Trophy, tone: 'gold' },
+  { id: 'games', label: 'Games', icon: Gamepad2, tone: 'emerald' },
+  { id: 'store', label: 'Store', icon: ShoppingBag, tone: 'sky' },
+  { id: 'invite', label: 'Invite', icon: Send, tone: 'indigo' },
+  { id: 'honor', label: 'Honor Level', icon: ShieldCheck, tone: 'violet' },
+  { id: 'deposit', label: 'Deposit', icon: CreditCard, tone: 'cyan' },
+  { id: 'salary', label: 'Salary', icon: Gem, tone: 'fuchsia' },
 ];
 
 const AGENT_TILES: Tile[] = [
-  { id: 'agent', label: 'Agent', icon: Users },
-  { id: 'add-host', label: 'Add Host', icon: Mic },
-  { id: 'invite-agent', label: 'Invite Agent', icon: UserPlus },
-  { id: 'coins-trading', label: 'Coins Trading', icon: Coins },
-  { id: 'agent-rewards', label: 'Agent Promote', icon: Wallet, wide: true },
-  { id: 'agent-ranking', label: 'Agent Ranking', icon: TrendingUp, wide: true },
+  { id: 'agent', label: 'Agent', icon: Users, tone: 'indigo' },
+  { id: 'add-host', label: 'Add Host', icon: Mic, tone: 'rose' },
+  { id: 'invite-agent', label: 'Invite Agent', icon: UserPlus, tone: 'violet' },
+  { id: 'coins-trading', label: 'Coins Trading', icon: Coins, tone: 'amber' },
+  { id: 'agent-rewards', label: 'Agent Promote', icon: Wallet, tone: 'fuchsia', wide: true },
+  { id: 'agent-ranking', label: 'Agent Ranking', icon: TrendingUp, tone: 'emerald', wide: true },
 ];
 
 const SUPER_AGENT_TILES: Tile[] = [
-  { id: 'my-agent', label: 'My Agent', icon: Users },
-  { id: 'my-host', label: 'My Host', icon: Mic },
-  { id: 'invite-agent', label: 'Invite Agent', icon: UserPlus },
-  { id: 'coins-trading', label: 'Coins Trading', icon: Coins },
-  { id: 'agent-ranking', label: 'Agent Ranking', icon: TrendingUp },
+  { id: 'my-agent', label: 'My Agent', icon: Users, tone: 'indigo' },
+  { id: 'my-host', label: 'My Host', icon: Mic, tone: 'rose' },
+  { id: 'invite-agent', label: 'Invite Agent', icon: UserPlus, tone: 'violet' },
+  { id: 'coins-trading', label: 'Coins Trading', icon: Coins, tone: 'amber' },
+  { id: 'agent-ranking', label: 'Agent Ranking', icon: TrendingUp, tone: 'emerald' },
 ];
 
 const BD_AGENT_TILES: Tile[] = [
-  { id: 'super-agent-list', label: 'Super Agent List', icon: BadgeCheck },
-  { id: 'agent-list', label: 'Agent List', icon: Users },
-  { id: 'my-agent', label: 'My Agent', icon: Users },
-  { id: 'my-host', label: 'My Host', icon: Mic },
-  { id: 'invite-agent', label: 'Invite Agent', icon: UserPlus },
-  { id: 'agent-promote', label: 'Agent Promote', icon: TrendingUp },
-  { id: 'coins-trading', label: 'Coins Trading', icon: Coins },
-  { id: 'agent-rewards', label: 'Agent Promote', icon: Wallet, wide: true },
-  { id: 'agent-ranking', label: 'Agent Ranking', icon: TrendingUp, wide: true },
+  { id: 'super-agent-list', label: 'Super Agent List', icon: BadgeCheck, tone: 'sky' },
+  { id: 'agent-list', label: 'Agent List', icon: Users, tone: 'indigo' },
+  { id: 'my-agent', label: 'My Agent', icon: Users, tone: 'violet' },
+  { id: 'my-host', label: 'My Host', icon: Mic, tone: 'rose' },
+  { id: 'invite-agent', label: 'Invite Agent', icon: UserPlus, tone: 'cyan' },
+  { id: 'agent-promote', label: 'Agent Promote', icon: TrendingUp, tone: 'emerald' },
+  { id: 'coins-trading', label: 'Coins Trading', icon: Coins, tone: 'amber' },
+  { id: 'agent-rewards', label: 'Agent Promote', icon: Wallet, tone: 'fuchsia', wide: true },
+  { id: 'agent-ranking', label: 'Agent Ranking', icon: TrendingUp, tone: 'emerald', wide: true },
 ];
 
 export const ProfileView: React.FC<ProfileViewProps> = ({
@@ -231,6 +244,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
   const renderTile = (tile: Tile) => {
     const Icon = tile.icon;
+    const tone = TONE_STYLES[tile.tone];
     return (
       <button
         key={tile.id}
@@ -242,7 +256,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           else if (tile.id === 'agent-list') onOpenSection('agent-list');
           else if (tile.id === 'my-agent') onOpenSection('my-agent');
           else if (tile.id === 'my-host') onOpenSection('my-host');
-          else if (tile.id === 'agent-rewards') onOpenSection('admin');
+          else if (tile.id === 'agent-rewards') onOpenSection('agent-promote');
           else if (tile.id === 'agent-promote') onOpenSection('agent-promote');
           else if (tile.id === 'rank') onOpenSection('rank');
           else if (tile.id === 'agent-ranking') onOpenSection('agent-ranking');
@@ -255,12 +269,18 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           else if (tile.id === 'host-rewards') onOpenSection('host-rewards');
           else setComingSoon(tile.label);
         }}
-        className={`group rounded-2xl bg-white/[0.04] border border-white/[0.06] hover:bg-white/[0.08] hover:border-violet-500/40 p-3.5 flex flex-col items-center gap-2 transition-colors ${
+        className={`group relative overflow-hidden rounded-2xl bg-white/[0.035] border border-white/[0.07] hover:bg-white/[0.07] hover:border-white/[0.16] p-3.5 flex flex-col items-center gap-2.5 transition-all duration-200 hover:-translate-y-0.5 ${
           tile.wide ? 'col-span-2' : ''
         }`}
       >
-        <span className="w-11 h-11 rounded-xl bg-gradient-to-br from-violet-600/80 to-fuchsia-600/60 flex items-center justify-center shadow-md shadow-violet-950/40 group-hover:scale-105 transition-transform">
-          <Icon className="w-5 h-5 text-white" />
+        <span
+          className={`relative w-11 h-11 rounded-[14px] bg-gradient-to-br ${tone.chip} flex items-center justify-center ring-1 ring-white/25 shadow-lg ${tone.glow} transition-transform duration-200 group-hover:scale-110`}
+        >
+          <span
+            aria-hidden="true"
+            className="absolute inset-0 rounded-[14px] bg-gradient-to-b from-white/35 via-white/0 to-black/15"
+          />
+          <Icon className="relative w-5 h-5 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]" />
         </span>
         <span className="text-[11px] font-medium text-slate-300 group-hover:text-white text-center leading-tight">
           {tile.label}
@@ -472,34 +492,18 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           className="w-full rounded-2xl bg-gradient-to-r from-violet-600/25 to-[#111420] border border-violet-500/35 hover:border-violet-400/60 p-4 flex items-center justify-between gap-3 transition-colors"
         >
           <div className="flex items-center gap-3 min-w-0">
-            <span className="w-10 h-10 rounded-xl bg-violet-500/25 flex items-center justify-center shrink-0">
-              <LayoutDashboard className="w-5 h-5 text-violet-300" />
+            <span className="relative w-10 h-10 rounded-xl bg-gradient-to-br from-violet-400 via-purple-500 to-fuchsia-600 ring-1 ring-white/25 shadow-lg shadow-violet-500/40 flex items-center justify-center shrink-0">
+              <span
+                aria-hidden="true"
+                className="absolute inset-0 rounded-xl bg-gradient-to-b from-white/30 via-white/0 to-black/15"
+              />
+              <LayoutDashboard className="relative w-5 h-5 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]" />
             </span>
             <div className="text-left min-w-0">
               <p className="text-sm font-semibold text-white">Admin Panel</p>
               <p className="text-xs text-slate-400 truncate">
                 Users, live rooms, reports, wallets, games & broadcast
               </p>
-            </div>
-          </div>
-          <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
-        </button>
-      )}
-
-      {/* Roles & safety shortcut — admin accounts only */}
-      {isAdminUser && (
-        <button
-          type="button"
-          onClick={() => onOpenSection('admin')}
-          className="w-full rounded-2xl bg-gradient-to-r from-violet-500/15 to-[#111420] border border-violet-500/25 hover:border-violet-400/50 p-4 flex items-center justify-between gap-3 transition-colors"
-        >
-          <div className="flex items-center gap-3 min-w-0">
-            <span className="w-10 h-10 rounded-xl bg-violet-500/20 flex items-center justify-center shrink-0">
-              <ShieldCheck className="w-5 h-5 text-violet-300" />
-            </span>
-            <div className="text-left min-w-0">
-              <p className="text-sm font-semibold text-white">Roles & Safety</p>
-              <p className="text-xs text-slate-400 truncate">Promotions & moderation</p>
             </div>
           </div>
           <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
