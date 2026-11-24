@@ -1000,21 +1000,17 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
-          {!isSolo && (
-            <>
-              <span className="inline-flex items-center gap-1 rounded-full bg-black/45 backdrop-blur-md border border-white/10 px-2.5 py-1.5 text-[11px] font-mono tabular-nums text-slate-200">
-                <Eye className="w-3.5 h-3.5 text-sky-300" aria-hidden="true" />
-                <span>{room.viewerCount.toLocaleString()}</span>
-              </span>
-              <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-black/45 backdrop-blur-md border border-white/10 px-2.5 py-1.5 text-[11px] font-mono tabular-nums text-slate-200">
-                <Radio className="w-3.5 h-3.5 text-fuchsia-400" aria-hidden="true" />
-                <span>{formatDuration(room.durationSeconds)}</span>
-              </span>
-              <span className="inline-flex items-center rounded-full bg-rose-600 px-2.5 py-1.5 text-[10px] font-bold tracking-wider text-white">
-                LIVE
-              </span>
-            </>
-          )}
+          <span className="inline-flex items-center gap-1 rounded-full bg-black/45 backdrop-blur-md border border-white/10 px-2.5 py-1.5 text-[11px] font-mono tabular-nums text-slate-200">
+            <Eye className="w-3.5 h-3.5 text-sky-300" aria-hidden="true" />
+            <span>{room.viewerCount.toLocaleString()}</span>
+          </span>
+          <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-black/45 backdrop-blur-md border border-white/10 px-2.5 py-1.5 text-[11px] font-mono tabular-nums text-slate-200">
+            <Radio className="w-3.5 h-3.5 text-fuchsia-400" aria-hidden="true" />
+            <span>{formatDuration(room.durationSeconds)}</span>
+          </span>
+          <span className="inline-flex items-center rounded-full bg-rose-600 px-2.5 py-1.5 text-[10px] font-bold tracking-wider text-white">
+            LIVE
+          </span>
           <button
             type="button"
             onClick={() => {
@@ -1028,7 +1024,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
             aria-label={isOwnerHost ? 'End live room' : 'Leave live room'}
             className={`rounded-full flex items-center justify-center transition-colors ${
               isSolo
-                ? 'w-11 h-11 bg-black/70 hover:bg-black/90'
+                ? 'w-10 h-10 bg-black/70 hover:bg-black/90 border border-white/10'
                 : 'w-8 h-8 bg-black/45 backdrop-blur-md border border-white/10 hover:bg-black/65'
             }`}
           >
@@ -1415,6 +1411,16 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
                   )}
                 </button>
               )}
+              <button
+                type="submit"
+                disabled={
+                  (currentUser !== null && !chatInput.trim()) || isOfflineSimulated
+                }
+                aria-label="Send comment"
+                className="w-11 h-11 rounded-full bg-gradient-to-br from-fuchsia-500 to-violet-600 hover:from-fuchsia-400 hover:to-violet-500 disabled:opacity-40 flex items-center justify-center text-white shrink-0 transition-all"
+              >
+                <Send className="w-4.5 h-4.5" />
+              </button>
               {!isOwnerHost && (
                 <button
                   type="button"
@@ -1456,6 +1462,19 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
             </>
           ) : (
             <>
+              <button
+                type="button"
+                onClick={() => setLikes((n) => n + 1)}
+                aria-label="Like this live"
+                className="relative w-11 h-11 rounded-full bg-gradient-to-br from-pink-500 to-rose-500 hover:from-pink-400 hover:to-rose-400 flex items-center justify-center text-white shrink-0 transition-all active:scale-90"
+              >
+                <Heart className="w-5 h-5 fill-current" />
+                {likes > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-white text-pink-600 text-[10px] font-bold flex items-center justify-center px-1">
+                    {likes > 99 ? '99+' : likes}
+                  </span>
+                )}
+              </button>
               <button
                 type="button"
                 onClick={() => {
