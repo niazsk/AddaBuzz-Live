@@ -32,6 +32,11 @@ import {
   subscribeGfBoard,
   subscribeGfConfig,
 } from '../../lib/firestoreService';
+import {
+  placeSupabaseBet,
+  updateSupabaseBetPayout,
+  upsertSupabaseRound,
+} from '../../lib/supabaseGameService';
 
 export type { GfRemoteConfig };
 export { GF_DEFAULT_CONFIG };
@@ -486,6 +491,16 @@ export class GfBoardEngine {
     this.leaderBusy = true;
     try {
       await advanceGfBoard(this.uid, board.roundId, phase, patch);
+      void upsertSupabaseRound({
+        id: board.roundId,
+        game_type: 'golden_flower',
+        seq: patch.seq ?? board.seq,
+        phase: (patch.phase as any) ?? board.phase,
+        result_data: patch.winnerSeat !== undefined ? { winnerSeat: patch.winnerSeat, seatCats: patch.seatCats } : (board.winnerSeat !== null ? { winnerSeat: board.winnerSeat, seatCats: board.seatCats } : {}),
+        started_at: new Date().toISOString(),
+        ends_at: new Date(patch.phaseEndsAt ?? board.phaseEndsAt).toISOString(),
+        leader_id: this.uid,
+      });
       this.lastError = null;
       this.noteSyncResult();
     } catch (error) {
@@ -597,6 +612,7 @@ export class GfBoardEngine {
   ) {
     try {
       await resolveGfBet(betId, status, payout, creditRef);
+      void updateSupabaseBetPayout(betId, status, payout);
     } catch {
       // Wallet move is already idempotent; the bet stays ACCEPTED and the
       // next pass retries the document update.
@@ -697,6 +713,18 @@ export class GfBoardEngine {
         seat,
         stake,
         debitRef,
+      });
+      void placeSupabaseBet({
+        id: betId,
+        round_id: roundId,
+        game_type: 'golden_flower',
+        user_id: this.uid,
+        username: this.username,
+        bet_data: { seat },
+        stake,
+        status: 'ACCEPTED',
+        payout: 0,
+        created_at: new Date().toISOString(),
       });
     } catch {
       // Debit went through but the bet slip could not be recorded — refund so

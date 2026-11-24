@@ -14,6 +14,11 @@ import {
   subscribeFruitManorBets,
   subscribeFruitManorBoard,
 } from '../../lib/firestoreService';
+import {
+  placeSupabaseBet,
+  updateSupabaseBetPayout,
+  upsertSupabaseRound,
+} from '../../lib/supabaseGameService';
 
 export type RoundPhase = SharedBoardPhase;
 
@@ -521,6 +526,16 @@ export class FruitManorEngine {
     this.leaderBusy = true;
     try {
       await advanceFruitManorBoard(this.uid, board.roundId, phase, patch);
+      void upsertSupabaseRound({
+        id: board.roundId,
+        game_type: 'fruit_manor',
+        seq: patch.seq ?? board.seq,
+        phase: (patch.phase as any) ?? board.phase,
+        result_data: patch.resultFruitId ? { fruitId: patch.resultFruitId } : (board.resultFruitId ? { fruitId: board.resultFruitId } : {}),
+        started_at: new Date().toISOString(),
+        ends_at: new Date(patch.phaseEndsAt ?? board.phaseEndsAt).toISOString(),
+        leader_id: this.uid,
+      });
       this.lastError = null;
       this.noteSyncResult();
     } catch (error) {
@@ -642,6 +657,7 @@ export class FruitManorEngine {
   ) {
     try {
       await resolveFruitManorBet(betId, status, payout, creditRef);
+      void updateSupabaseBetPayout(betId, status, payout);
     } catch {
       // Bet document update failed; the wallet move is already idempotent and
       // the bet stays ACCEPTED, so the next pass retries it.
@@ -747,6 +763,18 @@ export class FruitManorEngine {
         stake,
         multiplier: fruit.multiplier,
         debitRef,
+      });
+      void placeSupabaseBet({
+        id: betId,
+        round_id: roundId,
+        game_type: 'fruit_manor',
+        user_id: this.uid,
+        username: this.username,
+        bet_data: { fruitId, multiplier: fruit.multiplier },
+        stake,
+        status: 'ACCEPTED',
+        payout: 0,
+        created_at: new Date().toISOString(),
       });
     } catch {
       // The debit went through but the shared bet could not be recorded —

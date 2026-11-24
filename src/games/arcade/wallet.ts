@@ -1,4 +1,5 @@
 import { gameCoinCredit, gameCoinDebit } from '../../lib/firestoreService';
+import { recordSupabaseArcadeRound } from '../../lib/supabaseGameService';
 
 export const ARCADE_CHIPS = [10, 100, 1000, 5000] as const;
 
@@ -66,7 +67,17 @@ export async function arcadeDebit(
   await gameCoinDebit(uid, amount, reason, key);
 }
 
-export function creditArcade(uid: string, amount: number, reason: string, key: string) {
+export function creditArcade(uid: string, amount: number, reason: string, key: string, gameDetails?: { gameName: string; stake: number; multiplier: number; outcome: 'WIN' | 'LOSS' }) {
+  if (gameDetails) {
+    void recordSupabaseArcadeRound({
+      user_id: uid,
+      game_name: gameDetails.gameName,
+      stake: gameDetails.stake,
+      multiplier: gameDetails.multiplier,
+      outcome: gameDetails.outcome,
+      payout: amount,
+    });
+  }
   void gameCoinCredit(uid, capPayout(amount), reason, key).catch(() => {
     const list = readPending(uid);
     if (!list.some((p) => p.key === key)) {
