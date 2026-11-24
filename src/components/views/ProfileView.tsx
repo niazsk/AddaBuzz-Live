@@ -99,12 +99,11 @@ const FEATURE_TILES: Tile[] = [
 ];
 
 const AGENT_TILES: Tile[] = [
-  { id: 'agent', label: 'Agent', icon: Users, tone: 'indigo' },
-  { id: 'add-host', label: 'Add Host', icon: Mic, tone: 'rose' },
+  { id: 'agent-list', label: 'Agent List', icon: Users, tone: 'indigo' },
+  { id: 'my-host', label: 'My Host', icon: Mic, tone: 'rose' },
   { id: 'invite-agent', label: 'Invite Agent', icon: UserPlus, tone: 'violet' },
   { id: 'coins-trading', label: 'Coins Trading', icon: Coins, tone: 'amber' },
-  { id: 'agent-rewards', label: 'Agent Promote', icon: Wallet, tone: 'fuchsia', wide: true },
-  { id: 'agent-ranking', label: 'Agent Ranking', icon: TrendingUp, tone: 'emerald', wide: true },
+  { id: 'agent-ranking', label: 'Agent Ranking', icon: TrendingUp, tone: 'emerald' },
 ];
 
 const SUPER_AGENT_TILES: Tile[] = [
@@ -123,8 +122,7 @@ const BD_AGENT_TILES: Tile[] = [
   { id: 'invite-agent', label: 'Invite Agent', icon: UserPlus, tone: 'cyan' },
   { id: 'agent-promote', label: 'Agent Promote', icon: TrendingUp, tone: 'emerald' },
   { id: 'coins-trading', label: 'Coins Trading', icon: Coins, tone: 'amber' },
-  { id: 'agent-rewards', label: 'Agent Promote', icon: Wallet, tone: 'fuchsia', wide: true },
-  { id: 'agent-ranking', label: 'Agent Ranking', icon: TrendingUp, tone: 'emerald', wide: true },
+  { id: 'agent-ranking', label: 'Agent Ranking', icon: TrendingUp, tone: 'emerald' },
 ];
 
 export const ProfileView: React.FC<ProfileViewProps> = ({
@@ -554,7 +552,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               : currentUser?.accountType === 'SUPER_AGENT'
               ? SUPER_AGENT_TILES
               : AGENT_TILES)
-              .filter((tile) => isAdminUser || tile.id !== 'agent-rewards')
               .map(renderTile)}
           </div>
         </section>
