@@ -90,6 +90,7 @@ export const FruitManorLiveBoard: React.FC<FruitManorLiveBoardProps> = ({
 
   const last = snap?.recentResults[0];
   const lastFruit = last ? FRUIT_BY_ID.get(last.fruitId) : undefined;
+  const recentResults = (snap?.recentResults ?? []).slice(0, 6);
 
   const tapFruit = async (fruitId: FruitId) => {
     if (!canBet || placing[fruitId]) return;
@@ -151,20 +152,35 @@ export const FruitManorLiveBoard: React.FC<FruitManorLiveBoardProps> = ({
         </span>
       </div>
 
-      <div className="flex items-center gap-1 overflow-hidden text-[8px] font-semibold text-slate-400">
-        <span className="rounded-full bg-emerald-400/10 px-1 py-px text-emerald-200/80">{players} playing</span>
-        <span className="rounded-full bg-amber-400/10 px-1 py-px text-amber-200/80">pool {formatCoins(poolStake)}</span>
-        {lastFruit && (
-          <span className="ml-auto flex shrink-0 items-center gap-0.5 truncate">
-            <span className="text-emerald-200/60">Last</span>
-            <FruitIcon fruitId={lastFruit.fruitId} className="h-3 w-3" />
-            <span className="text-[#EAF5EC]">×{lastFruit.multiplier}</span>
-          </span>
-        )}
+      {/* History and Stats Bar */}
+      <div className="flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden text-[8px] font-semibold text-slate-400 py-0.5">
+        <div className="flex shrink-0 items-center gap-1 rounded-full bg-white/[0.06] px-2 py-0.5 border border-white/10">
+          <span className="text-emerald-300 font-bold uppercase tracking-wider text-[7.5px]">Last Wins:</span>
+          {recentResults.length === 0 ? (
+            <span className="text-slate-500 text-[8px]">Waiting...</span>
+          ) : (
+            recentResults.map((r, i) => {
+              const f = FRUIT_BY_ID.get(r.fruitId);
+              if (!f) return null;
+              return (
+                <span
+                  key={`${r.roundId}-${i}`}
+                  className="flex items-center gap-0.5 rounded-full px-1 py-px bg-white/[0.08]"
+                  title={`Round ${r.roundId}: ${f.label} ×${f.multiplier}`}
+                >
+                  <FruitIcon fruitId={f.fruitId} className="h-3.5 w-3.5" />
+                  <span className="font-mono text-[7.5px] font-bold text-amber-300">×{f.multiplier}</span>
+                </span>
+              );
+            })
+          )}
+        </div>
+        <span className="ml-auto shrink-0 rounded-full bg-emerald-400/10 px-1.5 py-0.5 text-emerald-200/80">{players} playing</span>
+        <span className="shrink-0 rounded-full bg-amber-400/10 px-1.5 py-0.5 text-amber-200/80">pool {formatCoins(poolStake)}</span>
       </div>
 
       <div className="flex items-center gap-2">
-        <div className="w-[100px] sm:w-[110px] shrink-0">
+        <div className="w-[72px] sm:w-[80px] shrink-0">
           <FruitWheel
             fruits={CFG.fruits}
             roundId={round?.roundId ?? ''}
@@ -232,46 +248,52 @@ export const FruitManorLiveBoard: React.FC<FruitManorLiveBoardProps> = ({
         </div>
       </div>
 
-      <div className="flex items-center gap-1.5 pt-0.5">
-        {CFG.chips.map((c) => {
-          const st = CHIP_STYLE[c];
-          const selected = chip === c;
-          return (
+      <div className="flex items-center gap-2 pt-1 border-t border-white/[0.06]">
+        <div className="flex items-center gap-1.5 shrink-0">
+          <span className="font-mono text-[9px] font-bold tabular-nums text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md">
+            Bet: {formatCoins(myStake)}
+          </span>
+          {myStake > 0 && canBet && (
             <button
-              key={c}
               type="button"
-              onClick={() => setChip(c)}
-              aria-label={`Select ${formatCoins(c)} coin chip`}
-              aria-pressed={selected}
-              className={`grid h-6 w-6 shrink-0 place-items-center rounded-full transition-transform ${
-                selected ? '-translate-y-0.5 scale-105' : 'opacity-80 hover:opacity-100'
-              } ${coinBalance >= c ? '' : 'opacity-40 saturate-50'}`}
-              style={{
-                background: `radial-gradient(circle at 35% 30%, ${st.face}, #060D09 130%)`,
-                border: `2px dashed ${st.ring}`,
-                boxShadow: selected ? `0 0 0 1.5px ${st.ring}, 0 4px 12px ${st.ring}55` : undefined,
-              }}
+              onClick={cancelBets}
+              aria-label="Cancel my bets"
+              title="Cancel my bets"
+              className="grid h-6 w-6 shrink-0 place-items-center rounded-md border border-rose-400/30 bg-rose-500/15 text-rose-300 hover:bg-rose-500/30 transition-colors"
             >
-              <span className="font-mono text-[6.5px] font-black" style={{ color: st.text }}>
-                {c >= 1000 ? `${c / 1000}K` : c}
-              </span>
+              <RotateCcw className="h-3 w-3" />
             </button>
-          );
-        })}
-        <span className="ml-auto shrink-0 font-mono text-[9px] font-bold tabular-nums text-emerald-300">
-          Bet: {formatCoins(myStake)}
-        </span>
-        {myStake > 0 && canBet && (
-          <button
-            type="button"
-            onClick={cancelBets}
-            aria-label="Cancel my bets"
-            title="Cancel my bets"
-            className="grid h-6 w-6 shrink-0 place-items-center rounded-md border border-rose-400/30 bg-rose-500/15 text-rose-300 hover:bg-rose-500/30 transition-colors"
-          >
-            <RotateCcw className="h-3 w-3" />
-          </button>
-        )}
+          )}
+        </div>
+
+        {/* Larger, well-spaced chips filling the remaining area on the right */}
+        <div className="ml-auto flex items-center justify-end gap-2 flex-1">
+          {CFG.chips.map((c) => {
+            const st = CHIP_STYLE[c];
+            const selected = chip === c;
+            return (
+              <button
+                key={c}
+                type="button"
+                onClick={() => setChip(c)}
+                aria-label={`Select ${formatCoins(c)} coin chip`}
+                aria-pressed={selected}
+                className={`grid h-7 w-7 sm:h-8 sm:w-8 shrink-0 place-items-center rounded-full transition-all duration-150 ${
+                  selected ? '-translate-y-0.5 scale-110 shadow-lg' : 'opacity-85 hover:opacity-100 hover:scale-105'
+                } ${coinBalance >= c ? '' : 'opacity-40 saturate-50'}`}
+                style={{
+                  background: `radial-gradient(circle at 35% 30%, ${st.face}, #060D09 130%)`,
+                  border: `2px dashed ${st.ring}`,
+                  boxShadow: selected ? `0 0 0 2px ${st.ring}, 0 4px 14px ${st.ring}77` : undefined,
+                }}
+              >
+                <span className="font-mono text-[7.5px] sm:text-[8px] font-black" style={{ color: st.text }}>
+                  {c >= 1000 ? `${c / 1000}K` : c}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {error && <p className="text-[8px] font-medium leading-tight text-rose-300">{error}</p>}
