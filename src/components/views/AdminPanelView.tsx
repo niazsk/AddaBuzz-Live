@@ -93,14 +93,18 @@ interface ConfirmState {
 }
 
 const roleLabel = (u: UserProfile): string =>
-  u.accountType === 'SUPER_AGENT' ? 'BD AGENT' : u.accountType;
+  isBdAgentProfile(u)
+    ? 'BD AGENT'
+    : u.accountType === 'SUPER_AGENT'
+    ? 'SUPER AGENT'
+    : u.accountType;
 
 const RoleBadge: React.FC<{ user: UserProfile }> = ({ user }) => {
   const label = roleLabel(user);
   const cls =
     label === 'BD AGENT'
       ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
-      : label === 'SUPER_AGENT'
+      : label === 'SUPER AGENT'
       ? 'bg-violet-500/15 text-violet-300 border-violet-500/30'
       : label === 'AGENT'
       ? 'bg-sky-500/15 text-sky-300 border-sky-500/30'
@@ -422,7 +426,7 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({
               <div className="space-y-2 text-xs">
                 {[
                   ['BD Agent', stats.bdAgents, 'text-amber-300'],
-                  ['BD Agents (Promoted)', stats.superAgents, 'text-violet-300'],
+                  ['Super Agents', stats.superAgents, 'text-violet-300'],
                   ['Agents', stats.agents, 'text-sky-300'],
                   ['Users', stats.users, 'text-slate-300'],
                 ].map(([label, count, cls]) => (

@@ -102,12 +102,18 @@ export const ADMIN_PLATFORM_ID = '111111';
 export const SUPER_AGENT_PLATFORM_ID = '112200';
 export const USER_PLATFORM_ID_START = 112201;
 
-// The BD Agent is the single provisioned SUPER_AGENT account; promoted super agents keep the standard role.
+// The main BD Agent is ONLY platform ID 111112. Every other SUPER_AGENT is a
+// regular Super Agent and is displayed as such.
 export function isBdAgentProfile(user: UserProfile | null | undefined): boolean {
-  return (
-    user?.accountType === 'SUPER_AGENT' &&
-    (user.platformId === '112200' || user.platformId === '111112')
-  );
+  return user?.accountType === 'SUPER_AGENT' && user.platformId === '111112';
+}
+
+export function accountRoleLabel(user: UserProfile | null | undefined): string {
+  if (!user) return 'User';
+  if (isBdAgentProfile(user)) return 'BD Agent';
+  if (user.accountType === 'SUPER_AGENT') return 'Super Agent';
+  if (user.accountType === 'AGENT') return 'Agent';
+  return 'User';
 }
 
 export type CoinTransferRole = 'ADMIN' | 'BD_AGENT' | 'SUPER_AGENT' | 'AGENT' | 'USER';
@@ -2093,9 +2099,9 @@ export async function transferCoins(
       senderRole === 'AGENT'
         ? 'Agents can only transfer coins to Users.'
         : senderRole === 'SUPER_AGENT'
-        ? 'BD Agents can only transfer coins to Agents or Users.'
+        ? 'Super Agents can only transfer coins to Agents or Users.'
         : senderRole === 'BD_AGENT'
-        ? 'Main BD Agent can only transfer coins to BD Agents or Agents.'
+        ? 'The main BD Agent can only transfer coins to Super Agents or Agents.'
         : 'This recipient is not allowed for your role.'
     );
   }
@@ -2420,7 +2426,7 @@ export async function withdrawDiamondsToSelf(
     sender.accountType === 'SUPER_AGENT' ||
     isBdAgentProfile(sender);
   if (!isAgency) {
-    throw new Error('Only BD Agents and Agents can withdraw diamonds to their own ID.');
+    throw new Error('Only the BD Agent, Super Agents and Agents can withdraw diamonds to their own ID.');
   }
 
   const tradingCoinsCredited = Math.floor(diamonds * 0.9);
@@ -2475,7 +2481,7 @@ export async function withdrawDiamondsToSelf(
     return { diamondsDebited: diamonds, tradingCoinsCredited };
   } catch (error) {
     if (error instanceof Error && error.message.startsWith('Insufficient')) throw error;
-    if (error instanceof Error && error.message.startsWith('Only BD Agents')) throw error;
+    if (error instanceof Error && error.message.startsWith('Only the BD Agent')) throw error;
     if (error instanceof Error && error.message.startsWith('Amount too small')) throw error;
     if (error instanceof Error && error.message.startsWith('Minimum withdrawal')) throw error;
     handleFirestoreError(error, OperationType.WRITE, `wallets/${sender.uid}`);

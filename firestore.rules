@@ -47,14 +47,12 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.accountType == 'SUPER_AGENT';
     }
 
-    // BD Agent: the provisioned SUPER_AGENT account (ID 112200 or 111112) — may also promote to SUPER_AGENT.
+    // BD Agent: ONLY the provisioned SUPER_AGENT account with ID 111112.
+    // Every other SUPER_AGENT is a regular Super Agent.
     function isBdAgent() {
       return isVerifiedUser() &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.accountType == 'SUPER_AGENT' &&
-        (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.platformId == '112200' ||
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.platformId == '111112'
-        );
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.platformId == '111112';
     }
 
     function isAgent() {

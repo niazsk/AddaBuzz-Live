@@ -116,7 +116,7 @@ const SUPER_AGENT_TILES: Tile[] = [
 ];
 
 const BD_AGENT_TILES: Tile[] = [
-  { id: 'super-agent-list', label: 'BD Agent List', icon: BadgeCheck, tone: 'sky' },
+  { id: 'super-agent-list', label: 'Super Agent List', icon: BadgeCheck, tone: 'sky' },
   { id: 'agent-list', label: 'Agent List', icon: Users, tone: 'indigo' },
   { id: 'my-agent', label: 'My Agent', icon: Users, tone: 'violet' },
   { id: 'my-host', label: 'My Host', icon: Mic, tone: 'rose' },
@@ -210,7 +210,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const roleLabel = isBdAgent
     ? 'BD Agent'
     : currentUser.accountType === 'SUPER_AGENT'
-    ? 'BD Agent'
+    ? 'Super Agent'
     : currentUser.accountType === 'AGENT'
     ? 'Agent'
     : 'User';

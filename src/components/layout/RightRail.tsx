@@ -2,6 +2,7 @@ import React from 'react';
 import { Coins, Gem, MessageSquare, ChevronRight } from 'lucide-react';
 import { UserProfile } from '../../types/app';
 import { Avatar } from '../ui/Avatar';
+import { isBdAgentProfile } from '../../lib/firestoreService';
 
 interface RightRailProps {
   users: UserProfile[];
@@ -151,7 +152,9 @@ export const RightRail: React.FC<RightRailProps> = ({
               </div>
               <span className="text-[11px] font-mono text-slate-400 shrink-0">
                 {user.accountType === 'SUPER_AGENT'
-                  ? 'BD AGENT'
+                  ? isBdAgentProfile(user)
+                    ? 'BD AGENT'
+                    : 'SUPER AGENT'
                   : user.accountType === 'AGENT'
                   ? 'AGENT'
                   : 'USER'}

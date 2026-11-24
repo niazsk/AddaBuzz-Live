@@ -162,7 +162,7 @@ export const WalletView: React.FC<WalletViewProps> = ({
               {diamondBalance.toLocaleString()}
             </p>
             <p className="text-[11px] text-slate-400 leading-snug">
-              Earned from live gifts. Withdrawable to BD Agents & Agents.
+              Earned from live gifts. Withdrawable to the BD Agent &amp; Agents.
             </p>
           </div>
 

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ArrowLeft, TrendingUp, Trophy, Award, ShieldCheck, Users, Search } from 'lucide-react';
 import { UserProfile } from '../../types/app';
 import { Avatar } from '../ui/Avatar';
+import { isBdAgentProfile } from '../../lib/firestoreService';
 
 interface AgentRankingViewProps {
   currentUser: UserProfile | null;
@@ -88,7 +89,7 @@ export const AgentRankingView: React.FC<AgentRankingViewProps> = ({
               filterType === 'SUPER_AGENT' ? 'bg-amber-500 text-[#111420] shadow-sm' : 'text-slate-400 hover:text-white'
             }`}
           >
-            BD Agents
+            BD Agent &amp; Super Agents
           </button>
           <button
             type="button"
@@ -153,7 +154,7 @@ export const AgentRankingView: React.FC<AgentRankingViewProps> = ({
                           isSuper ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-violet-500/20 text-violet-300'
                         }`}
                       >
-                        {isSuper ? 'BD Agent' : 'Agent'}
+                        {isBdAgentProfile(agent) ? 'BD Agent' : isSuper ? 'Super Agent' : 'Agent'}
                       </span>
                     </p>
                     <p className="text-xs text-slate-400 font-mono">
