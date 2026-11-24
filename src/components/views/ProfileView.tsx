@@ -7,6 +7,7 @@ import {
   Coins,
   CreditCard,
   Crown,
+  Download,
   Edit3,
   Gamepad2,
   Gem,
@@ -90,6 +91,7 @@ const FEATURE_TILES: Tile[] = [
   { id: 'honor', label: 'Honor Level', icon: ShieldCheck, tone: 'violet' },
   { id: 'deposit', label: 'Deposit', icon: CreditCard, tone: 'cyan' },
   { id: 'salary', label: 'Salary', icon: Gem, tone: 'fuchsia' },
+  { id: 'get-app', label: 'Get App', icon: Download, tone: 'emerald' },
 ];
 
 const AGENT_TILES: Tile[] = [
@@ -267,6 +269,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           else if (tile.id === 'salary') onOpenSection('salary');
           else if (tile.id === 'reward') onOpenSection('reward');
           else if (tile.id === 'host-rewards') onOpenSection('host-rewards');
+          else if (tile.id === 'get-app') window.location.href = '/downloads/AddaBuzzLive.apk';
           else setComingSoon(tile.label);
         }}
         className={`group relative overflow-hidden rounded-2xl bg-white/[0.035] border border-white/[0.07] hover:bg-white/[0.07] hover:border-white/[0.16] p-3.5 flex flex-col items-center gap-2.5 transition-all duration-200 hover:-translate-y-0.5 ${

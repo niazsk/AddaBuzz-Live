@@ -2,6 +2,13 @@
   "hosting": {
     "public": "dist",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**", "assets/aistudio/**"],
+    "redirects": [
+      {
+        "source": "/downloads/AddaBuzzLive.apk",
+        "destination": "https://github.com/niazsk/AddaBuzz-Live/releases/latest/download/AddaBuzzLive.apk",
+        "type": 302
+      }
+    ],
     "rewrites": [
       {
         "source": "**",

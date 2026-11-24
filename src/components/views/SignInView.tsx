@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   ArrowLeft,
   Check,
+  Download,
   Eye,
   EyeOff,
   Gem,
@@ -744,6 +745,15 @@ export const SignInView: React.FC<SignInViewProps> = ({
                   <LogIn className="w-4 h-4" />
                   <span>Continue with Google</span>
                 </button>
+
+                <a
+                  href="/downloads/AddaBuzzLive.apk"
+                  download="AddaBuzzLive.apk"
+                  className="w-full h-10 rounded-xl border border-white/[0.09] bg-white/[0.03] hover:bg-white/[0.07] text-xs font-semibold text-slate-300 hover:text-white inline-flex items-center justify-center gap-2 transition-colors"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Download Android App</span>
+                </a>
               </>
             )}
           </div>
