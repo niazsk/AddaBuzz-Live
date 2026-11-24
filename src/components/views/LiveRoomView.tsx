@@ -1118,53 +1118,23 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
 
       {/* Bottom stack: chat, controls, input */}
       <div className={`${isSolo ? 'absolute inset-x-0 bottom-0' : 'relative order-3 shrink-0'} z-10 flex flex-col gap-2.5 px-3 sm:px-4 pb-3`}>
-        {/* Live boards: chat, Fruit Manor and Golden Flower share this slot */}
-        <div className="flex items-center gap-1.5">
-          {([
-            {
-              id: 'chat' as const,
-              label: 'Chat',
-              icon: <MessagesSquare className="h-3 w-3" />,
-              activeCls: 'border-white/30 bg-white/15 text-white',
-            },
-            {
-              id: 'fruit' as const,
-              label: 'Fruit Manor',
-              icon: <Cherry className="h-3 w-3" />,
-              activeCls: 'border-emerald-300/45 bg-emerald-500/25 text-emerald-100',
-            },
-            {
-              id: 'golden' as const,
-              label: 'Golden Flower',
-              icon: <Flower2 className="h-3 w-3" />,
-              activeCls: 'border-amber-300/45 bg-amber-500/25 text-amber-100',
-            },
-          ]).map((tab) => (
+        {/* Live game board overlay if active, with a quick return to chat button */}
+        {boardTab !== 'chat' && (
+          <div className="flex items-center justify-between pb-1">
+            <span className="text-[11px] font-bold text-violet-300 flex items-center gap-1.5">
+              <Gamepad2 className="w-3.5 h-3.5" />
+              {boardTab === 'fruit' ? 'Fruit Manor Live' : 'Golden Flower Live'}
+            </span>
             <button
-              key={tab.id}
               type="button"
-              onClick={() => setBoardTab(tab.id)}
-              aria-pressed={boardTab === tab.id}
-              className={`inline-flex h-7 items-center gap-1 rounded-full border px-2 text-[9px] font-bold backdrop-blur-md transition-colors ${
-                boardTab === tab.id
-                  ? tab.activeCls
-                  : 'border-white/10 bg-black/40 text-slate-300 hover:bg-black/60 hover:text-white'
-              }`}
+              onClick={() => setBoardTab('chat')}
+              className="px-2.5 py-1 rounded-full bg-white/10 hover:bg-white/20 text-[10px] font-semibold text-white flex items-center gap-1 transition-colors"
             >
-              {tab.icon}
-              <span>{tab.label}</span>
+              <MessagesSquare className="w-3 h-3" />
+              <span>Back to Chat</span>
             </button>
-          ))}
-          <button
-            type="button"
-            onClick={() => setShowGamesModal(true)}
-            aria-label="Open Games"
-            className="inline-flex h-7 items-center gap-1 rounded-full border border-violet-400/30 bg-violet-600/30 text-violet-200 hover:bg-violet-600/50 hover:text-white px-2.5 text-[9px] font-bold backdrop-blur-md transition-colors ml-auto"
-          >
-            <Gamepad2 className="h-3.5 w-3.5 text-violet-300" />
-            <span>Games</span>
-          </button>
-        </div>
+          </div>
+        )}
 
         {boardTab === 'chat' ? (
         <div
