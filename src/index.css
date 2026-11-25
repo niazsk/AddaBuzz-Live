@@ -235,6 +235,16 @@ main h1.font-display[class*="text-lg"] {
     gfx-float 2.4s ease-in-out 0.55s infinite;
 }
 
+/* Live like hearts rising from the reaction button */
+@keyframes live-like-rise {
+  0% { transform: translateY(0) scale(0.55); opacity: 0; }
+  14% { opacity: 1; }
+  100% { transform: translateY(-130px) scale(1.2) rotate(var(--like-rotate, 0deg)); opacity: 0; }
+}
+.live-like-heart {
+  animation: live-like-rise 1.5s ease-out both;
+}
+
 @keyframes gfx-legend-in {
   0% { transform: scale(0.15) rotateY(80deg); opacity: 0; }
   42% { transform: scale(1.1) rotateY(-6deg); opacity: 1; }

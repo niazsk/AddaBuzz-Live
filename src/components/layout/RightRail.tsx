@@ -3,9 +3,11 @@ import { Coins, Gem, MessageSquare, ChevronRight } from 'lucide-react';
 import { UserProfile } from '../../types/app';
 import { Avatar } from '../ui/Avatar';
 import { isBdAgentProfile } from '../../lib/firestoreService';
+import { formatRelativeMs, isPresenceOnline } from '../../lib/chatService';
 
 interface RightRailProps {
   users: UserProfile[];
+  presence: Record<string, number>;
   coinBalance: number;
   diamondBalance: number;
   onOpenUserProfile: (user: UserProfile) => void;
@@ -18,6 +20,7 @@ interface RightRailProps {
 
 export const RightRail: React.FC<RightRailProps> = ({
   users,
+  presence,
   coinBalance,
   diamondBalance,
   onOpenUserProfile,
@@ -27,8 +30,25 @@ export const RightRail: React.FC<RightRailProps> = ({
   onOpenWallet,
   hideWallet = false,
 }) => {
-  const onlineFriends = users.filter((u) => u.isOnline && u.showPresence).slice(0, 4);
-  const recentlyActive = users.filter((u) => !u.isOnline || u.isNewCreator).slice(0, 4);
+  // Presence comes from real heartbeats; stored isOnline flags are not trusted.
+  const onlineFriends = users
+    .filter(
+      (u) =>
+        u.showPresence !== false &&
+        isPresenceOnline({ uid: u.uid, lastSeenMs: presence[u.uid] ?? 0 })
+    )
+    .slice(0, 4);
+  const recentlyActive = users
+    .filter((u) => !onlineFriends.some((o) => o.uid === u.uid) || u.isNewCreator)
+    .slice(0, 4);
+
+  const activityLabel = (user: UserProfile) => {
+    if (user.showPresence === false) return 'Presence hidden';
+    const lastSeen = presence[user.uid] ?? 0;
+    if (isPresenceOnline({ uid: user.uid, lastSeenMs: lastSeen })) return 'Active now';
+    if (!lastSeen) return 'Offline';
+    return `Active ${formatRelativeMs(lastSeen)} ago`;
+  };
 
   return (
     <aside className="hidden xl:flex xl:flex-col xl:w-[300px] xl:shrink-0 xl:sticky xl:top-0 xl:h-screen border-l border-white/[0.07] bg-gradient-to-b from-[#0B0E17] via-[#090B12] to-[#070810] px-5 py-6 space-y-7 overflow-y-auto">
@@ -111,7 +131,7 @@ export const RightRail: React.FC<RightRailProps> = ({
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-slate-100 truncate">{user.displayName}</p>
                   <p className="text-xs text-slate-400 truncate">
-                    @{user.username} · {user.lastActiveLabel}
+                    @{user.username} · {activityLabel(user)}
                   </p>
                 </div>
               </button>
@@ -147,7 +167,7 @@ export const RightRail: React.FC<RightRailProps> = ({
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-medium text-slate-200 truncate">{user.displayName}</p>
                 <p className="text-[11px] text-slate-500 truncate">
-                  {user.country} · {user.lastActiveLabel}
+                  {user.country} · {activityLabel(user)}
                 </p>
               </div>
               <span className="text-[11px] font-mono text-slate-400 shrink-0">

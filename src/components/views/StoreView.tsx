@@ -4,16 +4,19 @@ import {
   Gift,
   Coins,
   Gem,
+  Image,
+  ReceiptText,
   ShoppingBag,
   Sparkles,
   Search,
 } from 'lucide-react';
-import { GiftCatalogItem } from '../../types/app';
+import { GiftCatalogItem, WalletTransaction } from '../../types/app';
 import { GIFT_CATALOG, giftTier } from '../../data/gifts';
 
 interface StoreViewProps {
   coinBalance: number;
   diamondBalance: number;
+  transactions?: WalletTransaction[];
   onBack: () => void;
   onToast?: (title: string, desc?: string, tone?: 'info' | 'success' | 'warning' | 'error') => void;
 }
@@ -21,12 +24,18 @@ interface StoreViewProps {
 export const StoreView: React.FC<StoreViewProps> = ({
   coinBalance,
   diamondBalance,
+  transactions = [],
   onBack,
   onToast,
 }) => {
+  const [tab, setTab] = useState<'GIFTS' | 'ORDERS' | 'DECOR'>('GIFTS');
   const [selectedCategory, setSelectedCategory] = useState<'ALL' | 'CLASSIC' | 'PREMIUM' | 'LUXURY'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedGift, setSelectedGift] = useState<GiftCatalogItem | null>(null);
+
+  const orders = transactions.filter(
+    (tx) => tx.direction === 'DEBIT' && tx.reason.startsWith('Sent ')
+  );
 
   const filteredGifts = GIFT_CATALOG.filter((g) => {
     const matchesSearch = g.name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -88,6 +97,87 @@ export const StoreView: React.FC<StoreViewProps> = ({
         </div>
       </div>
 
+      {/* Store tabs */}
+      <div className="flex gap-1.5 p-1 rounded-xl bg-[#111420] border border-white/[0.08] w-full sm:w-auto">
+        {(
+          [
+            { id: 'GIFTS', label: 'Gift Shop', icon: Gift },
+            { id: 'ORDERS', label: 'Purchase History', icon: ReceiptText },
+            { id: 'DECOR', label: 'Frames & Decor', icon: Image },
+          ] as const
+        ).map((item) => {
+          const Icon = item.icon;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => setTab(item.id)}
+              className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-medium inline-flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap ${
+                tab === item.id
+                  ? 'bg-amber-500 text-[#0B0D14] font-bold'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              <span>{item.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {tab === 'ORDERS' && (
+        <section className="space-y-2">
+          <div className="rounded-2xl bg-[#111420] border border-white/[0.08] divide-y divide-white/[0.06] overflow-hidden">
+            {orders.length === 0 ? (
+              <div className="px-4 py-8 text-center space-y-1.5">
+                <ReceiptText className="w-6 h-6 text-slate-500 mx-auto" />
+                <p className="text-xs text-slate-400">
+                  No gift purchases in the loaded wallet history.
+                </p>
+                <p className="text-[11px] text-slate-500">
+                  Gifts are purchased at the moment you send them in a live room or chat. Your
+                  recent purchases appear here.
+                </p>
+              </div>
+            ) : (
+              orders.map((tx) => (
+                <div
+                  key={tx.transactionId}
+                  className="flex items-center justify-between gap-3 px-4 py-3"
+                >
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-slate-200 truncate">{tx.reason}</p>
+                    <p className="text-[10px] text-slate-500">
+                      {tx.counterparty ? `${tx.counterparty} · ` : ''}
+                      {tx.timestampLabel}
+                    </p>
+                  </div>
+                  <span className="text-xs font-bold text-rose-300 tabular-nums shrink-0">
+                    -{tx.amount.toLocaleString()} {tx.currency === 'COIN' ? '🪙' : '💎'}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+          <p className="text-[10px] text-slate-500 px-1">
+            Purchases are recorded automatically in your audited wallet ledger.
+          </p>
+        </section>
+      )}
+
+      {tab === 'DECOR' && (
+        <section className="rounded-2xl bg-[#111420] border border-white/[0.08] px-4 py-10 text-center space-y-2">
+          <Image className="w-7 h-7 text-slate-500 mx-auto" />
+          <p className="text-sm font-medium text-slate-200">Frames & decorations coming soon</p>
+          <p className="text-[11px] text-slate-500 max-w-md mx-auto leading-relaxed">
+            Profile frames, entry effects and room decorations are not released yet. When they
+            launch, purchases will appear here with your full order history.
+          </p>
+        </section>
+      )}
+
+      {tab === 'GIFTS' && (
+        <>
       {/* Filter and Search */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
         <div className="flex items-center gap-1.5 p-1 rounded-xl bg-[#111420] border border-white/[0.08] w-full sm:w-auto overflow-x-auto">
@@ -213,6 +303,8 @@ export const StoreView: React.FC<StoreViewProps> = ({
             Send in Live Room
           </button>
         </div>
+      )}
+        </>
       )}
     </div>
   );

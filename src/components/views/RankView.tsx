@@ -16,18 +16,29 @@ export const RankView: React.FC<RankViewProps> = ({
   onOpenUserProfile,
   onBack,
 }) => {
-  const [tab, setTab] = useState<'creators' | 'rich' | 'daily'>('creators');
+  const [tab, setTab] = useState<'creators' | 'users' | 'agents' | 'daily'>('creators');
+
+  const pool = tab === 'agents' ? users.filter((u) => u.accountType !== 'USER') : users;
 
   // Sort users based on active tab criteria
-  const rankedUsers = [...users].sort((a, b) => {
-    if (tab === 'creators') {
+  const rankedUsers = [...pool].sort((a, b) => {
+    if (tab === 'creators' || tab === 'agents') {
       return (b.followersCount ?? 0) - (a.followersCount ?? 0);
-    } else if (tab === 'rich') {
+    } else if (tab === 'users') {
       return (b.visitorsCount ?? 0) - (a.visitorsCount ?? 0);
     } else {
       return (b.followersCount ?? 0) + (b.visitorsCount ?? 0) - ((a.followersCount ?? 0) + (a.visitorsCount ?? 0));
     }
   });
+
+  const metricText = (user: UserProfile): string => {
+    if (tab === 'users') return `${user.visitorsCount.toLocaleString()} visits`;
+    if (tab === 'agents') return `${user.followersCount.toLocaleString()} fans`;
+    if (tab === 'daily') {
+      return `${((user.followersCount ?? 0) + (user.visitorsCount ?? 0)).toLocaleString()} score`;
+    }
+    return `${user.followersCount.toLocaleString()} fans`;
+  };
 
   const top3 = rankedUsers.slice(0, 3);
   const rest = rankedUsers.slice(3, 30);
@@ -51,43 +62,33 @@ export const RankView: React.FC<RankViewProps> = ({
       </div>
 
       {/* Tabs */}
-      <div className="flex rounded-2xl bg-[#111420] border border-white/[0.08] p-1.5 gap-1">
-        <button
-          type="button"
-          onClick={() => setTab('creators')}
-          className={`flex-1 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
-            tab === 'creators'
-              ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-[#111420] shadow-md shadow-amber-500/20'
-              : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          <Crown className="w-4 h-4" />
-          <span>Top Creators</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setTab('rich')}
-          className={`flex-1 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
-            tab === 'rich'
-              ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-md shadow-violet-600/20'
-              : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          <Flame className="w-4 h-4" />
-          <span>Star Popular</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setTab('daily')}
-          className={`flex-1 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
-            tab === 'daily'
-              ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-[#111420] shadow-md shadow-emerald-500/20'
-              : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          <TrendingUp className="w-4 h-4" />
-          <span>Daily Rising</span>
-        </button>
+      <div className="grid grid-cols-4 rounded-2xl bg-[#111420] border border-white/[0.08] p-1.5 gap-1">
+        {(
+          [
+            { id: 'creators', label: 'Creators', icon: Crown },
+            { id: 'users', label: 'Users', icon: Flame },
+            { id: 'agents', label: 'Agents', icon: Medal },
+            { id: 'daily', label: 'Rising', icon: TrendingUp },
+          ] as const
+        ).map((item) => {
+          const Icon = item.icon;
+          const active = tab === item.id;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => setTab(item.id)}
+              className={`py-2.5 rounded-xl text-[11px] sm:text-xs font-semibold flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 transition-all ${
+                active
+                  ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-[#111420] shadow-md shadow-amber-500/20'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Icon className="w-4 h-4" />
+              <span>{item.label}</span>
+            </button>
+          );
+        })}
       </div>
 
       {/* Podium (Top 3) */}
@@ -112,7 +113,7 @@ export const RankView: React.FC<RankViewProps> = ({
                 </p>
                 <div className="w-full h-20 rounded-t-2xl bg-white/[0.05] border-t-2 border-slate-300 flex flex-col items-center justify-center">
                   <span className="text-[11px] font-mono text-slate-300 font-semibold">
-                    {tab === 'creators' ? `${top3[1].followersCount} fans` : `${top3[1].visitorsCount} visits`}
+                    {metricText(top3[1])}
                   </span>
                 </div>
               </button>
@@ -137,7 +138,7 @@ export const RankView: React.FC<RankViewProps> = ({
                 </p>
                 <div className="w-full h-28 rounded-t-2xl bg-gradient-to-t from-amber-500/20 to-amber-500/40 border-t-2 border-amber-400 flex flex-col items-center justify-center">
                   <span className="text-xs font-mono text-amber-200 font-bold">
-                    {tab === 'creators' ? `${top3[0].followersCount} fans` : `${top3[0].visitorsCount} visits`}
+                    {metricText(top3[0])}
                   </span>
                   <span className="text-[10px] text-amber-300/80 font-medium mt-0.5">Top Champion</span>
                 </div>
@@ -162,7 +163,7 @@ export const RankView: React.FC<RankViewProps> = ({
                 </p>
                 <div className="w-full h-16 rounded-t-2xl bg-white/[0.04] border-t-2 border-amber-700 flex flex-col items-center justify-center">
                   <span className="text-[11px] font-mono text-amber-200/80 font-semibold">
-                    {tab === 'creators' ? `${top3[2].followersCount} fans` : `${top3[2].visitorsCount} visits`}
+                    {metricText(top3[2])}
                   </span>
                 </div>
               </button>
@@ -177,6 +178,11 @@ export const RankView: React.FC<RankViewProps> = ({
           Top Performers
         </h2>
         <div className="rounded-2xl bg-[#111420] border border-white/[0.08] divide-y divide-white/[0.06] overflow-hidden">
+          {rankedUsers.length === 0 && (
+            <p className="px-4 py-8 text-center text-xs text-slate-500">
+              No agents are ranked yet. Promoted agents appear here automatically.
+            </p>
+          )}
           {rest.map((user, idx) => {
             const rankPos = idx + 4;
             const isMe = currentUser?.uid === user.uid;
@@ -208,7 +214,7 @@ export const RankView: React.FC<RankViewProps> = ({
                 </div>
                 <div className="text-right">
                   <p className="text-xs font-mono font-bold text-amber-400">
-                    {tab === 'creators' ? `${user.followersCount.toLocaleString()} fans` : `${user.visitorsCount.toLocaleString()} visits`}
+                    {metricText(user)}
                   </p>
                   <span className="text-[10px] text-slate-500 flex items-center justify-end gap-1">
                     <Sparkles className="w-3 h-3 text-amber-400/70" />

@@ -6,6 +6,7 @@ interface NotificationsDrawerProps {
   open: boolean;
   notifications: NotificationItem[];
   onClose: () => void;
+  onMarkRead: (id: string) => void;
   onMarkAllRead: () => void;
 }
 
@@ -13,6 +14,7 @@ export const NotificationsDrawer: React.FC<NotificationsDrawerProps> = ({
   open,
   notifications,
   onClose,
+  onMarkRead,
   onMarkAllRead,
 }) => {
   if (!open) return null;
@@ -53,10 +55,24 @@ export const NotificationsDrawer: React.FC<NotificationsDrawerProps> = ({
         </div>
 
         <div className="flex-1 overflow-y-auto divide-y divide-white/[0.06]">
+          {notifications.length === 0 && (
+            <div className="p-10 text-center">
+              <p className="text-sm font-semibold text-white">You are all caught up</p>
+              <p className="mt-1 text-xs text-slate-400">
+                Friend requests, new followers, messages and live invites appear here.
+              </p>
+            </div>
+          )}
           {notifications.map((item) => (
-            <div
+            <button
               key={item.id}
-              className={`p-4 space-y-1 ${item.isRead ? 'opacity-70' : 'bg-white/[0.02]'}`}
+              type="button"
+              onClick={() => {
+                if (!item.isRead) onMarkRead(item.id);
+              }}
+              className={`block w-full p-4 text-left space-y-1 transition-colors hover:bg-white/[0.04] ${
+                item.isRead ? 'opacity-70' : 'bg-white/[0.02]'
+              }`}
             >
               <div className="flex items-center justify-between gap-2">
                 <p className="text-sm font-medium text-white">{item.title}</p>
@@ -65,7 +81,12 @@ export const NotificationsDrawer: React.FC<NotificationsDrawerProps> = ({
                 </span>
               </div>
               <p className="text-xs text-slate-300 leading-relaxed">{item.body}</p>
-            </div>
+              {!item.isRead && (
+                <span className="inline-block rounded-full bg-fuchsia-500/15 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-fuchsia-200">
+                  New
+                </span>
+              )}
+            </button>
           ))}
         </div>
       </div>

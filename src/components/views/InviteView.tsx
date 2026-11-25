@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Users, Copy, Check, Share2, Sparkles, Gift, QrCode } from 'lucide-react';
+import { ArrowLeft, Users, Copy, Check, Share2, Sparkles, Gift, Info } from 'lucide-react';
 import { UserProfile } from '../../types/app';
 
 interface InviteViewProps {
@@ -9,8 +9,8 @@ interface InviteViewProps {
 
 export const InviteView: React.FC<InviteViewProps> = ({ currentUser, onBack }) => {
   const [copied, setCopied] = useState(false);
-  const inviteCode = currentUser?.platformId ?? 'ADDA777';
-  const inviteUrl = `${window.location.origin}/?ref=${inviteCode}`;
+  const inviteCode = currentUser?.platformId ?? '';
+  const inviteUrl = `${window.location.origin}${window.location.pathname}?ref=${inviteCode}`;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(inviteUrl);
@@ -23,7 +23,7 @@ export const InviteView: React.FC<InviteViewProps> = ({ currentUser, onBack }) =
       try {
         await navigator.share({
           title: 'Join me on AddaBuzz Live!',
-          text: `Use my invite code ${inviteCode} to join AddaBuzz Live and get bonus coins!`,
+          text: `Join me on AddaBuzz Live — my invite code is ${inviteCode}.`,
           url: inviteUrl,
         });
       } catch {
@@ -59,11 +59,9 @@ export const InviteView: React.FC<InviteViewProps> = ({ currentUser, onBack }) =
         </div>
 
         <div className="space-y-1">
-          <h2 className="font-display text-xl font-bold text-white">
-            Invite Friends, Get 5,000 Coins
-          </h2>
+          <h2 className="font-display text-xl font-bold text-white">Invite Your Friends</h2>
           <p className="text-xs text-slate-300 max-w-sm mx-auto">
-            Share your unique invite code with friends. When they sign up, both of you get rewards instantly!
+            Share your unique invite code so friends can find you on AddaBuzz Live.
           </p>
         </div>
 
@@ -106,28 +104,27 @@ export const InviteView: React.FC<InviteViewProps> = ({ currentUser, onBack }) =
         </button>
       </div>
 
-      {/* Rewards Milestones */}
-      <section className="rounded-2xl bg-[#111420] border border-white/[0.08] p-5 space-y-4">
+      {/* Referral status */}
+      <section className="rounded-2xl bg-[#111420] border border-white/[0.08] p-5 space-y-3">
         <h3 className="font-display text-sm font-semibold text-white flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-amber-400" />
-          <span>Invite Rewards Milestone</span>
+          <span>Referral Status</span>
         </h3>
-        <div className="grid grid-cols-3 gap-2.5 text-center">
-          <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/[0.06] space-y-1">
-            <p className="font-mono text-base font-bold text-amber-400">1 Friend</p>
-            <p className="text-[11px] text-slate-300">5,000 Coins</p>
-            <span className="inline-block text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-medium">Starter</span>
-          </div>
-          <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/[0.06] space-y-1">
-            <p className="font-mono text-base font-bold text-amber-400">5 Friends</p>
-            <p className="text-[11px] text-slate-300">30,000 Coins</p>
-            <span className="inline-block text-[9px] px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-400 font-medium">Popular</span>
-          </div>
-          <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/[0.06] space-y-1">
-            <p className="font-mono text-base font-bold text-amber-400">10 Friends</p>
-            <p className="text-[11px] text-slate-300">80,000 Coins</p>
-            <span className="inline-block text-[9px] px-1.5 py-0.5 rounded bg-fuchsia-500/10 text-fuchsia-400 font-medium">VIP Tier</span>
-          </div>
+        <div className="flex items-start gap-2.5 rounded-xl bg-amber-500/[0.07] border border-amber-500/20 p-3">
+          <Info className="w-4 h-4 text-amber-300 shrink-0 mt-0.5" />
+          <p className="text-[11px] text-slate-300 leading-relaxed">
+            Invite rewards are not enabled yet, so no coins are credited for referrals at this
+            time. Sharing your code helps friends find you, but the app does not currently track
+            who joined through your link.
+          </p>
+        </div>
+        <div className="rounded-xl bg-white/[0.03] border border-white/[0.06] px-4 py-6 text-center">
+          <Users className="w-6 h-6 text-slate-500 mx-auto" />
+          <p className="mt-2 text-xs font-medium text-slate-200">No referral history yet</p>
+          <p className="mt-1 text-[11px] text-slate-500 max-w-sm mx-auto">
+            Referrals will be listed here if the referral tracking backend is enabled in the
+            future.
+          </p>
         </div>
       </section>
     </div>

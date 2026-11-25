@@ -1,29 +1,39 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Ban,
+  Camera,
   Check,
   Cherry,
   Coins,
   Eye,
+  Flag,
   Flower2,
   Gamepad2,
   Gift,
   Heart,
+  Loader2,
   Lock,
   LogOut,
   MessagesSquare,
   Mic,
   MicOff,
+  MoreHorizontal,
   Radio,
   RefreshCw,
   Send,
   Share2,
   ShieldAlert,
+  ShieldCheck,
+  SlidersHorizontal,
+  Smile,
   Sparkles,
+  Trash2,
   Unlock,
   UserCheck,
   UserMinus,
   UserPlus,
   Users,
+  UserX,
   Video,
   VideoOff,
   Volume2,
@@ -36,10 +46,15 @@ import {
   JoinRequest,
   LiveRoom,
   RoomComment,
+  RoomModerator,
   UserProfile,
 } from '../../types/app';
 import {
   LocalMediaHandle,
+  VIDEO_QUALITIES,
+  VideoQuality,
+  describeMediaError,
+  listMediaDevices,
   startLocalMediaCapture,
 } from '../../lib/mediaProvider';
 import {
@@ -49,6 +64,12 @@ import {
   startGuestBroadcast,
   startHostBroadcast,
 } from '../../lib/webrtcBroadcast';
+import {
+  sendRoomLikesDoc,
+  subscribeRoomLikes,
+  subscribeRoomModerators,
+  subscribeRoomPresence,
+} from '../../lib/firestoreService';
 import { Avatar } from '../ui/Avatar';
 import { MediaImage } from '../ui/MediaImage';
 import { GiftArtwork } from '../ui/GiftArtwork';
@@ -64,6 +85,48 @@ import {
 } from '../../data/luckyGifts';
 import { FruitManorLiveBoard } from '../games/FruitManorLiveBoard';
 import { GoldenFlowerLiveBoard } from '../games/GoldenFlowerLiveBoard';
+
+type LiveMediaPrefs = {
+  cameraId: string;
+  micId: string;
+  quality: VideoQuality;
+  noiseSuppression: boolean;
+  echoCancellation: boolean;
+  mirror: boolean;
+};
+
+const MEDIA_PREFS_KEY = 'addabuzz.liveMediaPrefs.v1';
+const DEFAULT_MEDIA_PREFS: LiveMediaPrefs = {
+  cameraId: '',
+  micId: '',
+  quality: '720p',
+  noiseSuppression: true,
+  echoCancellation: true,
+  mirror: true,
+};
+
+function loadMediaPrefs(): LiveMediaPrefs {
+  try {
+    const raw = window.localStorage.getItem(MEDIA_PREFS_KEY);
+    if (!raw) return DEFAULT_MEDIA_PREFS;
+    const parsed = JSON.parse(raw) as Partial<LiveMediaPrefs>;
+    return { ...DEFAULT_MEDIA_PREFS, ...parsed };
+  } catch {
+    return DEFAULT_MEDIA_PREFS;
+  }
+}
+
+function saveMediaPrefs(prefs: LiveMediaPrefs) {
+  try {
+    window.localStorage.setItem(MEDIA_PREFS_KEY, JSON.stringify(prefs));
+  } catch {
+    // Preferences are a convenience; capture still works without persistence.
+  }
+}
+
+const CHAT_EMOJIS = ['❤️', '🔥', '👏', '😂', '😮', '💎', '🎉', '👍', '💜', '🥳', '😍', '🙌'];
+
+type FloatingLike = { id: string; offset: number; rotate: number };
 
 const GuestTileMedia: React.FC<{
   stream: MediaStream;
@@ -105,16 +168,19 @@ interface LiveRoomViewProps {
   joinRequests: JoinRequest[];
   comments: RoomComment[];
   host: UserProfile;
+  users: UserProfile[];
   currentUser: UserProfile | null;
   isAdminUser: boolean;
   gifts: GiftCatalogItem[];
   coinBalance: number;
   isFollowingHost: boolean;
   isOfflineSimulated: boolean;
+  blockedUids: string[];
+  followingUids: string[];
   onLeaveRoom: () => void;
   onEndRoom: (roomId: string) => void;
   onToggleFollow: (uid: string) => void;
-  onSendComment: (roomId: string, text: string) => void;
+  onSendComment: (roomId: string, text: string) => void | Promise<void>;
   onSendGift: (roomId: string, gift: GiftCatalogItem, recipientUid?: string) => void;
   onSendLuckyGift: (
     roomId: string,
@@ -129,6 +195,13 @@ interface LiveRoomViewProps {
   onToggleSeatLock: (roomId: string, seat: GuestSeat) => void;
   onToggleMuteGuest: (roomId: string, seat: GuestSeat) => void;
   onRemoveGuest: (roomId: string, seatNumber: number) => void;
+  onKickViewer: (roomId: string, viewerUid: string) => void;
+  onDeleteComment: (roomId: string, comment: RoomComment) => void;
+  onAddModerator: (roomId: string, uid: string) => void;
+  onRemoveModerator: (roomId: string, uid: string) => void;
+  onInviteViewer: (uid: string) => void;
+  onReportUser: (uid: string) => void;
+  onToggleBlock: (uid: string) => void;
   onShareRoom: (room: LiveRoom) => void;
   onOpenReportRoom: (room: LiveRoom) => void;
   onOpenProfile: (user: UserProfile) => void;
@@ -141,12 +214,15 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
   joinRequests,
   comments,
   host,
+  users,
   currentUser,
   isAdminUser,
   gifts,
   coinBalance,
   isFollowingHost,
   isOfflineSimulated,
+  blockedUids,
+  followingUids,
   onLeaveRoom,
   onEndRoom,
   onToggleFollow,
@@ -160,13 +236,36 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
   onToggleSeatLock,
   onToggleMuteGuest,
   onRemoveGuest,
+  onKickViewer,
+  onDeleteComment,
+  onAddModerator,
+  onRemoveModerator,
+  onInviteViewer,
+  onReportUser,
+  onToggleBlock,
   onShareRoom,
   onOpenReportRoom,
   onOpenProfile,
   onOpenAuth,
 }) => {
   const isOwnerHost = Boolean(currentUser && room.hostUid === currentUser.uid);
-  const canModerateSeats = isOwnerHost || isAdminUser;
+  const [moderators, setModerators] = useState<RoomModerator[]>([]);
+  useEffect(() => {
+    if (!currentUser) {
+      setModerators([]);
+      return;
+    }
+    return subscribeRoomModerators(room.roomId, setModerators);
+  }, [room.roomId, currentUser?.uid]);
+  const isModerator = Boolean(
+    currentUser && moderators.some((m) => m.uid === currentUser.uid)
+  );
+  const canModerate = isOwnerHost || isAdminUser || isModerator;
+  const canModerateSeats = canModerate;
+  const allowGuestRequests = room.allowGuestRequests !== false;
+  const allowViewerComments = room.allowViewerComments !== false;
+  const allowGifts = room.allowGifts !== false;
+  const hostApprovalForGuests = room.hostApprovalForGuests !== false;
   const mySeat = useMemo(
     () =>
       currentUser
@@ -179,19 +278,40 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
   const canPublishLocalMedia = Boolean(isOwnerHost || mySeat);
   const isSolo = room.mode === 'VIDEO';
 
-  const [likes, setLikes] = useState(0);
-
   const [micMuted, setMicMuted] = useState(false);
   const [cameraOff, setCameraOff] = useState(room.mode === 'AUDIO');
   const [cameraFacing, setCameraFacing] = useState<'Front' | 'Rear'>('Front');
   const [mediaActive, setMediaActive] = useState(false);
+  const [mediaStarting, setMediaStarting] = useState(false);
   const [mediaError, setMediaError] = useState<string | null>(null);
   const [audioLevel, setAudioLevel] = useState(0);
+  const [mediaPrefs, setMediaPrefs] = useState<LiveMediaPrefs>(loadMediaPrefs);
+  const [cameraDevices, setCameraDevices] = useState<MediaDeviceInfo[]>([]);
+  const [micDevices, setMicDevices] = useState<MediaDeviceInfo[]>([]);
+  const [peerCount, setPeerCount] = useState(0);
+
+  const [viewerUids, setViewerUids] = useState<string[]>([]);
+  const [viewersOpen, setViewersOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [kickTargetUid, setKickTargetUid] = useState<string | null>(null);
+
+  const [likeServerTotal, setLikeServerTotal] = useState(0);
+  const [likeLocalPending, setLikeLocalPending] = useState(0);
+  const [floatingLikes, setFloatingLikes] = useState<FloatingLike[]>([]);
+  const pendingLikesRef = useRef(0);
+  const likeFlushTimerRef = useRef<number | null>(null);
+  const lastServerLikeTotalRef = useRef<number | null>(null);
+  const floatingLikeSeqRef = useRef(0);
+
+  const [emojiOpen, setEmojiOpen] = useState(false);
+  const [sendingChat, setSendingChat] = useState(false);
+  const [messageMenuId, setMessageMenuId] = useState<string | null>(null);
 
   const mediaHandleRef = useRef<LocalMediaHandle | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
+  const chatInputRef = useRef<HTMLInputElement | null>(null);
 
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [remoteMuted, setRemoteMuted] = useState(true);
@@ -269,6 +389,13 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
     });
     return totals;
   }, [comments]);
+
+  const visibleComments = useMemo(
+    () => comments.filter((c) => !blockedUids.includes(c.uid)),
+    [comments, blockedUids]
+  );
+  const canComment = allowViewerComments || canModerate;
+  const giftsAllowed = allowGifts || isOwnerHost || isAdminUser;
 
   useEffect(() => {
     if (showGiftTray && !giftTargets.some((t) => t.uid === giftTargetUid)) {
@@ -365,6 +492,59 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
     if (el) el.scrollTop = el.scrollHeight;
   }, [comments.length]);
 
+  const spawnLikeHearts = (count: number) => {    if (count <= 0) return;
+    const items: FloatingLike[] = Array.from({ length: count }, () => ({
+      id: `like_${Date.now()}_${floatingLikeSeqRef.current++}`,
+      offset: Math.round(Math.random() * 30) - 15,
+      rotate: Math.round(Math.random() * 44) - 22,
+    }));
+    setFloatingLikes((prev) => [...prev.slice(-12), ...items]);
+    window.setTimeout(() => {
+      setFloatingLikes((prev) =>
+        prev.filter((f) => !items.some((item) => item.id === f.id))
+      );
+    }, 1600);
+  };
+
+  const refreshDevices = async () => {
+    const { cameras, mics } = await listMediaDevices();
+    setCameraDevices(cameras);
+    setMicDevices(mics);
+  };
+
+  // Real connected viewers: viewers keep one signaling doc in rtc/{uid} while
+  // they receive the stream, so this list is a live presence feed.
+  useEffect(() => {
+    if (!currentUser || isOfflineSimulated) {
+      setViewerUids([]);
+      return;
+    }
+    return subscribeRoomPresence(room.roomId, setViewerUids);
+  }, [room.roomId, currentUser?.uid, isOfflineSimulated]);
+
+  // Real-time likes: the client sums every viewer's additive counter doc.
+  useEffect(() => {
+    if (isOfflineSimulated) return;
+    return subscribeRoomLikes(room.roomId, (total) => {
+      setLikeServerTotal(total);
+      const prev = lastServerLikeTotalRef.current;
+      lastServerLikeTotalRef.current = total;
+      if (prev !== null && total > prev) {
+        spawnLikeHearts(Math.min(3, total - prev));
+      }
+    });
+  }, [room.roomId, isOfflineSimulated]);
+
+  // Camera / microphone device lists; refresh after permission and on hot-plug.
+  useEffect(() => {
+    void refreshDevices();
+    if (!navigator.mediaDevices?.addEventListener) return;
+    const onChange = () => void refreshDevices();
+    navigator.mediaDevices.addEventListener('devicechange', onChange);
+    return () => navigator.mediaDevices.removeEventListener('devicechange', onChange);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Clean up local WebRTC media when leaving or losing publisher role
   const stopLocalMedia = () => {
     if (mediaHandleRef.current) {
@@ -384,6 +564,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
         mediaHandleRef.current.stop();
         mediaHandleRef.current = null;
       }
+      if (likeFlushTimerRef.current) window.clearTimeout(likeFlushTimerRef.current);
     };
   }, [room.roomId]);
 
@@ -393,13 +574,32 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
     }
   }, [canPublishLocalMedia, mediaActive]);
 
-  const startOrRestartMedia = async (facing: 'Front' | 'Rear') => {
+  const applyMediaPrefs = async (patch: Partial<LiveMediaPrefs>, restart = true) => {
+    const next = { ...mediaPrefs, ...patch };
+    setMediaPrefs(next);
+    saveMediaPrefs(next);
+    if (restart && mediaActive) {
+      await startOrRestartMedia(cameraFacing, next);
+    }
+  };
+
+  const startOrRestartMedia = async (
+    facing: 'Front' | 'Rear',
+    prefsOverride?: LiveMediaPrefs
+  ) => {
+    const prefs = prefsOverride ?? mediaPrefs;
     setMediaError(null);
+    setMediaStarting(true);
     stopLocalMedia();
     try {
       const handle = await startLocalMediaCapture({
         mode: room.mode,
         facingMode: facing === 'Front' ? 'user' : 'environment',
+        cameraDeviceId: prefs.cameraId || undefined,
+        micDeviceId: prefs.micId || undefined,
+        quality: prefs.quality,
+        noiseSuppression: prefs.noiseSuppression,
+        echoCancellation: prefs.echoCancellation,
         onAudioLevel: (lvl) => setAudioLevel(lvl),
       });
       handle.setAudioMuted(micMuted);
@@ -409,13 +609,43 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
       if (videoRef.current) {
         videoRef.current.srcObject = handle.stream;
       }
+      void refreshDevices();
     } catch (err) {
-      setMediaError(
-        err instanceof Error
-          ? err.message
-          : 'Camera/microphone permission was denied.'
-      );
+      // A stale saved deviceId should not brick capture — retry once with the
+      // default device before surfacing the error.
+      const staleDevice =
+        (prefs.cameraId || prefs.micId) &&
+        err instanceof Error &&
+        ['OverconstrainedError', 'NotFoundError', 'DevicesNotFoundError'].includes(err.name);
+      if (staleDevice) {
+        const cleared = { ...prefs, cameraId: '', micId: '' };
+        setMediaPrefs(cleared);
+        saveMediaPrefs(cleared);
+        try {
+          const handle = await startLocalMediaCapture({
+            mode: room.mode,
+            facingMode: facing === 'Front' ? 'user' : 'environment',
+            quality: cleared.quality,
+            noiseSuppression: cleared.noiseSuppression,
+            echoCancellation: cleared.echoCancellation,
+            onAudioLevel: (lvl) => setAudioLevel(lvl),
+          });
+          handle.setAudioMuted(micMuted);
+          handle.setVideoEnabled(!cameraOff);
+          mediaHandleRef.current = handle;
+          setMediaActive(true);
+          if (videoRef.current) videoRef.current.srcObject = handle.stream;
+          void refreshDevices();
+          return;
+        } catch (retryErr) {
+          setMediaError(describeMediaError(retryErr));
+        }
+      } else {
+        setMediaError(describeMediaError(err));
+      }
       setMediaActive(false);
+    } finally {
+      setMediaStarting(false);
     }
   };
 
@@ -445,11 +675,17 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
 
   // Host: broadcast the local stream to every viewer over WebRTC
   useEffect(() => {
-    if (!isOwnerHost || !mediaActive || isOfflineSimulated) return;
+    if (!isOwnerHost || !mediaActive || isOfflineSimulated) {
+      setPeerCount(0);
+      return;
+    }
     const stream = mediaHandleRef.current?.stream;
     if (!stream) return;
-    const stopBroadcast = startHostBroadcast(room.roomId, stream);
-    return stopBroadcast;
+    const stopBroadcast = startHostBroadcast(room.roomId, stream, setPeerCount);
+    return () => {
+      stopBroadcast();
+      setPeerCount(0);
+    };
   }, [isOwnerHost, mediaActive, isOfflineSimulated, room.roomId]);
 
   // Seated guest: broadcast the local stream to every viewer over WebRTC
@@ -548,12 +784,24 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
   }, [remoteStream, room.mode]);
 
   const handleToggleMic = () => {
+    if (!mediaActive) {
+      void startOrRestartMedia(cameraFacing);
+      return;
+    }
     const next = !micMuted;
     setMicMuted(next);
     mediaHandleRef.current?.setAudioMuted(next);
   };
 
   const handleToggleCamera = () => {
+    if (!canPublishLocalMedia || room.mode === 'AUDIO') return;
+    if (!mediaActive) {
+      // Camera "on" while capture is stopped must actually start the device,
+      // not just flip a flag on a dead stream.
+      setCameraOff(false);
+      void startOrRestartMedia(cameraFacing);
+      return;
+    }
     const next = !cameraOff;
     setCameraOff(next);
     mediaHandleRef.current?.setVideoEnabled(!next);
@@ -562,12 +810,107 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
   const handleSwitchCamera = () => {
     const next = cameraFacing === 'Front' ? 'Rear' : 'Front';
     setCameraFacing(next);
+    const cleared = { ...mediaPrefs, cameraId: '' };
+    if (mediaPrefs.cameraId) {
+      setMediaPrefs(cleared);
+      saveMediaPrefs(cleared);
+    }
     if (mediaActive && room.mode !== 'AUDIO') {
-      void startOrRestartMedia(next);
+      void startOrRestartMedia(next, cleared);
     }
   };
 
+  const handleReconnect = () => {
+    if (canPublishLocalMedia) {
+      void startOrRestartMedia(cameraFacing);
+      return;
+    }
+    retryAttemptsRef.current = 0;
+    setBroadcastState('connecting');
+    setReconnectTick((t) => t + 1);
+  };
+
+  const focusChat = () => {
+    if (boardTab !== 'chat') setBoardTab('chat');
+    window.setTimeout(() => chatInputRef.current?.focus(), 60);
+  };
+
+  const likeTotal = likeServerTotal + likeLocalPending;
+
+  const flushLikes = async () => {
+    likeFlushTimerRef.current = null;
+    const delta = pendingLikesRef.current;
+    pendingLikesRef.current = 0;
+    if (!currentUser || delta <= 0) return;
+    try {
+      await sendRoomLikesDoc(room.roomId, currentUser.uid, Math.min(delta, 500));
+      setLikeLocalPending((n) => Math.max(0, n - delta));
+    } catch {
+      setLikeLocalPending(0);
+    }
+  };
+
+  const handleLike = () => {
+    if (!currentUser) {
+      onOpenAuth();
+      return;
+    }
+    if (isOfflineSimulated) return;
+    setLikeLocalPending((n) => n + 1);
+    spawnLikeHearts(1);
+    pendingLikesRef.current += 1;
+    if (likeFlushTimerRef.current === null) {
+      likeFlushTimerRef.current = window.setTimeout(() => void flushLikes(), 700);
+    }
+  };
+
+  const handleKickViewer = (viewerUid: string) => {
+    if (kickTargetUid !== viewerUid) {
+      setKickTargetUid(viewerUid);
+      return;
+    }
+    setKickTargetUid(null);
+    onKickViewer(room.roomId, viewerUid);
+    setViewerUids((prev) => prev.filter((uid) => uid !== viewerUid));
+  };
+
+  const handleMuteAllGuests = () => {
+    seats.forEach((seat) => {
+      if (seat.status === 'OCCUPIED' && !seat.isMuted) onToggleMuteGuest(room.roomId, seat);
+    });
+  };
+
+  const handleLockAllSeats = () => {
+    seats.forEach((seat) => {
+      if (seat.status === 'AVAILABLE') onToggleSeatLock(room.roomId, seat);
+    });
+  };
+
+  const handleUnlockAllSeats = () => {
+    seats.forEach((seat) => {
+      if (seat.status === 'LOCKED') onToggleSeatLock(room.roomId, seat);
+    });
+  };
+
   const occupiedCount = seats.filter((s) => s.status === 'OCCUPIED').length;
+
+  // Real connected viewers with their public profiles resolved where possible.
+  const viewerProfiles = useMemo(() => {
+    const byUid = new Map<string, UserProfile>();
+    users.forEach((u) => byUid.set(u.uid, u));
+    return viewerUids.map((uid) => {
+      const profile = byUid.get(uid);
+      const comment = comments.find((c) => c.uid === uid);
+      return {
+        uid,
+        profile,
+        displayName: profile?.displayName ?? comment?.displayName ?? 'Viewer',
+        username: profile?.username ?? comment?.username ?? `viewer_${uid.slice(0, 6)}`,
+        avatarColor: profile?.avatarColor ?? '#6366F1',
+        avatarUrl: profile?.avatarUrl,
+      };
+    });
+  }, [viewerUids, users, comments]);
 
   const formatDuration = (seconds: number) => {
     const h = Math.floor(seconds / 3600);
@@ -578,23 +921,49 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
       : `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   };
 
-  const handleSubmitChat = (e: React.FormEvent) => {
+  const handleSubmitChat = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser) {
       onOpenAuth();
       return;
     }
-    if (!chatInput.trim() || isOfflineSimulated) return;
-    onSendComment(room.roomId, chatInput.trim());
+    if (!canComment) return;
+    if (!chatInput.trim() || isOfflineSimulated || sendingChat) return;
+    const text = chatInput.trim();
     setChatInput('');
+    setSendingChat(true);
+    try {
+      await onSendComment(room.roomId, text);
+    } finally {
+      setSendingChat(false);
+    }
   };
 
   const hasRemoteVideo = Boolean(remoteStream) && room.mode !== 'AUDIO';
+  // Without an active capture there is no video/mic, even if the flags were never flipped.
+  const cameraInactive = !mediaActive || cameraOff;
+  const micInactive = !mediaActive || micMuted;
   const showLocalVideo =
     mediaActive && room.mode !== 'AUDIO' && !cameraOff && isOwnerHost;
   const showVideoFeed = showLocalVideo || hasRemoteVideo;
   const showCoverImage = !showVideoFeed && room.mode !== 'AUDIO' && !cameraOff;
-  const hostSpeaking = !micMuted && (mediaActive ? audioLevel > 10 : true);
+  const hostSpeaking = isOwnerHost
+    ? mediaActive && !micMuted && audioLevel > 10
+    : !micMuted && (mediaActive ? audioLevel > 10 : true);
+
+  // Never claim LIVE unless the actual media path is up: the host is capturing
+  // and publishing, or the viewer has a connected peer stream.
+  const viewerStreamLive = broadcastState === 'live' || Boolean(remoteStream);
+  const streamIsLive = isOwnerHost ? mediaActive : viewerStreamLive;
+  const statusBadge = streamIsLive
+    ? { label: 'LIVE', className: 'bg-rose-600 text-white' }
+    : isOwnerHost
+      ? mediaStarting
+        ? { label: 'STARTING', className: 'bg-amber-500/90 text-black' }
+        : { label: 'OFF AIR', className: 'bg-amber-500/90 text-black' }
+      : broadcastState === 'ended'
+        ? { label: 'STREAM ENDED', className: 'bg-slate-600 text-white' }
+        : { label: 'CONNECTING', className: 'bg-amber-500/90 text-black' };
 
   const railButtonClass =
     'w-11 h-11 rounded-full bg-black/45 backdrop-blur-md border border-white/15 hover:bg-black/65 flex items-center justify-center text-white transition-colors';
@@ -625,7 +994,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
                 playsInline
                 muted
                 className={`absolute inset-0 w-full h-full object-cover ${
-                  cameraFacing === 'Front' ? '-scale-x-100' : ''
+                  cameraFacing === 'Front' && mediaPrefs.mirror ? '-scale-x-100' : ''
                 }`}
               />
             ) : showCoverImage ? (
@@ -685,6 +1054,16 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
         <div className="absolute inset-x-0 bottom-0 h-64 bg-gradient-to-t from-black/85 via-black/40 to-transparent" />
       </div>
 
+      {/* Media start loading overlay (host) */}
+      {isSolo && isOwnerHost && mediaStarting && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
+          <div className="flex flex-col items-center gap-3 rounded-2xl bg-black/60 px-6 py-5 backdrop-blur-md border border-white/10">
+            <Loader2 className="w-7 h-7 animate-spin text-cyan-300" />
+            <p className="text-xs font-semibold text-white">Starting camera &amp; microphone…</p>
+          </div>
+        </div>
+      )}
+
       {/* Multi-guest stage: host in Seat 1 + guest seats in an adaptive tile grid */}
       {!isSolo && (
         <div className="relative order-2 flex-1 min-h-0 overflow-y-auto pl-3 pr-14 sm:px-4 pt-3 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -706,7 +1085,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
                   playsInline
                   muted
                   className={`absolute inset-0 w-full h-full object-cover ${
-                    cameraFacing === 'Front' ? '-scale-x-100' : ''
+                    cameraFacing === 'Front' && mediaPrefs.mirror ? '-scale-x-100' : ''
                   }`}
                 />
               ) : remoteStream && room.mode !== 'AUDIO' ? (
@@ -741,7 +1120,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
               <span className="absolute top-1.5 left-1.5 rounded-md bg-gradient-to-r from-fuchsia-500 to-violet-500 px-1.5 py-0.5 text-[9px] font-bold text-white">
                 HOST
               </span>
-              {!isOwnerHost && (
+              {!isOwnerHost && giftsAllowed && (
                 <button
                   type="button"
                   onClick={() => {
@@ -853,7 +1232,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
                             </button>
                           </>
                         )}
-                        {!isMySeat && seat.occupantUid && (
+                        {!isMySeat && seat.occupantUid && giftsAllowed && (
                           <button
                             type="button"
                             onClick={() => {
@@ -926,18 +1305,36 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
                     </div>
                   ) : (
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5">
-                      <button
-                        type="button"
-                        disabled={isOfflineSimulated || Boolean(mySeat)}
-                        onClick={() => onRequestSeat(room.roomId, seat.seatNumber)}
-                        aria-label={`Request seat ${seat.seatNumber}`}
-                        className="w-10 h-10 rounded-full bg-white/10 hover:bg-fuchsia-500/40 disabled:opacity-40 flex items-center justify-center text-slate-200 transition-colors"
-                      >
-                        <UserPlus className="w-4 h-4" />
-                      </button>
-                      <span className="text-[9px] text-slate-300">
-                        Seat {seat.seatNumber}
-                      </span>
+                      {allowGuestRequests ? (
+                        <>
+                          <button
+                            type="button"
+                            disabled={isOfflineSimulated || Boolean(mySeat)}
+                            onClick={() => onRequestSeat(room.roomId, seat.seatNumber)}
+                            aria-label={`Request seat ${seat.seatNumber}${
+                              hostApprovalForGuests ? ', host approval required' : ', instant join'
+                            }`}
+                            title={
+                              hostApprovalForGuests
+                                ? 'Request seat — the host approves guests'
+                                : 'Join seat instantly'
+                            }
+                            className="w-10 h-10 rounded-full bg-white/10 hover:bg-fuchsia-500/40 disabled:opacity-40 flex items-center justify-center text-slate-200 transition-colors"
+                          >
+                            <UserPlus className="w-4 h-4" />
+                          </button>
+                          <span className="text-[9px] text-slate-300">
+                            Seat {seat.seatNumber}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="w-9 h-9 rounded-full bg-white/5 flex items-center justify-center">
+                            <MicOff className="w-4 h-4 text-slate-400" />
+                          </span>
+                          <span className="text-[9px] text-slate-400">Requests off</span>
+                        </>
+                      )}
                       {canModerateSeats && (
                         <button
                           type="button"
@@ -958,7 +1355,9 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
       )}
 
       {/* Top overlay bar */}
-      <div className={`${isSolo ? 'absolute top-0 inset-x-0' : 'relative order-1 shrink-0'} z-20 px-3 sm:px-4 pt-3 flex items-center justify-between gap-2`}>
+      <div className={`${isSolo ? 'absolute top-0 inset-x-0' : 'relative order-1 shrink-0'} z-20 px-3 sm:px-4 ${
+        isSolo ? 'pt-[calc(env(safe-area-inset-top)+0.75rem)]' : 'pt-3'
+      } flex items-center justify-between gap-2`}>
         <div className="flex items-center gap-2 min-w-0">
           <button
             type="button"
@@ -972,18 +1371,18 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
             <Avatar
               name={host.displayName}
               color={host.avatarColor}
+              avatarUrl={host.avatarUrl}
               size="xs"
-              isLiveRing
+              isLiveRing={streamIsLive}
             />
             <span className="min-w-0 text-left">
               <span className="block text-xs font-bold text-white truncate max-w-[130px]">
                 {host.displayName}
               </span>
-              {isSolo && (
-                <span className="block text-[10px] font-medium text-cyan-300">
-                  {room.viewerCount.toLocaleString()} Viewers
-                </span>
-              )}
+              <span className="block text-[10px] font-medium text-slate-300 truncate max-w-[130px]">
+                @{host.username}
+                {isOwnerHost ? ' · You' : ''}
+              </span>
             </span>
           </button>
           {!isOwnerHost && (
@@ -1002,16 +1401,27 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
-          <span className="inline-flex items-center gap-1 rounded-full bg-black/45 backdrop-blur-md border border-white/10 px-2.5 py-1.5 text-[11px] font-mono tabular-nums text-slate-200">
+          <button
+            type="button"
+            onClick={() => setViewersOpen(true)}
+            title="View connected viewers"
+            aria-label={`Viewer list, ${room.viewerCount.toLocaleString()} watching`}
+            className="inline-flex items-center gap-1 rounded-full bg-black/45 backdrop-blur-md border border-white/10 px-2.5 py-1.5 text-[11px] font-mono tabular-nums text-slate-200 hover:bg-black/65 transition-colors"
+          >
             <Eye className="w-3.5 h-3.5 text-sky-300" aria-hidden="true" />
             <span>{room.viewerCount.toLocaleString()}</span>
-          </span>
-          <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-black/45 backdrop-blur-md border border-white/10 px-2.5 py-1.5 text-[11px] font-mono tabular-nums text-slate-200">
+          </button>
+          <span className="inline-flex items-center gap-1 rounded-full bg-black/45 backdrop-blur-md border border-white/10 px-2 py-1.5 sm:px-2.5 text-[10px] sm:text-[11px] font-mono tabular-nums text-slate-200">
             <Radio className="w-3.5 h-3.5 text-fuchsia-400" aria-hidden="true" />
             <span>{formatDuration(room.durationSeconds)}</span>
           </span>
-          <span className="inline-flex items-center rounded-full bg-rose-600 px-2.5 py-1.5 text-[10px] font-bold tracking-wider text-white">
-            LIVE
+          <span
+            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-[10px] font-bold tracking-wider ${statusBadge.className}`}
+          >
+            {streamIsLive && (
+              <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" aria-hidden="true" />
+            )}
+            {statusBadge.label}
           </span>
           <button
             type="button"
@@ -1024,6 +1434,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
               onLeaveRoom();
             }}
             aria-label={isOwnerHost ? 'End live room' : 'Leave live room'}
+            title={isOwnerHost ? 'End live' : 'Leave room'}
             className={`rounded-full flex items-center justify-center transition-colors ${
               isSolo
                 ? 'w-10 h-10 bg-black/70 hover:bg-black/90 border border-white/10'
@@ -1035,12 +1446,46 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
         </div>
       </div>
 
-      {/* Media error */}
+      {/* Room title + category */}
+      <div
+        className={`${
+          isSolo
+            ? 'absolute top-[calc(env(safe-area-inset-top)+3.5rem)] inset-x-0'
+            : 'relative order-1 shrink-0'
+        } z-20 px-3 sm:px-4 pb-1 flex items-center gap-1.5 min-w-0`}
+      >
+        <p className="min-w-0 truncate text-[12px] sm:text-[13px] font-semibold text-white/95">
+          {room.title}
+        </p>
+        <span className="shrink-0 rounded-full bg-white/10 border border-white/10 px-1.5 py-0.5 text-[9px] font-semibold text-slate-200">
+          {room.category}
+        </span>
+        {room.isPrivateFollowersOnly && (
+          <span className="shrink-0 rounded-full bg-violet-500/25 border border-violet-300/30 px-1.5 py-0.5 text-[9px] font-semibold text-violet-100">
+            Followers only
+          </span>
+        )}
+        {room.mode === 'MULTI_GUEST' && (
+          <span className="shrink-0 rounded-full bg-cyan-500/20 border border-cyan-300/30 px-1.5 py-0.5 text-[9px] font-semibold text-cyan-100">
+            {seats.length} seats
+          </span>
+        )}
+      </div>
+
+      {/* Media error with retry */}
       {mediaError && (
         <div className="absolute top-16 inset-x-0 z-20 flex justify-center px-4">
-          <p className="text-xs text-rose-200 bg-rose-950/80 backdrop-blur-md border border-rose-500/40 rounded-full px-4 py-2">
-            {mediaError}
-          </p>
+          <div className="flex items-center gap-2 rounded-full text-xs text-rose-200 bg-rose-950/90 backdrop-blur-md border border-rose-500/40 pl-4 pr-1.5 py-1.5 max-w-full">
+            <span className="truncate">{mediaError}</span>
+            <button
+              type="button"
+              onClick={() => void startOrRestartMedia(cameraFacing)}
+              className="shrink-0 inline-flex items-center gap-1 rounded-full bg-rose-500 hover:bg-rose-400 px-3 py-1 text-[11px] font-bold text-white transition-colors"
+            >
+              <RefreshCw className="w-3 h-3" />
+              Retry
+            </button>
+          </div>
         </div>
       )}
 
@@ -1094,6 +1539,25 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
         </div>
       )}
 
+      {/* Floating like hearts (local taps + real-time room likes) */}
+      {floatingLikes.length > 0 && (
+        <div className="pointer-events-none absolute right-10 bottom-44 z-30 flex flex-col items-center">
+          {floatingLikes.map((heart) => (
+            <Heart
+              key={heart.id}
+              className="live-like-heart absolute w-6 h-6 fill-pink-500 text-pink-400 drop-shadow-[0_2px_8px_rgba(236,72,153,0.6)]"
+              style={
+                {
+                  marginLeft: heart.offset,
+                  '--like-rotate': `${heart.rotate}deg`,
+                } as React.CSSProperties
+              }
+              aria-hidden="true"
+            />
+          ))}
+        </div>
+      )}
+
       {/* Right floating action rail (multi-guest only) */}
       {!isSolo && (
       <div className="absolute right-3 bottom-44 z-20 flex flex-col items-center gap-2.5">
@@ -1117,7 +1581,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
       )}
 
       {/* Bottom stack: chat, controls, input */}
-      <div className={`${isSolo ? 'absolute inset-x-0 bottom-0' : 'relative order-3 shrink-0'} z-10 flex flex-col gap-2.5 px-3 sm:px-4 pb-3`}>
+      <div className={`${isSolo ? 'absolute inset-x-0 bottom-0' : 'relative order-3 shrink-0'} z-10 flex flex-col gap-2.5 px-3 sm:px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]`}>
         {/* Live game board overlay if active, with a quick return to chat button */}
         {boardTab !== 'chat' && (
           <div className="flex items-center justify-between pb-1">
@@ -1143,58 +1607,139 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
             isSolo ? 'max-h-60 max-w-[85%] sm:max-w-md' : 'max-h-44 sm:max-h-52 max-w-md'
           }`}
         >
-          {comments.length === 0 ? (
+          {visibleComments.length === 0 ? (
             <p className="text-xs text-slate-300/80 bg-black/35 backdrop-blur-sm rounded-full px-3 py-1.5 inline-block">
               No messages yet. Say hello!
             </p>
           ) : (
-            comments.map((comment) =>
-              isSolo ? (
-                <div
-                  key={comment.id}
-                  className={`rounded-2xl px-4 py-2.5 backdrop-blur-sm block w-fit max-w-full ${
-                    comment.isGiftEvent
-                      ? 'bg-gradient-to-r from-amber-500/70 to-orange-600/60 border border-amber-300/30'
-                      : 'bg-black/55'
-                  }`}
-                >
-                  <span className="text-sm font-bold text-cyan-300 mr-2">
-                    {comment.displayName}
-                  </span>
-                  {comment.isGiftEvent && comment.giftId && (GIFT_BY_ID.get(comment.giftId) ?? LUCKY_BY_ID.get(comment.giftId)) && (
-                    <GiftArtwork
-                      src={(GIFT_BY_ID.get(comment.giftId) ?? LUCKY_BY_ID.get(comment.giftId))!.imageUrl}
-                      size={22}
-                      className="inline-block align-middle mr-1.5"
-                    />
+            visibleComments.map((comment) => {
+              const isOwnMessage = Boolean(
+                currentUser && comment.uid === currentUser.uid
+              );
+              const canDeleteMessage =
+                !comment.isGiftEvent && (canModerate || isOwnMessage);
+              const canFlagUser =
+                !comment.isGiftEvent && Boolean(currentUser) && !isOwnMessage;
+              const menuOpen = messageMenuId === comment.id;
+              return (
+                <div key={comment.id} className="flex flex-col items-start gap-1">
+                  <div
+                    className={
+                      isSolo
+                        ? `rounded-2xl px-4 py-2.5 backdrop-blur-sm block w-fit max-w-full ${
+                            comment.isGiftEvent
+                              ? 'bg-gradient-to-r from-amber-500/70 to-orange-600/60 border border-amber-300/30'
+                              : 'bg-black/55'
+                          }`
+                        : `rounded-2xl px-3 py-1.5 text-xs leading-relaxed backdrop-blur-sm inline-block max-w-full ${
+                            comment.isGiftEvent
+                              ? 'bg-gradient-to-r from-amber-500/70 to-orange-600/60 border border-amber-300/30'
+                              : 'bg-black/40'
+                          }`
+                    }
+                  >
+                    <span
+                      className={
+                        isSolo
+                          ? 'text-sm font-bold text-cyan-300 mr-2'
+                          : 'inline-flex items-center rounded-md bg-gradient-to-r from-amber-500 to-orange-500 px-1.5 py-0.5 text-[9px] font-bold text-white mr-1.5 align-middle'
+                      }
+                    >
+                      {comment.displayName}
+                    </span>
+                    {comment.isGiftEvent &&
+                      comment.giftId &&
+                      (GIFT_BY_ID.get(comment.giftId) ??
+                        LUCKY_BY_ID.get(comment.giftId)) && (
+                        <GiftArtwork
+                          src={
+                            (GIFT_BY_ID.get(comment.giftId) ??
+                              LUCKY_BY_ID.get(comment.giftId))!.imageUrl
+                          }
+                          size={isSolo ? 22 : 16}
+                          className={
+                            isSolo
+                              ? 'inline-block align-middle mr-1.5'
+                              : 'inline-block align-middle mr-1'
+                          }
+                        />
+                      )}
+                    <span
+                      className={
+                        isSolo
+                          ? 'text-sm text-white leading-relaxed'
+                          : 'text-white align-middle'
+                      }
+                    >
+                      {comment.text}
+                    </span>
+                    <span
+                      className={
+                        isSolo
+                          ? 'ml-2 align-middle text-[10px] tabular-nums text-white/45'
+                          : 'ml-1.5 align-middle text-[9px] tabular-nums text-white/45'
+                      }
+                    >
+                      {comment.timestampLabel}
+                    </span>
+                    {(canDeleteMessage || canFlagUser) && (
+                      <button
+                        type="button"
+                        onClick={() => setMessageMenuId(menuOpen ? null : comment.id)}
+                        aria-label={`Actions for message from ${comment.displayName}`}
+                        aria-expanded={menuOpen}
+                        className="ml-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full align-middle text-white/45 hover:text-white hover:bg-white/10 transition-colors"
+                      >
+                        <MoreHorizontal className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                  {menuOpen && (
+                    <div className="flex flex-wrap items-center gap-1 rounded-xl bg-black/70 backdrop-blur-md border border-white/10 px-1.5 py-1">
+                      {canDeleteMessage && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMessageMenuId(null);
+                            onDeleteComment(room.roomId, comment);
+                          }}
+                          className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-semibold text-rose-300 hover:bg-rose-500/20 transition-colors"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          Delete
+                        </button>
+                      )}
+                      {canFlagUser && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMessageMenuId(null);
+                              onReportUser(comment.uid);
+                            }}
+                            className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-semibold text-amber-300 hover:bg-amber-500/20 transition-colors"
+                          >
+                            <Flag className="w-3 h-3" />
+                            Report user
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMessageMenuId(null);
+                              onToggleBlock(comment.uid);
+                            }}
+                            className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-semibold text-slate-300 hover:bg-white/10 transition-colors"
+                          >
+                            <Ban className="w-3 h-3" />
+                            Block user
+                          </button>
+                        </>
+                      )}
+                    </div>
                   )}
-                  <span className="text-sm text-white leading-relaxed">
-                    {comment.text}
-                  </span>
                 </div>
-              ) : (
-                <div
-                  key={comment.id}
-                  className={`rounded-2xl px-3 py-1.5 text-xs leading-relaxed backdrop-blur-sm inline-block max-w-full ${
-                    comment.isGiftEvent
-                      ? 'bg-gradient-to-r from-amber-500/70 to-orange-600/60 border border-amber-300/30'
-                      : 'bg-black/40'
-                  }`}
-                >
-                  <span className="inline-flex items-center rounded-md bg-gradient-to-r from-amber-500 to-orange-500 px-1.5 py-0.5 text-[9px] font-bold text-white mr-1.5 align-middle">
-                    {comment.displayName}
-                  </span>
-                  {comment.isGiftEvent && comment.giftId && (GIFT_BY_ID.get(comment.giftId) ?? LUCKY_BY_ID.get(comment.giftId)) && (
-                    <GiftArtwork
-                      src={(GIFT_BY_ID.get(comment.giftId) ?? LUCKY_BY_ID.get(comment.giftId))!.imageUrl}
-                      size={16}
-                      className="inline-block align-middle mr-1"
-                    />
-                  )}
-                  <span className="text-white align-middle">{comment.text}</span>
-                </div>
-              )
-            )
+              );
+            })
           )}
         </div>
         ) : (
@@ -1281,14 +1826,14 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
             <button
               type="button"
               onClick={handleToggleMic}
-              aria-label={micMuted ? 'Unmute microphone' : 'Mute microphone'}
+              aria-label={!mediaActive ? 'Start microphone' : micMuted ? 'Unmute microphone' : 'Mute microphone'}
               className={`w-10 h-10 rounded-full backdrop-blur-md border flex items-center justify-center transition-colors ${
-                micMuted
+                micInactive
                   ? 'bg-rose-500/70 border-rose-300/40 text-white'
                   : 'bg-black/45 border-white/15 text-white hover:bg-black/65'
               }`}
             >
-              {micMuted ? (
+              {micInactive ? (
                 <MicOff className="w-4.5 h-4.5" />
               ) : (
                 <Mic className="w-4.5 h-4.5" />
@@ -1299,14 +1844,14 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
                 <button
                   type="button"
                   onClick={handleToggleCamera}
-                  aria-label={cameraOff ? 'Turn camera on' : 'Turn camera off'}
+                  aria-label={!mediaActive ? 'Start camera' : cameraOff ? 'Turn camera on' : 'Turn camera off'}
                   className={`w-10 h-10 rounded-full backdrop-blur-md border flex items-center justify-center transition-colors ${
-                    cameraOff
+                    cameraInactive
                       ? 'bg-rose-500/70 border-rose-300/40 text-white'
                       : 'bg-black/45 border-white/15 text-white hover:bg-black/65'
                   }`}
                 >
-                  {cameraOff ? (
+                  {cameraInactive ? (
                     <VideoOff className="w-4.5 h-4.5" />
                   ) : (
                     <Video className="w-4.5 h-4.5" />
@@ -1325,213 +1870,267 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
           </div>
         )}
 
-        {/* Bottom input bar */}
-        <form
-          onSubmit={handleSubmitChat}
-          className="flex items-center gap-2"
-        >
-          <input
-            type="text"
-            value={chatInput}
-            onChange={(e) => setChatInput(e.target.value)}
-            disabled={isOfflineSimulated}
-            placeholder={
-              !currentUser
-                ? 'Sign in to chat...'
-                : isOfflineSimulated
-                ? 'Reconnect to chat...'
-                : isSolo
-                ? 'Comment'
-                : "What's up..."
-            }
-            className={`flex-1 min-w-0 h-11 px-4 rounded-full backdrop-blur-md border focus:outline-none text-sm text-white placeholder:text-slate-400 ${
-              isSolo
-                ? 'bg-[#15163A]/80 border-white/10 focus:border-cyan-400/60'
-                : 'bg-black/50 border-white/15 focus:border-fuchsia-400/60'
-            }`}
-          />
-          {isSolo ? (
-            <>
-              {canPublishLocalMedia && room.mode !== 'AUDIO' && (
-                <button
-                  type="button"
-                  onClick={handleSwitchCamera}
-                  aria-label="Switch camera"
-                  className="w-11 h-11 rounded-full bg-[#232456]/90 hover:bg-[#2E2F6E] flex items-center justify-center text-white shrink-0 transition-colors"
-                >
-                  <RefreshCw className="w-5 h-5" />
-                </button>
-              )}
-              {canPublishLocalMedia && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (mediaActive) {
-                      handleToggleMic();
-                    } else {
-                      void startOrRestartMedia(cameraFacing);
-                    }
-                  }}
-                  aria-label={
-                    !mediaActive
-                      ? 'Enable microphone'
-                      : micMuted
-                      ? 'Unmute microphone'
-                      : 'Mute microphone'
-                  }
-                  className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 transition-colors ${
-                    micMuted
-                      ? 'bg-rose-500/80 text-white'
-                      : 'bg-[#232456]/90 hover:bg-[#2E2F6E] text-white'
-                  }`}
-                >
-                  {micMuted ? (
-                    <MicOff className="w-5 h-5" />
-                  ) : (
-                    <Mic className="w-5 h-5" />
-                  )}
-                </button>
-              )}
-              <button
-                type="submit"
-                disabled={
-                  (currentUser !== null && !chatInput.trim()) || isOfflineSimulated
+        {/* Bottom input + live toolbar */}
+        <form onSubmit={handleSubmitChat} className="flex flex-col gap-2">
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1 min-w-0">
+              <input
+                ref={chatInputRef}
+                type="text"
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                disabled={isOfflineSimulated || !canComment}
+                maxLength={400}
+                placeholder={
+                  !currentUser
+                    ? 'Sign in to chat...'
+                    : isOfflineSimulated
+                    ? 'Reconnect to chat...'
+                    : !allowViewerComments
+                    ? 'Chat is turned off by the host'
+                    : isSolo
+                    ? 'Comment'
+                    : "What's up..."
                 }
-                aria-label="Send comment"
-                className="w-11 h-11 rounded-full bg-gradient-to-br from-fuchsia-500 to-violet-600 hover:from-fuchsia-400 hover:to-violet-500 disabled:opacity-40 flex items-center justify-center text-white shrink-0 transition-all"
-              >
-                <Send className="w-4.5 h-4.5" />
-              </button>
-              {!isOwnerHost && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!currentUser) {
-                      onOpenAuth();
-                      return;
-                    }
-                    setShowGiftTray((s) => !s);
-                  }}
-                  disabled={isOfflineSimulated}
-                  aria-label="Send gift"
-                  className="w-11 h-11 rounded-full bg-gradient-to-br from-pink-500 to-amber-400 hover:from-pink-400 hover:to-amber-300 disabled:opacity-45 flex items-center justify-center text-white shrink-0 transition-all"
-                >
-                  <Gift className="w-5 h-5" />
-                </button>
-              )}
+                className={`w-full h-11 pl-4 pr-12 rounded-full backdrop-blur-md border focus:outline-none text-sm text-white placeholder:text-slate-400 ${
+                  isSolo
+                    ? 'bg-[#15163A]/80 border-white/10 focus:border-cyan-400/60'
+                    : 'bg-black/50 border-white/15 focus:border-fuchsia-400/60'
+                }`}
+              />
               <button
                 type="button"
-                onClick={() => setLikes((n) => n + 1)}
-                aria-label="Like this live"
-                className="relative w-11 h-11 rounded-full bg-gradient-to-br from-pink-500 to-rose-500 hover:from-pink-400 hover:to-rose-400 flex items-center justify-center text-white shrink-0 transition-all active:scale-90"
-              >
-                <Heart className="w-5 h-5 fill-current" />
-                {likes > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-white text-pink-600 text-[10px] font-bold flex items-center justify-center px-1">
-                    {likes > 99 ? '99+' : likes}
-                  </span>
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowGamesModal(true)}
-                aria-label="Play Games"
-                className="w-11 h-11 rounded-full bg-gradient-to-br from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 flex items-center justify-center text-white shrink-0 transition-colors shadow-lg shadow-violet-900/30"
-              >
-                <Gamepad2 className="w-5 h-5 text-violet-200" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setGuestPanelOpen(true)}
-                aria-label="More options"
-                className="w-11 h-11 rounded-full bg-[#232456]/90 hover:bg-[#2E2F6E] flex items-center justify-center text-white shrink-0 transition-colors"
-              >
-                <Users className="w-5 h-5" />
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                type="button"
-                onClick={() => setShowGamesModal(true)}
-                aria-label="Play Games"
-                className="w-11 h-11 rounded-full bg-gradient-to-br from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 flex items-center justify-center text-white shrink-0 transition-colors shadow-lg shadow-violet-900/30"
-              >
-                <Gamepad2 className="w-5 h-5 text-violet-200" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setLikes((n) => n + 1)}
-                aria-label="Like this live"
-                className="relative w-11 h-11 rounded-full bg-gradient-to-br from-pink-500 to-rose-500 hover:from-pink-400 hover:to-rose-400 flex items-center justify-center text-white shrink-0 transition-all active:scale-90"
-              >
-                <Heart className="w-5 h-5 fill-current" />
-                {likes > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-white text-pink-600 text-[10px] font-bold flex items-center justify-center px-1">
-                    {likes > 99 ? '99+' : likes}
-                  </span>
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (!currentUser) {
-                    onOpenAuth();
-                    return;
-                  }
-                  if (giftTargets.length === 0) {
-                    return;
-                  }
-                  setGiftTargetUid((uid) =>
-                    giftTargets.some((t) => t.uid === uid)
-                      ? uid
-                      : giftTargets[0]?.uid ?? ''
-                  );
-                  setShowGiftTray((s) => !s);
-                }}
-                disabled={
-                  isOfflineSimulated ||
-                  (currentUser !== null && giftTargets.length === 0)
-                }
-                aria-label="Send gift"
-                title={
-                  giftTargets.length === 0
-                    ? 'No one on stage to gift yet'
-                    : 'Send a gift to the host or a guest'
-                }
-                className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 transition-all disabled:opacity-40 ${
-                  showGiftTray
-                    ? 'bg-gradient-to-br from-amber-400 to-orange-500 text-[#1A1206]'
-                    : 'bg-gradient-to-br from-pink-500 to-amber-400 hover:from-pink-400 hover:to-amber-300 text-white'
+                onClick={() => setEmojiOpen((open) => !open)}
+                aria-label="Insert emoji"
+                title="Emoji"
+                aria-expanded={emojiOpen}
+                className={`absolute right-1.5 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
+                  emojiOpen
+                    ? 'bg-fuchsia-500/30 text-fuchsia-200'
+                    : 'text-slate-300 hover:bg-white/10'
                 }`}
               >
-                <Gift className="w-4.5 h-4.5" />
+                <Smile className="w-4.5 h-4.5" />
               </button>
-              <button
-                type="submit"
-                disabled={
-                  (currentUser !== null && !chatInput.trim()) || isOfflineSimulated
-                }
-                aria-label="Send comment"
-                className="w-11 h-11 rounded-full bg-gradient-to-br from-fuchsia-500 to-violet-600 hover:from-fuchsia-400 hover:to-violet-500 disabled:opacity-40 flex items-center justify-center text-white shrink-0 transition-all"
-              >
+            </div>
+            <button
+              type="submit"
+              disabled={
+                (currentUser !== null && !chatInput.trim()) ||
+                isOfflineSimulated ||
+                !canComment ||
+                sendingChat
+              }
+              aria-label="Send comment"
+              className="w-11 h-11 rounded-full bg-gradient-to-br from-fuchsia-500 to-violet-600 hover:from-fuchsia-400 hover:to-violet-500 disabled:opacity-40 flex items-center justify-center text-white shrink-0 transition-all active:scale-95"
+            >
+              {sendingChat ? (
+                <Loader2 className="w-4.5 h-4.5 animate-spin" />
+              ) : (
                 <Send className="w-4.5 h-4.5" />
+              )}
+            </button>
+          </div>
+
+          {emojiOpen && (
+            <div className="flex items-center gap-1 overflow-x-auto rounded-2xl bg-black/55 backdrop-blur-md border border-white/10 p-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {CHAT_EMOJIS.map((emoji) => (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={() => {
+                    setChatInput((text) => `${text}${emoji}`.slice(0, 400));
+                    chatInputRef.current?.focus();
+                  }}
+                  aria-label={`Insert ${emoji}`}
+                  className="w-9 h-9 shrink-0 rounded-lg hover:bg-white/10 text-lg leading-none transition-colors"
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {isSolo && canPublishLocalMedia && room.mode !== 'AUDIO' && (
+              <button
+                type="button"
+                onClick={handleToggleCamera}
+                aria-label={!mediaActive ? 'Start camera' : cameraOff ? 'Turn camera on' : 'Turn camera off'}
+                title={!mediaActive ? 'Start camera' : cameraOff ? 'Turn camera on' : 'Camera off'}
+                className={`relative w-11 h-11 shrink-0 rounded-full backdrop-blur-md border flex items-center justify-center transition-all active:scale-95 ${
+                  cameraInactive
+                    ? 'bg-rose-500/80 border-rose-300/40 text-white'
+                    : 'bg-[#232456]/90 border-white/15 text-white hover:bg-[#2E2F6E]'
+                }`}
+              >
+                {cameraInactive ? (
+                  <VideoOff className="w-4.5 h-4.5" />
+                ) : (
+                  <Video className="w-4.5 h-4.5" />
+                )}
               </button>
+            )}
+
+            <button
+              type="button"
+              onClick={handleReconnect}
+              aria-label="Reconnect stream"
+              title={canPublishLocalMedia ? 'Restart camera & broadcast' : 'Reconnect to stream'}
+              className="relative w-11 h-11 shrink-0 rounded-full backdrop-blur-md border border-white/15 bg-[#232456]/80 hover:bg-[#2E2F6E] flex items-center justify-center text-white transition-all active:scale-95"
+            >
+              <RefreshCw className="w-4.5 h-4.5" />
+            </button>
+
+            {isSolo && canPublishLocalMedia && (
+              <button
+                type="button"
+                onClick={handleToggleMic}
+                aria-label={!mediaActive ? 'Start microphone' : micMuted ? 'Unmute microphone' : 'Mute microphone'}
+                title={!mediaActive ? 'Start microphone' : micMuted ? 'Unmute mic' : 'Mute mic'}
+                className={`relative w-11 h-11 shrink-0 rounded-full border flex items-center justify-center transition-all active:scale-95 ${
+                  micInactive
+                    ? 'bg-rose-500/80 border-rose-300/40 text-white'
+                    : 'bg-[#232456]/90 border-white/15 text-white hover:bg-[#2E2F6E]'
+                }`}
+              >
+                {micInactive ? (
+                  <MicOff className="w-4.5 h-4.5" />
+                ) : (
+                  <Mic className="w-4.5 h-4.5" />
+                )}
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={focusChat}
+              aria-label="Live chat"
+              title="Live chat"
+              aria-pressed={boardTab === 'chat'}
+              className={`relative w-11 h-11 shrink-0 rounded-full border flex items-center justify-center transition-all active:scale-95 ${
+                boardTab === 'chat'
+                  ? 'bg-cyan-500/25 border-cyan-300/40 text-cyan-100'
+                  : 'bg-[#232456]/80 border-white/15 text-white hover:bg-[#2E2F6E]'
+              }`}
+            >
+              <MessagesSquare className="w-4.5 h-4.5" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                if (!currentUser) {
+                  onOpenAuth();
+                  return;
+                }
+                if (!giftsAllowed || giftTargets.length === 0) return;
+                setGiftTargetUid((uid) =>
+                  giftTargets.some((t) => t.uid === uid) ? uid : giftTargets[0]?.uid ?? ''
+                );
+                setShowGiftTray((tray) => !tray);
+              }}
+              disabled={
+                isOfflineSimulated ||
+                !giftsAllowed ||
+                (currentUser !== null && giftTargets.length === 0)
+              }
+              aria-label="Send gift"
+              title={
+                !giftsAllowed
+                  ? 'Gifts are turned off for this room'
+                  : giftTargets.length === 0
+                  ? 'No one else on stage to gift yet'
+                  : 'Send a gift'
+              }
+              className={`relative w-11 h-11 shrink-0 rounded-full flex items-center justify-center transition-all active:scale-95 disabled:opacity-40 ${
+                showGiftTray
+                  ? 'bg-gradient-to-br from-amber-400 to-orange-500 text-[#1A1206]'
+                  : 'bg-gradient-to-br from-pink-500 to-amber-400 hover:from-pink-400 hover:to-amber-300 text-white'
+              }`}
+            >
+              <Gift className="w-4.5 h-4.5" />
+            </button>
+
+            <button
+              type="button"
+              onClick={handleLike}
+              aria-label="Like this live"
+              title="Like"
+              className="relative w-11 h-11 shrink-0 rounded-full bg-gradient-to-br from-pink-500 to-rose-500 hover:from-pink-400 hover:to-rose-400 flex items-center justify-center text-white transition-all active:scale-90"
+            >
+              <Heart className="w-4.5 h-4.5 fill-current" />
+              {likeTotal > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-white text-pink-600 text-[10px] font-bold flex items-center justify-center px-1 tabular-nums">
+                  {likeTotal > 9999 ? `${Math.floor(likeTotal / 1000)}k` : likeTotal}
+                </span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowGamesModal(true)}
+              aria-label="Mini games"
+              title="Mini games"
+              className="relative w-11 h-11 shrink-0 rounded-full bg-gradient-to-br from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 flex items-center justify-center text-white transition-colors shadow-lg shadow-violet-900/30 active:scale-95"
+            >
+              <Gamepad2 className="w-4.5 h-4.5 text-violet-100" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setViewersOpen(true)}
+              aria-label="Viewer list"
+              title="Viewers"
+              className="relative w-11 h-11 shrink-0 rounded-full backdrop-blur-md border border-white/15 bg-black/50 hover:bg-black/70 flex items-center justify-center text-white transition-colors active:scale-95"
+            >
+              <Users className="w-4.5 h-4.5" />
+              {viewerProfiles.length > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-sky-500 text-[10px] font-bold flex items-center justify-center px-1 tabular-nums">
+                  {viewerProfiles.length > 99 ? '99+' : viewerProfiles.length}
+                </span>
+              )}
+            </button>
+
+            {!isSolo && canModerateSeats && (
+              <button
+                type="button"
+                onClick={() => setViewersOpen(true)}
+                aria-label="Invite viewers"
+                title="Invite viewers"
+                className="relative w-11 h-11 shrink-0 rounded-full backdrop-blur-md border border-white/15 bg-black/50 hover:bg-black/70 flex items-center justify-center text-white transition-colors active:scale-95"
+              >
+                <UserPlus className="w-4.5 h-4.5 text-cyan-300" />
+              </button>
+            )}
+
+            {!isSolo && (
               <button
                 type="button"
                 onClick={() => setGuestPanelOpen(true)}
-                aria-label="Guests and requests"
-                className="relative w-11 h-11 rounded-full bg-black/50 backdrop-blur-md border border-white/15 hover:bg-black/70 flex items-center justify-center text-white shrink-0 transition-colors"
+                aria-label="Guests and seat requests"
+                title="Guests"
+                className="relative w-11 h-11 shrink-0 rounded-full backdrop-blur-md border border-white/15 bg-black/50 hover:bg-black/70 flex items-center justify-center text-white transition-colors active:scale-95"
               >
-                <Users className="w-4.5 h-4.5" />
+                <UserCheck className="w-4.5 h-4.5" />
                 {joinRequests.length > 0 && (
                   <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-rose-500 text-[10px] font-bold flex items-center justify-center px-1">
                     {joinRequests.length}
                   </span>
                 )}
               </button>
-            </>
-          )}
+            )}
+
+            <button
+              type="button"
+              onClick={() => setSettingsOpen(true)}
+              aria-label="Live settings"
+              title="Live settings"
+              className="relative w-11 h-11 shrink-0 rounded-full backdrop-blur-md border border-white/15 bg-black/50 hover:bg-black/70 flex items-center justify-center text-white transition-colors active:scale-95"
+            >
+              <SlidersHorizontal className="w-4.5 h-4.5" />
+            </button>
+          </div>
         </form>
       </div>
 
@@ -1949,6 +2548,35 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
             </button>
           </div>
 
+          {!isSolo && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span
+                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                  allowGuestRequests
+                    ? 'bg-emerald-500/15 text-emerald-300'
+                    : 'bg-rose-500/15 text-rose-300'
+                }`}
+              >
+                {allowGuestRequests ? 'Seat requests open' : 'Seat requests closed'}
+              </span>
+              {allowGuestRequests && (
+                <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-semibold text-slate-300">
+                  {hostApprovalForGuests ? 'Host approval required' : 'Instant join'}
+                </span>
+              )}
+              {!allowViewerComments && (
+                <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-semibold text-slate-300">
+                  Viewer chat off
+                </span>
+              )}
+              {!allowGifts && (
+                <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-semibold text-slate-300">
+                  Gifts off
+                </span>
+              )}
+            </div>
+          )}
+
           {isSolo && (
             <div className="flex items-center gap-2">
               <button
@@ -2061,6 +2689,480 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
                     )}
                   </div>
                 ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Viewers bottom sheet (real connected viewers) */}
+      {viewersOpen && (
+        <div className="gfx-sheet absolute inset-x-0 bottom-0 z-40 rounded-t-3xl bg-[#0F111D]/95 backdrop-blur-2xl border-t border-white/15 px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+1rem)] max-h-[65vh] overflow-y-auto space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <h3 className="font-display text-sm font-bold text-white flex items-center gap-1.5">
+                <Eye className="w-4 h-4 text-sky-300" />
+                Viewers
+              </h3>
+              <p className="text-[10px] text-slate-400 mt-0.5 tabular-nums">
+                {room.viewerCount.toLocaleString()} watching · {viewerProfiles.length} connected to stream
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setViewersOpen(false);
+                setKickTargetUid(null);
+              }}
+              aria-label="Close viewer list"
+              className="w-8 h-8 rounded-full bg-white/[0.07] hover:bg-white/[0.14] flex items-center justify-center text-slate-300"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="rounded-xl bg-white/[0.03] border border-white/[0.06] px-3 py-2.5 flex items-center gap-2.5">
+            <Avatar name={host.displayName} color={host.avatarColor} avatarUrl={host.avatarUrl} size="xs" isLiveRing={streamIsLive} />
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold text-white truncate">{host.displayName}</p>
+              <p className="text-[10px] text-slate-400 truncate">@{host.username}</p>
+            </div>
+            <span className="rounded-full bg-gradient-to-r from-fuchsia-500 to-violet-500 px-2 py-0.5 text-[9px] font-bold text-white">
+              HOST
+            </span>
+          </div>
+
+          {canModerateSeats && viewerProfiles.length > 0 && (
+            <p className="text-[10px] text-slate-500">
+              Tap the send icon to invite a viewer. Followers get notified instantly.
+            </p>
+          )}
+
+          {viewerProfiles.length === 0 ? (
+            <p className="text-xs text-slate-500 py-2">
+              No one is receiving the stream yet. Viewers appear here as soon as they connect.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {viewerProfiles
+                .filter((viewer) => !blockedUids.includes(viewer.uid))
+                .map((viewer) => {
+                  const viewerIsMod = moderators.some((m) => m.uid === viewer.uid);
+                  const isSelf = viewer.uid === currentUser?.uid;
+                  const isFollowed = followingUids.includes(viewer.uid);
+                  return (
+                    <div
+                      key={viewer.uid}
+                      className="rounded-xl bg-white/[0.03] px-3 py-2.5 flex items-center justify-between gap-2"
+                    >
+                      <button
+                        type="button"
+                        disabled={!viewer.profile}
+                        onClick={() => {
+                          if (viewer.profile) {
+                            onOpenProfile(viewer.profile);
+                            setViewersOpen(false);
+                          }
+                        }}
+                        className="flex items-center gap-2.5 min-w-0 text-left disabled:cursor-default"
+                      >
+                        <Avatar name={viewer.displayName} color={viewer.avatarColor} avatarUrl={viewer.avatarUrl} size="xs" />
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium text-white truncate flex items-center gap-1">
+                            <span className="truncate">{viewer.displayName}</span>
+                            {isSelf && (
+                              <span className="text-[9px] text-slate-400">(you)</span>
+                            )}
+                            {viewerIsMod && (
+                              <span className="rounded bg-cyan-500/20 px-1 py-0.5 text-[8px] font-bold text-cyan-200">
+                                MOD
+                              </span>
+                            )}
+                          </p>
+                          <p className="text-[10px] text-slate-400 truncate">@{viewer.username}</p>
+                        </div>
+                      </button>
+                      <div className="flex shrink-0 items-center gap-1">
+                        {!isSelf && (
+                          <button
+                            type="button"
+                            onClick={() => onToggleFollow(viewer.uid)}
+                            aria-pressed={isFollowed}
+                            aria-label={
+                              isFollowed
+                                ? `Unfollow ${viewer.displayName}`
+                                : `Follow ${viewer.displayName}`
+                            }
+                            title={isFollowed ? 'Following' : 'Follow'}
+                            className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${
+                              isFollowed
+                                ? 'bg-emerald-500/15 text-emerald-300'
+                                : 'bg-white/[0.06] text-slate-300 hover:bg-white/[0.12]'
+                            }`}
+                          >
+                            {isFollowed ? (
+                              <UserCheck className="w-3.5 h-3.5" />
+                            ) : (
+                              <UserPlus className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                        )}
+                        {canModerateSeats && !isSelf && (
+                          <button
+                            type="button"
+                            onClick={() => onInviteViewer(viewer.uid)}
+                            aria-label={`Invite ${viewer.displayName} to this room`}
+                            title="Invite to room"
+                            className="w-7 h-7 rounded-lg bg-sky-500/15 text-sky-300 hover:bg-sky-500/30 flex items-center justify-center transition-colors"
+                          >
+                            <Send className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {(isOwnerHost || isAdminUser) && !isSelf && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              viewerIsMod
+                                ? onRemoveModerator(room.roomId, viewer.uid)
+                                : onAddModerator(room.roomId, viewer.uid)
+                            }
+                            aria-pressed={viewerIsMod}
+                            aria-label={
+                              viewerIsMod
+                                ? `Remove ${viewer.displayName} as moderator`
+                                : `Make ${viewer.displayName} a moderator`
+                            }
+                            title={viewerIsMod ? 'Remove moderator' : 'Make moderator'}
+                            className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${
+                              viewerIsMod
+                                ? 'bg-cyan-500/25 text-cyan-200'
+                                : 'bg-white/[0.06] text-slate-300 hover:bg-white/[0.12]'
+                            }`}
+                          >
+                            <ShieldCheck className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {canModerateSeats && !isSelf && (
+                          <button
+                            type="button"
+                            onClick={() => handleKickViewer(viewer.uid)}
+                            aria-label={`Remove ${viewer.displayName} from the room`}
+                            className={`shrink-0 rounded-lg px-2 py-1.5 text-[10px] font-semibold transition-colors ${
+                              kickTargetUid === viewer.uid
+                                ? 'bg-rose-600 text-white'
+                                : 'bg-rose-600/15 text-rose-300 hover:bg-rose-600/30'
+                            }`}
+                          >
+                            {kickTargetUid === viewer.uid ? 'Confirm' : (
+                              <span className="inline-flex items-center gap-1">
+                                <UserX className="w-3 h-3" />
+                                Remove
+                              </span>
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Live settings bottom sheet */}
+      {settingsOpen && (
+        <div className="gfx-sheet absolute inset-x-0 bottom-0 z-40 rounded-t-3xl bg-[#0F111D]/95 backdrop-blur-2xl border-t border-violet-500/25 px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+1rem)] max-h-[80vh] overflow-y-auto space-y-4">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <h3 className="font-display text-sm font-bold text-white flex items-center gap-1.5">
+                <SlidersHorizontal className="w-4 h-4 text-violet-300" />
+                Live settings
+              </h3>
+              <p className="text-[10px] text-slate-400 mt-0.5">Changes apply to this device only.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSettingsOpen(false)}
+              aria-label="Close settings"
+              className="w-8 h-8 rounded-full bg-white/[0.07] hover:bg-white/[0.14] flex items-center justify-center text-slate-300"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {canPublishLocalMedia && (
+            <div className="space-y-3">
+              <h4 className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                <Camera className="w-3.5 h-3.5 text-cyan-300" /> Devices
+              </h4>
+
+              {room.mode !== 'AUDIO' && (
+                <label className="block">
+                  <span className="text-[11px] font-medium text-slate-300">Camera</span>
+                  <select
+                    value={mediaPrefs.cameraId}
+                    onChange={(e) => void applyMediaPrefs({ cameraId: e.target.value })}
+                    disabled={isOfflineSimulated}
+                    className="mt-1 w-full h-10 rounded-xl bg-black/45 border border-white/15 px-3 text-xs text-white focus:outline-none focus:border-cyan-400/60"
+                  >
+                    <option value="">Auto (front camera)</option>
+                    {cameraDevices.map((device, idx) => (
+                      <option key={device.deviceId || idx} value={device.deviceId}>
+                        {device.label || `Camera ${idx + 1}`}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+
+              <label className="block">
+                <span className="text-[11px] font-medium text-slate-300">Microphone</span>
+                <select
+                  value={mediaPrefs.micId}
+                  onChange={(e) => void applyMediaPrefs({ micId: e.target.value })}
+                  disabled={isOfflineSimulated}
+                  className="mt-1 w-full h-10 rounded-xl bg-black/45 border border-white/15 px-3 text-xs text-white focus:outline-none focus:border-cyan-400/60"
+                >
+                  <option value="">Auto (default microphone)</option>
+                  {micDevices.map((device, idx) => (
+                    <option key={device.deviceId || idx} value={device.deviceId}>
+                      {device.label || `Microphone ${idx + 1}`}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              {(cameraDevices.length === 0 || micDevices.some((d) => !d.label)) && (
+                <p className="text-[10px] text-amber-200/90">
+                  Device names appear after you allow camera / microphone access.
+                </p>
+              )}
+
+              {room.mode !== 'AUDIO' && (
+                <div>
+                  <span className="text-[11px] font-medium text-slate-300">Video quality</span>
+                  <div className="mt-1 grid grid-cols-4 gap-1.5">
+                    {VIDEO_QUALITIES.map((quality) => (
+                      <button
+                        key={quality}
+                        type="button"
+                        onClick={() => void applyMediaPrefs({ quality })}
+                        className={`h-9 rounded-lg border text-[11px] font-bold transition-colors ${
+                          mediaPrefs.quality === quality
+                            ? 'border-cyan-300/60 bg-cyan-400/20 text-cyan-100'
+                            : 'border-white/[0.08] bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]'
+                        }`}
+                      >
+                        {quality}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-slate-500 mt-1">Switching quality restarts the stream briefly.</p>
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <h4 className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 pt-1">Audio</h4>
+                <button
+                  type="button"
+                  onClick={() =>
+                    void applyMediaPrefs({ noiseSuppression: !mediaPrefs.noiseSuppression })
+                  }
+                  aria-pressed={mediaPrefs.noiseSuppression}
+                  className="w-full h-10 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.07] px-3 flex items-center justify-between transition-colors"
+                >
+                  <span className="text-xs text-slate-200">Noise suppression</span>
+                  <span
+                    className={`relative h-5 w-9 rounded-full transition-colors ${
+                      mediaPrefs.noiseSuppression ? 'bg-emerald-500' : 'bg-white/20'
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${
+                        mediaPrefs.noiseSuppression ? 'left-[18px]' : 'left-0.5'
+                      }`}
+                    />
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    void applyMediaPrefs({ echoCancellation: !mediaPrefs.echoCancellation })
+                  }
+                  aria-pressed={mediaPrefs.echoCancellation}
+                  className="w-full h-10 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.07] px-3 flex items-center justify-between transition-colors"
+                >
+                  <span className="text-xs text-slate-200">Echo cancellation</span>
+                  <span
+                    className={`relative h-5 w-9 rounded-full transition-colors ${
+                      mediaPrefs.echoCancellation ? 'bg-emerald-500' : 'bg-white/20'
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${
+                        mediaPrefs.echoCancellation ? 'left-[18px]' : 'left-0.5'
+                      }`}
+                    />
+                  </span>
+                </button>
+                {room.mode !== 'AUDIO' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = { ...mediaPrefs, mirror: !mediaPrefs.mirror };
+                      setMediaPrefs(next);
+                      saveMediaPrefs(next);
+                    }}
+                    aria-pressed={mediaPrefs.mirror}
+                    className="w-full h-10 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.07] px-3 flex items-center justify-between transition-colors"
+                  >
+                    <span className="text-xs text-slate-200">Mirror self-view</span>
+                    <span
+                      className={`relative h-5 w-9 rounded-full transition-colors ${
+                        mediaPrefs.mirror ? 'bg-emerald-500' : 'bg-white/20'
+                      }`}
+                    >
+                      <span
+                        className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${
+                          mediaPrefs.mirror ? 'left-[18px]' : 'left-0.5'
+                        }`}
+                      />
+                    </span>
+                  </button>
+                )}
+              </div>
+
+              {mediaError && (
+                <div className="rounded-xl border border-rose-500/40 bg-rose-950/60 px-3 py-2 space-y-2">
+                  <p className="text-[11px] text-rose-200">{mediaError}</p>
+                  <button
+                    type="button"
+                    onClick={() => void startOrRestartMedia(cameraFacing)}
+                    className="inline-flex items-center gap-1 rounded-lg bg-rose-500 hover:bg-rose-400 px-3 py-1.5 text-[11px] font-bold text-white"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    Retry
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {isParticipant && (
+            <div className="space-y-1.5">
+              <h4 className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Playback</h4>
+              <button
+                type="button"
+                onClick={() => setRemoteMuted((m) => !m)}
+                className="w-full h-10 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.07] px-3 flex items-center justify-between transition-colors"
+              >
+                <span className="text-xs text-slate-200">Room sound</span>
+                <span className={`inline-flex items-center gap-1 text-[11px] font-semibold ${remoteMuted ? 'text-amber-300' : 'text-emerald-300'}`}>
+                  {remoteMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                  {remoteMuted ? 'Muted' : 'On'}
+                </span>
+              </button>
+            </div>
+          )}
+
+          {canModerateSeats && !isSolo && (
+            <div className="space-y-1.5">
+              <h4 className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Stage controls</h4>
+              <button
+                type="button"
+                onClick={handleMuteAllGuests}
+                disabled={!seats.some((s) => s.status === 'OCCUPIED' && !s.isMuted)}
+                className="w-full h-10 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] disabled:opacity-40 border border-white/[0.07] px-3 flex items-center justify-between transition-colors"
+              >
+                <span className="text-xs text-slate-200">Mute all guests</span>
+                <MicOff className="w-3.5 h-3.5 text-rose-300" />
+              </button>
+              <div className="grid grid-cols-2 gap-1.5">
+                <button
+                  type="button"
+                  onClick={handleLockAllSeats}
+                  disabled={!seats.some((s) => s.status === 'AVAILABLE')}
+                  className="h-10 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] disabled:opacity-40 border border-white/[0.07] text-[11px] font-semibold text-slate-200 inline-flex items-center justify-center gap-1.5 transition-colors"
+                >
+                  <Lock className="w-3.5 h-3.5" /> Lock seats
+                </button>
+                <button
+                  type="button"
+                  onClick={handleUnlockAllSeats}
+                  disabled={!seats.some((s) => s.status === 'LOCKED')}
+                  className="h-10 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] disabled:opacity-40 border border-white/[0.07] text-[11px] font-semibold text-slate-200 inline-flex items-center justify-center gap-1.5 transition-colors"
+                >
+                  <Unlock className="w-3.5 h-3.5" /> Unlock seats
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-1.5">
+            <h4 className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Room</h4>
+            <div className="rounded-xl bg-white/[0.03] border border-white/[0.06] px-3 py-2.5 space-y-1.5 text-[11px] text-slate-300">
+              <p className="flex items-center justify-between gap-2">
+                <span>Privacy</span>
+                <span className="font-semibold text-white">
+                  {room.isPrivateFollowersOnly ? 'Followers only' : 'Public'}
+                </span>
+              </p>
+              <p className="flex items-center justify-between gap-2">
+                <span>Mode</span>
+                <span className="font-semibold text-white">
+                  {room.mode === 'VIDEO'
+                    ? 'Video live'
+                    : room.mode === 'AUDIO'
+                    ? 'Audio board'
+                    : 'Multi-guest board'}
+                </span>
+              </p>
+              {!isSolo && (
+                <>
+                  <p className="flex items-center justify-between gap-2">
+                    <span>Seats</span>
+                    <span className="font-semibold text-white">
+                      {occupiedCount}/{seats.length} occupied
+                    </span>
+                  </p>
+                  <p className="flex items-center justify-between gap-2">
+                    <span>Guest requests</span>
+                    <span className={`font-semibold ${allowGuestRequests ? 'text-emerald-300' : 'text-rose-300'}`}>
+                      {allowGuestRequests ? 'Allowed' : 'Closed'}
+                    </span>
+                  </p>
+                  <p className="flex items-center justify-between gap-2">
+                    <span>Seat approval</span>
+                    <span className="font-semibold text-white">
+                      {hostApprovalForGuests ? 'Host approval' : 'Instant join'}
+                    </span>
+                  </p>
+                </>
+              )}
+              <p className="flex items-center justify-between gap-2">
+                <span>Viewer chat</span>
+                <span className={`font-semibold ${allowViewerComments ? 'text-emerald-300' : 'text-rose-300'}`}>
+                  {allowViewerComments ? 'Allowed' : 'Read only'}
+                </span>
+              </p>
+              <p className="flex items-center justify-between gap-2">
+                <span>Gifts</span>
+                <span className={`font-semibold ${allowGifts ? 'text-emerald-300' : 'text-rose-300'}`}>
+                  {allowGifts ? 'Allowed' : 'Disabled'}
+                </span>
+              </p>
+              {canModerateSeats && (
+                <p className="flex items-center justify-between gap-2">
+                  <span>Moderators</span>
+                  <span className="font-semibold text-white">
+                    {moderators.length === 0 ? 'None yet' : `${moderators.length} assigned`}
+                  </span>
+                </p>
+              )}
+              <p className="text-[10px] text-slate-500 pt-0.5">
+                Room settings are chosen when the room is created. Report abuse from the room
+                rail — repeated violations may remove live access.
+              </p>
             </div>
           </div>
         </div>

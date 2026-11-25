@@ -13,6 +13,8 @@ export type RoomCategory =
   | 'Chat'
   | 'Gaming'
   | 'Talent'
+  | 'Education'
+  | 'Talk Show'
   | 'New Live';
 
 export type SeatStatus = 'AVAILABLE' | 'REQUESTED' | 'OCCUPIED' | 'LOCKED';
@@ -54,6 +56,9 @@ export type AppSection =
   | 'host-rewards'
   | 'withdraw'
   | 'profile'
+  | 'edit-profile'
+  | 'settings'
+  | 'honor'
   | 'admin-panel'
   | 'signin';
 
@@ -139,9 +144,33 @@ export interface LiveRoom {
   isFeatured?: boolean;
   isPrivateFollowersOnly?: boolean;
   seatCount?: number; // Multi-guest capacity: 8, 12, 16 or 24
+  allowGuestRequests?: boolean; // Host can stop new seat requests
+  allowViewerComments?: boolean; // Host can stop viewer chat (host/mods keep posting)
+  allowGifts?: boolean; // Host can disable gifting in the room
+  hostApprovalForGuests?: boolean; // false = seats open instantly without host approval
   seats: GuestSeat[]; // Guest seat grid (length matches seatCount for multi-guest rooms)
   joinRequests: JoinRequest[];
   comments: RoomComment[];
+}
+
+export interface RoomModerator {
+  uid: string;
+  username: string;
+  displayName: string;
+  addedBy: string;
+}
+
+export interface CreateLiveRoomPayload {
+  title: string;
+  description: string;
+  category: Exclude<RoomCategory, 'All'>;
+  mode: RoomMode;
+  seatCount: number;
+  isPrivateFollowersOnly: boolean;
+  allowGuestRequests: boolean;
+  allowViewerComments: boolean;
+  allowGifts: boolean;
+  hostApprovalForGuests: boolean;
 }
 
 export type GiftEffectKind =
@@ -190,11 +219,25 @@ export interface AccountPromotionRecord {
   timestampLabel: string;
 }
 
+export type MessageKind = 'TEXT' | 'IMAGE' | 'VOICE' | 'FILE';
+
+export interface MessageReplyPreview {
+  id: string;
+  senderName: string;
+  text: string;
+}
+
 export interface DirectMessage {
   id: string;
   senderUid: string;
   text: string;
   timestampLabel: string;
+  createdAtMs?: number;
+  kind?: MessageKind;
+  mediaUrl?: string;
+  mediaName?: string;
+  durationMs?: number;
+  replyTo?: MessageReplyPreview;
   isGiftEvent?: boolean;
   giftId?: string;
   giftName?: string;
@@ -210,11 +253,60 @@ export interface Conversation {
   participantUid: string;
   unreadCount: number;
   messages: DirectMessage[];
+  lastMessageAtMs?: number;
+  lastSenderUid?: string;
+  readAt?: Record<string, number>;
+}
+
+export interface ConversationPrefs {
+  conversationId: string;
+  uid: string;
+  pinned?: boolean;
+  muted?: boolean;
+  archived?: boolean;
+  hidden?: boolean;
+  clearedAtMs?: number;
+}
+
+export interface ChatSendPayload {
+  text: string;
+  kind?: MessageKind;
+  mediaUrl?: string;
+  mediaName?: string;
+  durationMs?: number;
+  replyTo?: MessageReplyPreview;
+}
+
+export interface FriendRequest {
+  requestId: string;
+  fromUid: string;
+  toUid: string;
+  fromUsername: string;
+  fromDisplayName: string;
+  fromAvatarColor: string;
+  fromAvatarUrl?: string;
+  timestampLabel: string;
+  createdAtMillis: number;
+}
+
+export interface PresenceRecord {
+  uid: string;
+  lastSeenMs: number;
 }
 
 export interface NotificationItem {
   id: string;
-  type: 'FOLLOW' | 'SEAT_INVITE' | 'GIFT' | 'PROMOTION' | 'SYSTEM';
+  type:
+    | 'FOLLOW'
+    | 'NEW_FOLLOWER'
+    | 'SEAT_INVITE'
+    | 'GIFT'
+    | 'PROMOTION'
+    | 'SYSTEM'
+    | 'FRIEND_REQUEST'
+    | 'FRIEND_ACCEPT'
+    | 'MESSAGE'
+    | 'LIVE_INVITE';
   title: string;
   body: string;
   timestampLabel: string;
@@ -279,6 +371,24 @@ export interface HostRewardProfile {
   firstLiveDone: boolean;
   validDays: number;
   claimed: string[];
+}
+
+export type LanguageCode = 'en' | 'bn' | 'hi' | 'ur' | 'ar' | 'id' | 'tr' | 'es' | 'fr';
+
+export interface NotificationPrefs {
+  friendRequests: boolean;
+  friendAccepts: boolean;
+  newFollowers: boolean;
+  messages: boolean;
+  liveInvites: boolean;
+  gifts: boolean;
+  promotions: boolean;
+}
+
+export interface UserSettings {
+  uid: string;
+  language: LanguageCode;
+  notifications: NotificationPrefs;
 }
 
 export interface ToastMessage {

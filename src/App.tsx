@@ -5,8 +5,12 @@ import {
   AccountPromotionRecord,
   AnnouncementRecord,
   AppSection,
+  ChatSendPayload,
   Conversation,
+  ConversationPrefs,
+  CreateLiveRoomPayload,
   DirectMessage,
+  FriendRequest,
   GiftCatalogItem,
   GuestSeat,
   JoinRequest,
@@ -16,18 +20,22 @@ import {
   RoomCategory,
   RoomComment,
   RoomMode,
+  NotificationPrefs,
   ToastMessage,
   UserProfile,
+  UserSettings,
   WalletTransaction,
 } from './types/app';
 import { GIFT_CATALOG } from './data/gifts';
 import type { LuckyGiftBox, LuckyRoll } from './data/luckyGifts';
 import { auth } from './lib/firebase';
 import {
+  addRoomModeratorDoc,
   adjustRoomViewerCountDoc,
   approveJoinRequestDoc,
   completeUserOnboarding,
   createLiveRoomDoc,
+  deleteRoomMessageDoc,
   endLiveRoomDoc,
   ensureConversationDoc,
   fetchUserProfile,
@@ -40,10 +48,11 @@ import {
   registerWithEmailPassword,
   rejectJoinRequestDoc,
   reloadCurrentAuthUser,
+  removeRoomModeratorDoc,
+  removeRoomViewerDoc,
   requestRoomSeatDoc,
   resendVerificationEmail,
   resolveReportDoc,
-  sendDirectMessageDoc,
   sendLuckyGiftTransaction,
   sendPasswordReset,
   sendVirtualGiftTransaction,
@@ -60,13 +69,16 @@ import {
   subscribeVisitorUids,
   incrementProfileVisitors,
   heartbeatLiveRoom,
+  subscribeLiveRoomDoc,
   subscribeLiveRooms,
   subscribePromotions,
   subscribePublicUsers,
   subscribeReports,
   subscribeRoomDetails,
+  subscribeUserSettings,
   subscribeWalletBalance,
   subscribeWalletTransactions,
+  saveUserSettings,
   toggleBlockDoc,
   toggleFollowDoc,
   bumpRewardProgress,
@@ -75,11 +87,31 @@ import {
   updateSeatStateDoc,
 } from './lib/firestoreService';
 import { classifySyncError, subscribeSyncStatus, type SyncStatus } from './lib/sync';
+import {
+  acceptFriendRequestDoc,
+  deleteDirectMessageDoc,
+  declineFriendRequestDoc,
+  markConversationReadDoc,
+  markNotificationReadDoc,
+  markNotificationsReadDoc,
+  sendChatMessageDoc,
+  sendFriendRequestDoc,
+  sendLiveInviteDoc,
+  setConversationPrefDoc,
+  setTypingDoc,
+  startPresenceHeartbeat,
+  subscribeConversationPrefs,
+  subscribeFriendRequests,
+  subscribePartnerTyping,
+  subscribePresence,
+  subscribeUserNotifications,
+  uploadChatMedia,
+} from './lib/chatService';
 import { SidebarNav } from './components/layout/SidebarNav';
 import { MobileBottomBar, MobileTopBar } from './components/layout/MobileNav';
 import { RightRail } from './components/layout/RightRail';
 import { DiscoverView } from './components/views/DiscoverView';
-import { FollowingView } from './components/views/FollowingView';
+import { FriendsView } from './components/views/FriendsView';
 import { LiveRoomView } from './components/views/LiveRoomView';
 import { WalletView } from './components/views/WalletView';
 import { CoinsTradingView } from './components/views/CoinsTradingView';
@@ -98,6 +130,9 @@ import { MinesView } from './components/views/MinesView';
 import { HiLoView } from './components/views/HiLoView';
 import { RouletteView } from './components/views/RouletteView';
 import { ProfileView } from './components/views/ProfileView';
+import { EditProfileView } from './components/views/EditProfileView';
+import { SettingsView } from './components/views/SettingsView';
+import { HonorLevelView } from './components/views/HonorLevelView';
 import { AdminPanelView } from './components/views/AdminPanelView';
 import { AgentPromoteView } from './components/views/AgentPromoteView';
 import { RankView } from './components/views/RankView';
@@ -135,6 +170,7 @@ export default function App() {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [rooms, setRooms] = useState<LiveRoom[]>([]);
   const [activeRoomId, setActiveRoomId] = useState<string | null>(null);
+  const [activeRoomDoc, setActiveRoomDoc] = useState<LiveRoom | null>(null);
   const [activeSeats, setActiveSeats] = useState<GuestSeat[]>([]);
   const [activeJoinRequests, setActiveJoinRequests] = useState<JoinRequest[]>([]);
   const [activeComments, setActiveComments] = useState<RoomComment[]>([]);
@@ -150,6 +186,8 @@ export default function App() {
   const [visitorUids, setVisitorUids] = useState<string[]>([]);
   const [blockedUids, setBlockedUids] = useState<string[]>([]);
   const visitedProfilesRef = useRef<Set<string>>(new Set());
+  const deepLinkHandledRef = useRef(false);
+  const roomDeepLinkHandledRef = useRef(false);
   const walletReturnRef = useRef<AppSection>('profile');
   const adminReturnRef = useRef<AppSection>('profile');
   const [coinBalance, setCoinBalance] = useState<number>(0);
@@ -159,9 +197,16 @@ export default function App() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [activeDirectMessages, setActiveDirectMessages] = useState<DirectMessage[]>([]);
+  const [conversationPrefs, setConversationPrefs] = useState<ConversationPrefs[]>([]);
+  const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([]);
+  const [presence, setPresence] = useState<Record<string, number>>({});
+  const [typingUid, setTypingUid] = useState<string | null>(null);
+  const [usersReady, setUsersReady] = useState(false);
+  const [usersError, setUsersError] = useState<string | null>(null);
   const [promotions, setPromotions] = useState<AccountPromotionRecord[]>([]);
   const [reports, setReports] = useState<ReportRecord[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
   const [announcement, setAnnouncement] = useState<AnnouncementRecord | null>(null);
   const [dismissedAnnouncementId, setDismissedAnnouncementId] = useState<string | null>(null);
 
@@ -251,6 +296,13 @@ export default function App() {
         setTradingCoinBalance(0);
         setTransactions([]);
         setConversations([]);
+        setActiveConversationId(null);
+        setConversationPrefs([]);
+        setFriendRequests([]);
+        setPresence({});
+        setTypingUid(null);
+        setNotifications([]);
+        setUserSettings(null);
         setPromotions([]);
         setReports([]);
         setAuthReady(true);
@@ -309,12 +361,18 @@ export default function App() {
     const unsubUsers = subscribePublicUsers(
       (list) => {
         setUsers(list);
+        setUsersReady(true);
+        setUsersError(null);
         if (firebaseUser) {
           const mine = list.find((u) => u.uid === firebaseUser.uid);
           if (mine) setCurrentUser(mine);
         }
       },
-      (err) => pushToast('Users sync error', err.message, 'error')
+      (err) => {
+        setUsersReady(true);
+        setUsersError('Creator directory could not be loaded. Pull to refresh or reconnect.');
+        pushToast('Users sync error', err.message, 'error');
+      }
     );
 
     const unsubRooms = subscribeLiveRooms(
@@ -350,12 +408,15 @@ export default function App() {
     const unsubFollowers = subscribeFollowerUids(currentUser.uid, setFollowerUids);
     const unsubVisitors = subscribeVisitorUids(currentUser.uid, setVisitorUids);
 
-    const unsubConvs = subscribeConversationsList(currentUser.uid, (convs) => {
-      setConversations(convs);
-      if (convs.length > 0 && !activeConversationId) {
-        setActiveConversationId(convs[0].conversationId);
-      }
-    });
+    const unsubConvs = subscribeConversationsList(currentUser.uid, setConversations);
+
+    const unsubRequests = subscribeFriendRequests(currentUser.uid, setFriendRequests);
+    const unsubPrefs = subscribeConversationPrefs(currentUser.uid, setConversationPrefs);
+    const unsubNotifications = subscribeUserNotifications(
+      currentUser.uid,
+      setNotifications
+    );
+    const unsubSettings = subscribeUserSettings(currentUser.uid, setUserSettings);
 
     return () => {
       unsubWallet();
@@ -363,14 +424,40 @@ export default function App() {
       unsubFollowers();
       unsubVisitors();
       unsubConvs();
+      unsubRequests();
+      unsubPrefs();
+      unsubNotifications();
+      unsubSettings();
     };
   }, [authReady, firebaseUser?.uid, currentUser?.uid, currentUser?.accountType, isAdminUser]);
+
+  // Presence heartbeat + directory (real online status only).
+  useEffect(() => {
+    if (!currentUser) {
+      setPresence({});
+      return;
+    }
+    const stopHeartbeat = startPresenceHeartbeat(currentUser.uid);
+    const unsubPresence = subscribePresence((records) => {
+      setPresence(
+        Object.fromEntries(records.map((r) => [r.uid, r.lastSeenMs]))
+      );
+    });
+    return () => {
+      stopHeartbeat();
+      unsubPresence();
+    };
+  }, [currentUser?.uid]);
 
   // Ledger window re-reads on every transaction, so attach it only while a
   // money view is open instead of for the whole signed-in session.
   useEffect(() => {
     if (!currentUser) return;
-    if (!['wallet', 'coins-trading', 'salary', 'withdraw'].includes(activeSection)) {
+    if (
+      !['wallet', 'coins-trading', 'salary', 'withdraw', 'reward', 'store', 'honor'].includes(
+        activeSection
+      )
+    ) {
       return;
     }
     return subscribeWalletTransactions(currentUser.uid, setTransactions);
@@ -415,6 +502,38 @@ export default function App() {
     incrementProfileVisitors(target.uid, me.uid).catch(() => undefined);
   }, [inspectedUser?.uid, firebaseUser?.uid]);
 
+  // Shared profile links (?u=<platformId|username>) resolve once the
+  // directory is loaded, then the query param is stripped from the URL.
+  useEffect(() => {
+    if (deepLinkHandledRef.current || !usersReady) return;
+    deepLinkHandledRef.current = true;
+    const param = new URLSearchParams(window.location.search).get('u');
+    if (!param) return;
+    const needle = param.trim().replace(/^@/, '').toLowerCase();
+    window.history.replaceState(null, '', `${window.location.pathname}${window.location.hash}`);
+    const match = users.find(
+      (u) =>
+        u.platformId.toLowerCase() === needle || u.username.toLowerCase() === needle
+    );
+    if (match) {
+      setInspectedUser(match);
+      setActiveSection('profile');
+    } else {
+      pushToast('Profile not found', `No account matches "${param}".`, 'warning');
+    }
+  }, [usersReady, users]);
+
+  // Shared live-room links (?room=<roomId>) open the room directly; the room
+  // doc subscription loads it even when a followers-only room is not listed.
+  useEffect(() => {
+    if (roomDeepLinkHandledRef.current) return;
+    roomDeepLinkHandledRef.current = true;
+    const param = new URLSearchParams(window.location.search).get('room');
+    if (!param) return;
+    window.history.replaceState(null, '', `${window.location.pathname}${window.location.hash}`);
+    setActiveRoomId(param.trim());
+  }, []);
+
   const handleToggleWallet = () => {
     if (isBdAgent) return;
     if (activeSection === 'wallet') {
@@ -442,8 +561,19 @@ export default function App() {
 
   // 4. Active Live Room details subscription (seats, join requests, messages) + viewer count
   const activeRoomSeatCount = normalizeSeatCount(
-    rooms.find((r) => r.roomId === activeRoomId)?.seatCount
+    rooms.find((r) => r.roomId === activeRoomId)?.seatCount ??
+      activeRoomDoc?.seatCount
   );
+
+  // The room list only carries public rooms, so private (followers-only) rooms
+  // are read directly by id to keep host controls and duration accurate.
+  useEffect(() => {
+    if (!activeRoomId) {
+      setActiveRoomDoc(null);
+      return;
+    }
+    return subscribeLiveRoomDoc(activeRoomId, setActiveRoomDoc);
+  }, [activeRoomId]);
 
   useEffect(() => {
     if (!activeRoomId) {
@@ -475,6 +605,7 @@ export default function App() {
   useEffect(() => {
     if (!activeConversationId || !currentUser) {
       setActiveDirectMessages([]);
+      setTypingUid(null);
       return;
     }
     const unsub = subscribeConversationMessages(
@@ -482,7 +613,15 @@ export default function App() {
       currentUser.uid,
       (msgs) => setActiveDirectMessages(msgs)
     );
-    return () => unsub();
+    const unsubTyping = subscribePartnerTyping(
+      activeConversationId,
+      currentUser.uid,
+      setTypingUid
+    );
+    return () => {
+      unsub();
+      unsubTyping();
+    };
   }, [activeConversationId, currentUser?.uid]);
 
   // Live duration tick
@@ -495,6 +634,11 @@ export default function App() {
             ? { ...r, durationSeconds: r.durationSeconds + 1 }
             : r
         )
+      );
+      setActiveRoomDoc((prev) =>
+        prev && prev.roomId === activeRoomId
+          ? { ...prev, durationSeconds: prev.durationSeconds + 1 }
+          : prev
       );
     }, 1000);
     return () => window.clearInterval(timer);
@@ -534,10 +678,13 @@ export default function App() {
     [rooms, freshTick]
   );
 
-  const activeRoom = useMemo(
-    () => liveRooms.find((r) => r.roomId === activeRoomId) ?? null,
-    [liveRooms, activeRoomId]
-  );
+  const activeRoom = useMemo(() => {
+    const listed = liveRooms.find((r) => r.roomId === activeRoomId);
+    if (listed) return listed;
+    return activeRoomDoc && activeRoomDoc.roomId === activeRoomId
+      ? activeRoomDoc
+      : null;
+  }, [liveRooms, activeRoomId, activeRoomDoc]);
 
   const hostingRoomId =
     activeRoom && currentUser && activeRoom.hostUid === currentUser.uid
@@ -644,8 +791,39 @@ export default function App() {
         isRead: true,
       });
     });
-    return [...dynamic, ...notifications];
-  }, [activeRoom, currentUser, activeJoinRequests, promotions, notifications]);
+    const all = [...dynamic, ...notifications];
+    const prefs = userSettings?.notifications;
+    if (!prefs) return all;
+    const enabled = (item: NotificationItem): boolean => {
+      switch (item.type) {
+        case 'FOLLOW':
+        case 'NEW_FOLLOWER':
+          return prefs.newFollowers;
+        case 'FRIEND_REQUEST':
+          return prefs.friendRequests;
+        case 'FRIEND_ACCEPT':
+          return prefs.friendAccepts;
+        case 'MESSAGE':
+          return prefs.messages;
+        case 'LIVE_INVITE':
+          return prefs.liveInvites;
+        case 'GIFT':
+          return prefs.gifts;
+        case 'PROMOTION':
+          return prefs.promotions;
+        default:
+          return true;
+      }
+    };
+    return all.filter(enabled);
+  }, [
+    activeRoom,
+    currentUser,
+    activeJoinRequests,
+    promotions,
+    notifications,
+    userSettings?.notifications,
+  ]);
 
   const unreadNotificationsCount = useMemo(
     () => mergedNotifications.filter((n) => !n.isRead).length,
@@ -714,27 +892,50 @@ export default function App() {
     }
   };
 
-  const handleStartLiveRoom = async (payload: {
-    title: string;
-    description: string;
-    category: Exclude<RoomCategory, 'All'>;
-    mode: RoomMode;
-    seatCount?: number;
-    isPrivateFollowersOnly: boolean;
-  }) => {
+  const handleSaveSettings = async (
+    next: Pick<UserSettings, 'language' | 'notifications'>
+  ) => {
     const me = requireSignedIn();
     if (!me) return;
+    await saveUserSettings(me.uid, next);
+    setUserSettings({ uid: me.uid, ...next });
+  };
+
+  const handleStartLiveRoom = async (
+    payload: CreateLiveRoomPayload
+  ): Promise<boolean> => {
+    const me = requireSignedIn();
+    if (!me) return false;
+    const existing =
+      rooms.find((r) => r.hostUid === me.uid && r.status === 'LIVE') ??
+      (activeRoomDoc &&
+      activeRoomDoc.hostUid === me.uid &&
+      activeRoomDoc.status === 'LIVE'
+        ? activeRoomDoc
+        : undefined);
+    if (existing) {
+      setGoLiveOpen(false);
+      setActiveRoomId(existing.roomId);
+      pushToast(
+        'You are already live',
+        `Reopening "${existing.title}" instead of creating a second room.`,
+        'warning'
+      );
+      return true;
+    }
     try {
       const roomId = await createLiveRoomDoc(me, payload);
       setGoLiveOpen(false);
       setActiveRoomId(roomId);
       pushToast('Live room created', payload.title, 'success');
+      return true;
     } catch (err) {
       pushToast(
         'Could not create live room',
         err instanceof Error ? err.message : 'Could not save the room. Please try again.',
         'error'
       );
+      return false;
     }
   };
 
@@ -896,12 +1097,16 @@ export default function App() {
     const me = requireSignedIn();
     if (!me) return;
     try {
-      await requestRoomSeatDoc(roomId, me, seatNumber);
-      pushToast(
-        `Seat ${seatNumber} requested`,
-        'Host can approve from Guests & Requests.',
-        'info'
-      );
+      const result = await requestRoomSeatDoc(roomId, me, seatNumber);
+      if (result === 'joined') {
+        pushToast(`You joined Seat ${seatNumber}`, 'Your camera and mic are ready to publish.', 'success');
+      } else {
+        pushToast(
+          `Seat ${seatNumber} requested`,
+          'Host can approve from Guests & Requests.',
+          'info'
+        );
+      }
     } catch (err) {
       pushToast(
         'Seat request failed',
@@ -996,6 +1201,23 @@ export default function App() {
     }
   };
 
+  const handleKickViewer = async (roomId: string, viewerUid: string) => {
+    try {
+      await removeRoomViewerDoc(roomId, viewerUid);
+      const target = users.find((u) => u.uid === viewerUid);
+      pushToast(
+        'Viewer removed',
+        target ? `@${target.username} was disconnected from the room.` : 'Viewer disconnected.'
+      );
+    } catch (err) {
+      pushToast(
+        'Remove viewer failed',
+        err instanceof Error ? err.message : 'Permission denied.',
+        'error'
+      );
+    }
+  };
+
   const handleLeaveSeat = async (roomId: string, seatNumber: number) => {
     try {
       await leaveRoomSeatDoc(roomId, seatNumber);
@@ -1007,6 +1229,88 @@ export default function App() {
         'error'
       );
     }
+  };
+
+  const handleDeleteRoomComment = async (roomId: string, comment: RoomComment) => {
+    try {
+      await deleteRoomMessageDoc(roomId, comment.id);
+      pushToast('Message deleted');
+    } catch (err) {
+      pushToast(
+        'Delete failed',
+        err instanceof Error ? err.message : 'Permission denied.',
+        'error'
+      );
+    }
+  };
+
+  const handleAddRoomModerator = async (roomId: string, targetUid: string) => {
+    const me = requireSignedIn();
+    if (!me) return;
+    const target = users.find((u) => u.uid === targetUid);
+    if (!target) {
+      pushToast('Moderator update failed', 'User not found.', 'error');
+      return;
+    }
+    try {
+      await addRoomModeratorDoc(roomId, me, target);
+      pushToast(`@${target.username} is now a moderator`, 'They can manage seats and chat.', 'success');
+    } catch (err) {
+      pushToast(
+        'Moderator update failed',
+        err instanceof Error ? err.message : 'Permission denied.',
+        'error'
+      );
+    }
+  };
+
+  const handleRemoveRoomModerator = async (roomId: string, targetUid: string) => {
+    const target = users.find((u) => u.uid === targetUid);
+    try {
+      await removeRoomModeratorDoc(roomId, targetUid);
+      pushToast(
+        'Moderator removed',
+        target ? `@${target.username} lost moderator access.` : undefined
+      );
+    } catch (err) {
+      pushToast(
+        'Moderator update failed',
+        err instanceof Error ? err.message : 'Permission denied.',
+        'error'
+      );
+    }
+  };
+
+  const handleInviteRoomViewer = async (targetUid: string) => {
+    const me = currentUser;
+    if (!me) return;
+    const room = activeRoom;
+    if (!room) return;
+    try {
+      await sendLiveInviteDoc(targetUid, room, me);
+      const target = users.find((u) => u.uid === targetUid);
+      pushToast(
+        'Invitation sent',
+        target ? `@${target.username} was invited to this room.` : undefined,
+        'success'
+      );
+    } catch (err) {
+      pushToast(
+        'Invite failed',
+        err instanceof Error ? err.message : 'Unable to send invite.',
+        'error'
+      );
+    }
+  };
+
+  const handleReportRoomUser = (targetUid: string) => {
+    if (!requireSignedIn()) return;
+    const target = users.find((u) => u.uid === targetUid);
+    setReportTarget({
+      type: 'USER',
+      id: targetUid,
+      label: target ? `${target.displayName} (@${target.username})` : 'Room participant',
+    });
   };
 
   const handlePromoteUser = async (
@@ -1044,6 +1348,12 @@ export default function App() {
     if (!me || targetUser.uid === me.uid) return;
     try {
       const convId = await ensureConversationDoc(me.uid, targetUser.uid);
+      // Re-opening a chat the user previously deleted for themselves must
+      // bring it back into their inbox.
+      void setConversationPrefDoc(convId, me.uid, {
+        hidden: false,
+        archived: false,
+      }).catch(() => undefined);
       setActiveConversationId(convId);
       setInspectedUser(null);
       setActiveRoomId(null);
@@ -1060,20 +1370,155 @@ export default function App() {
   const handleSendDirectMessage = async (
     conversationId: string,
     partnerUid: string,
-    text: string
+    payload: ChatSendPayload
   ) => {
     const me = requireSignedIn();
     if (!me) return;
+    if (blockedUids.includes(partnerUid)) {
+      pushToast('Message blocked', 'Unblock this user to send messages.', 'warning');
+      return;
+    }
     const memberUids = [me.uid, partnerUid].sort();
+    const result = await sendChatMessageDoc(conversationId, memberUids, me, payload);
+    if (!result.extended) {
+      // The newer message fields need the pending security-rules deploy; the
+      // message itself was still delivered with the legacy shape.
+      pushToast(
+        'Message sent (basic)',
+        'Media, reply and read-receipt fields activate after the Firestore rules update.',
+        'info'
+      );
+    }
+  };
+
+  const handleSendFriendRequest = async (targetUid: string) => {
+    const me = requireSignedIn();
+    if (!me || targetUid === me.uid) return;
+    const target = users.find((u) => u.uid === targetUid);
     try {
-      await sendDirectMessageDoc(conversationId, memberUids, me.uid, text);
+      const outcome = await sendFriendRequestDoc(me, targetUid);
+      if (outcome === 'ACCEPTED') {
+        pushToast(
+          'Friend added',
+          `${target?.displayName ?? 'Creator'} had already sent you a request.`,
+          'success'
+        );
+      } else {
+        pushToast(
+          'Friend request sent',
+          `${target?.displayName ?? 'Creator'} will see your request.`,
+          'success'
+        );
+      }
     } catch (err) {
       pushToast(
-        'Message failed',
-        err instanceof Error ? err.message : 'Unable to send message.',
+        'Friend request failed',
+        err instanceof Error
+          ? err.message
+          : 'Enable the friendRequests rules to use friend requests.',
         'error'
       );
     }
+  };
+
+  const handleAcceptFriendRequest = async (request: FriendRequest) => {
+    const me = requireSignedIn();
+    if (!me) return;
+    try {
+      await acceptFriendRequestDoc(request, me);
+      pushToast(
+        'Friend request accepted',
+        `You and @${request.fromUsername} are now friends.`,
+        'success'
+      );
+    } catch (err) {
+      pushToast(
+        'Accept failed',
+        err instanceof Error ? err.message : 'Unable to accept the request.',
+        'error'
+      );
+    }
+  };
+
+  const handleDeclineFriendRequest = async (request: FriendRequest) => {
+    try {
+      await declineFriendRequestDoc(request.requestId);
+      pushToast('Request removed', undefined, 'info');
+    } catch (err) {
+      pushToast(
+        'Request failed',
+        err instanceof Error ? err.message : 'Unable to remove the request.',
+        'error'
+      );
+    }
+  };
+
+  const handleInviteToLive = async (targetUid: string) => {
+    const me = requireSignedIn();
+    if (!me) return;
+    const hostRoom = liveRooms.find((r) => r.hostUid === me.uid);
+    if (!hostRoom) {
+      pushToast('No live room', 'Start a live room before inviting friends.', 'warning');
+      return;
+    }
+    const target = users.find((u) => u.uid === targetUid);
+    try {
+      await sendLiveInviteDoc(targetUid, hostRoom, me);
+      pushToast(
+        'Live invite sent',
+        `${target?.displayName ?? 'Friend'} was invited to "${hostRoom.title}".`,
+        'success'
+      );
+    } catch (err) {
+      pushToast(
+        'Invite failed',
+        err instanceof Error
+          ? err.message
+          : 'Live invites need the notifications rules deployed.',
+        'error'
+      );
+    }
+  };
+
+  const handleConversationPref = async (
+    conversationId: string,
+    patch: Partial<
+      Pick<ConversationPrefs, 'pinned' | 'muted' | 'archived' | 'hidden' | 'clearedAtMs'>
+    >
+  ) => {
+    const me = requireSignedIn();
+    if (!me) return;
+    await setConversationPrefDoc(conversationId, me.uid, patch);
+  };
+
+  const handleMarkConversationRead = (conversationId: string) => {
+    const me = currentUser;
+    if (!me) return;
+    void markConversationReadDoc(conversationId, me.uid).catch(() => undefined);
+  };
+
+  const handleDeleteDirectMessage = async (
+    conversationId: string,
+    messageId: string
+  ) => {
+    try {
+      await deleteDirectMessageDoc(conversationId, messageId);
+    } catch {
+      throw new Error('Message delete needs the Firestore rules update.');
+    }
+    pushToast('Message deleted', undefined, 'info');
+  };
+
+  const handleUploadChatMedia = async (conversationId: string, file: File) => {
+    const me = currentUser;
+    if (!me) throw new Error('Sign in required.');
+    return uploadChatMedia(conversationId, me.uid, file);
+  };
+
+  const handleDirectTyping = (conversationId: string, isTyping: boolean) => {
+    const me = currentUser;
+    if (!me) return;
+    void setTypingDoc(conversationId, me.uid, isTyping);
   };
 
   const handleSendDirectGift = async (
@@ -1316,12 +1761,15 @@ export default function App() {
           joinRequests={activeJoinRequests}
           comments={activeComments}
           host={host}
+          users={users}
           currentUser={currentUser}
           isAdminUser={isAdminUser}
           gifts={GIFT_CATALOG}
           coinBalance={coinBalance}
           isFollowingHost={followingUids.includes(host.uid)}
           isOfflineSimulated={isOffline}
+          blockedUids={blockedUids}
+          followingUids={followingUids}
           onLeaveRoom={() => setActiveRoomId(null)}
           onEndRoom={handleEndRoom}
           onToggleFollow={handleToggleFollow}
@@ -1335,13 +1783,25 @@ export default function App() {
           onToggleSeatLock={handleToggleSeatLock}
           onToggleMuteGuest={handleToggleMuteGuest}
           onRemoveGuest={handleRemoveGuest}
+          onKickViewer={handleKickViewer}
+          onDeleteComment={handleDeleteRoomComment}
+          onAddModerator={handleAddRoomModerator}
+          onRemoveModerator={handleRemoveRoomModerator}
+          onInviteViewer={handleInviteRoomViewer}
+          onReportUser={handleReportRoomUser}
+          onToggleBlock={handleToggleBlock}
           onShareRoom={(r) => {
+            const url = `${window.location.origin}${window.location.pathname}?room=${r.roomId}`;
             if (navigator.clipboard?.writeText) {
               navigator.clipboard
-                .writeText(`${window.location.origin}/room/${r.roomId}`)
-                .catch(() => {});
+                .writeText(url)
+                .then(() => pushToast('Room link copied', r.title, 'success'))
+                .catch(() => {
+                  window.prompt('Copy this room link', url);
+                });
+            } else {
+              window.prompt('Copy this room link', url);
             }
-            pushToast('Room link copied', r.title, 'success');
           }}
           onOpenReportRoom={(r) => {
             if (!requireSignedIn()) return;
@@ -1525,14 +1985,30 @@ export default function App() {
           )}
 
           {activeSection === 'following' && (
-            <FollowingView
+            <FriendsView
               rooms={liveRooms}
               users={users}
+              currentUser={currentUser}
               followingUids={followingUids}
+              followerUids={followerUids}
               blockedUids={blockedUids}
+              friendRequests={friendRequests}
+              presence={presence}
+              usersReady={usersReady}
+              loadError={usersError}
+              canInviteToLive={Boolean(
+                currentUser && liveRooms.some((r) => r.hostUid === currentUser.uid)
+              )}
+              onOpenAuth={() => setActiveSection('signin')}
               onToggleFollow={handleToggleFollow}
-              onJoinRoom={(r) => setActiveRoomId(r.roomId)}
+              onToggleBlock={handleToggleBlock}
+              onSendFriendRequest={handleSendFriendRequest}
+              onAcceptFriendRequest={handleAcceptFriendRequest}
+              onDeclineFriendRequest={handleDeclineFriendRequest}
+              onInviteToLive={handleInviteToLive}
+              onStartDirectMessage={handleStartDirectMessage}
               onOpenUserProfile={(u) => setInspectedUser(u)}
+              onJoinRoom={(r) => setActiveRoomId(r.roomId)}
             />
           )}
 
@@ -1545,13 +2021,29 @@ export default function App() {
               blockedUids={blockedUids}
               activeConversationId={activeConversationId}
               onSelectConversation={setActiveConversationId}
-              onSendDirectMessage={handleSendDirectMessage}
+              onSendMessage={handleSendDirectMessage}
               gifts={GIFT_CATALOG}
               coinBalance={coinBalance}
               onSendDirectGift={handleSendDirectGift}
               onUnblockUser={handleToggleBlock}
+              onToggleBlock={handleToggleBlock}
+              onReportUser={(u) =>
+                setReportTarget({
+                  type: 'USER',
+                  id: u.uid,
+                  label: `${u.displayName} (@${u.username})`,
+                })
+              }
+              onSetPref={handleConversationPref}
+              onDeleteMessage={handleDeleteDirectMessage}
+              onUploadMedia={handleUploadChatMedia}
+              onTyping={handleDirectTyping}
+              onMarkRead={handleMarkConversationRead}
               onStartDirectMessage={handleStartDirectMessage}
               onOpenAuth={() => setActiveSection('signin')}
+              prefs={conversationPrefs}
+              presence={presence}
+              typingUid={typingUid}
               isOfflineSimulated={isOffline}
             />
           )}
@@ -1792,6 +2284,7 @@ export default function App() {
             <StoreView
               coinBalance={coinBalance}
               diamondBalance={diamondBalance}
+              transactions={transactions}
               onBack={() => setActiveSection('profile')}
               onToast={pushToast}
             />
@@ -1820,6 +2313,7 @@ export default function App() {
             <RewardView
               currentUser={currentUser}
               coinBalance={coinBalance}
+              transactions={transactions}
               onBack={() => setActiveSection('profile')}
               onToast={pushToast}
             />
@@ -1867,10 +2361,53 @@ export default function App() {
               onOpenUserProfile={setInspectedUser}
               onOpenSection={handleSelectSection}
               onOpenAuth={() => setActiveSection('signin')}
+              onToggleFollow={handleToggleFollow}
+              onStartMessage={handleStartDirectMessage}
+              onToast={pushToast}
               onSignOut={async () => {
                 await signOutFirebase();
                 pushToast('Signed out');
               }}
+            />
+          )}
+
+          {activeSection === 'edit-profile' && currentUser && (
+            <EditProfileView
+              currentUser={currentUser}
+              settings={userSettings}
+              onSaveSettings={handleSaveSettings}
+              onBack={() => setActiveSection('profile')}
+              onToast={pushToast}
+              isOffline={isOffline}
+            />
+          )}
+
+          {activeSection === 'settings' && currentUser && (
+            <SettingsView
+              currentUser={currentUser}
+              settings={userSettings}
+              allUsers={users}
+              blockedUids={blockedUids}
+              onSaveSettings={handleSaveSettings}
+              onUnblockUser={handleToggleBlock}
+              onOpenSection={(section) => setActiveSection(section)}
+              onSignOut={() => {
+                void signOutFirebase();
+                pushToast('Signed out');
+              }}
+              onBack={() => setActiveSection('profile')}
+              onToast={pushToast}
+              isOffline={isOffline}
+            />
+          )}
+
+          {activeSection === 'honor' && currentUser && (
+            <HonorLevelView
+              currentUser={currentUser}
+              coinBalance={coinBalance}
+              diamondBalance={diamondBalance}
+              transactions={transactions}
+              onBack={() => setActiveSection('profile')}
             />
           )}
 
@@ -1935,6 +2472,7 @@ export default function App() {
 
         <RightRail
           users={users.filter((u) => !blockedUids.includes(u.uid))}
+          presence={presence}
           coinBalance={coinBalance}
           diamondBalance={diamondBalance}
           onOpenUserProfile={(u) => setInspectedUser(u)}
@@ -2033,9 +2571,23 @@ export default function App() {
         open={notificationsOpen}
         notifications={mergedNotifications}
         onClose={() => setNotificationsOpen(false)}
-        onMarkAllRead={() =>
-          setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })))
-        }
+        onMarkRead={(id) => {
+          const me = currentUser;
+          if (!me) return;
+          setNotifications((prev) =>
+            prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
+          );
+          void markNotificationReadDoc(me.uid, id).catch(() => undefined);
+        }}
+        onMarkAllRead={() => {
+          const me = currentUser;
+          const unreadStored = notifications.filter((n) => !n.isRead).map((n) => n.id);
+          setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+          if (!me || unreadStored.length === 0) return;
+          void markNotificationsReadDoc(me.uid, unreadStored).catch(() =>
+            pushToast('Notifications', 'Unable to mark notifications read.', 'error')
+          );
+        }}
       />
 
       <ReportModal

@@ -1,7 +1,8 @@
-import React from 'react';
-import { MessageSquare, ShieldAlert, ShieldBan, X } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Copy, MessageSquare, ShieldAlert, ShieldBan, X } from 'lucide-react';
 import { UserProfile } from '../../types/app';
 import { Avatar } from '../ui/Avatar';
+import { accountRoleLabel, fetchCoverImage } from '../../lib/firestoreService';
 import { visibleBio } from '../../lib/profileBio';
 
 interface UserProfileModalProps {
@@ -25,7 +26,31 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   onToggleBlock,
   onReportUser,
 }) => {
+  const [coverImage, setCoverImage] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!user?.uid) {
+      setCoverImage(null);
+      return;
+    }
+    fetchCoverImage(user.uid).then((dataUrl) => {
+      if (!cancelled) setCoverImage(dataUrl);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.uid]);
+
   if (!user) return null;
+
+  const copyId = async () => {
+    try {
+      await navigator.clipboard.writeText(user.platformId);
+    } catch {
+      // Clipboard can be blocked by the browser; the ID stays visible.
+    }
+  };
 
   return (
     <div
@@ -37,7 +62,13 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
       <div className="w-full max-w-md rounded-2xl bg-[#111420] border border-white/12 overflow-hidden shadow-2xl">
         <div
           className="h-24 relative"
-          style={{ background: user.coverGradient }}
+          style={{
+            background: coverImage
+              ? `center / cover no-repeat url(${coverImage})`
+              : user.coverUrl
+              ? `center / cover no-repeat url(${user.coverUrl})`
+              : user.coverGradient,
+          }}
         >
           <button
             type="button"
@@ -54,12 +85,21 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             <Avatar
               name={user.displayName}
               color={user.avatarColor}
+              src={user.avatarUrl}
               size="xl"
               className="ring-4 ring-[#111420]"
             />
-            <span className="text-xs font-mono text-sky-300 pb-1">
-              {user.platformId} · {user.accountType}
-            </span>
+            <button
+              type="button"
+              onClick={() => void copyId()}
+              className="text-xs font-mono text-sky-300 pb-1 inline-flex items-center gap-1 hover:text-sky-200"
+              aria-label="Copy user ID"
+            >
+              <span>
+                {user.platformId} · {accountRoleLabel(user)}
+              </span>
+              <Copy className="w-3 h-3" />
+            </button>
           </div>
 
           <div className="mt-3 space-y-1">

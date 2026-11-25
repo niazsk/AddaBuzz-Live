@@ -84,6 +84,27 @@ service cloud.firestore {
         getAfter(/databases/$(database)/documents/liveRooms/$(roomId)).data.hostUid == request.auth.uid;
     }
 
+    // Room moderators are appointed per room by the host (or an admin).
+    function isRoomModerator(roomId) {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/liveRooms/$(roomId)/moderators/$(request.auth.uid));
+    }
+
+    // Public rooms are readable by anyone who can reach them; followers-only
+    // rooms are limited to the host, admins and the host's followers. Used by
+    // every live-room subcollection so privacy is enforced on seats, chat,
+    // requests and WebRTC signaling, not just the room list.
+    function canViewRoom(roomId) {
+      return exists(/databases/$(database)/documents/liveRooms/$(roomId)) && (
+        get(/databases/$(database)/documents/liveRooms/$(roomId)).data.isPrivateFollowersOnly == false ||
+        (isSignedIn() && (
+          isAdmin() ||
+          get(/databases/$(database)/documents/liveRooms/$(roomId)).data.hostUid == request.auth.uid ||
+          exists(/databases/$(database)/documents/follows/$(request.auth.uid + '_' + get(/databases/$(database)/documents/liveRooms/$(roomId)).data.hostUid))
+        ))
+      );
+    }
+
     // Connection health check document
     match /test/connection {
       allow get: if true;
@@ -185,7 +206,7 @@ service cloud.firestore {
         data.updatedAt is timestamp;
     }
 
-    // 30-Day Deposit Vault: locked principal plus an exact 10% reward that is
+    // 15-Day Deposit Vault: locked principal plus an exact 10% reward that is
     // paid in Diamonds once the deposit matures.
     function isValidDepositRecord(data, uid, recordId) {
       return data.keys().hasAll([
@@ -208,11 +229,37 @@ service cloud.firestore {
         (data.rewardAmount + 1) * 10 > data.amount &&
         data.createdAt == request.time &&
         data.updatedAt == request.time &&
-        data.maturesAt >= request.time + duration.value(29, 'd') &&
-        data.maturesAt <= request.time + duration.value(30, 'd') + duration.value(6, 'h') &&
+        data.maturesAt >= request.time + duration.value(14, 'd') &&
+        data.maturesAt <= request.time + duration.value(15, 'd') + duration.value(6, 'h') &&
         data.rewardWindowEndsAt == data.maturesAt + duration.value(15, 'd') &&
         data.rewardCredited == false &&
         data.principalWithdrawn == false;
+    }
+
+    // Owner preferences: UI language + notification toggles. No PII, no
+    // balances — only the signed-in owner can read or write their document.
+    function isValidUserSettings(data, uid) {
+      return data.keys().hasAll(['uid', 'language', 'notifications', 'updatedAt']) &&
+        data.keys().hasOnly(['uid', 'language', 'notifications', 'updatedAt']) &&
+        data.uid == uid &&
+        isValidId(data.uid) &&
+        data.language in ['en', 'bn', 'hi', 'ur', 'ar', 'id', 'tr', 'es', 'fr'] &&
+        data.notifications.keys().hasAll([
+          'friendRequests', 'friendAccepts', 'newFollowers', 'messages',
+          'liveInvites', 'gifts', 'promotions'
+        ]) &&
+        data.notifications.keys().hasOnly([
+          'friendRequests', 'friendAccepts', 'newFollowers', 'messages',
+          'liveInvites', 'gifts', 'promotions'
+        ]) &&
+        data.notifications.friendRequests is bool &&
+        data.notifications.friendAccepts is bool &&
+        data.notifications.newFollowers is bool &&
+        data.notifications.messages is bool &&
+        data.notifications.liveInvites is bool &&
+        data.notifications.gifts is bool &&
+        data.notifications.promotions is bool &&
+        data.updatedAt is timestamp;
     }
 
     function isValidUsernameDoc(data, username) {
@@ -232,7 +279,9 @@ service cloud.firestore {
         data.keys().hasOnly([
           'roomId', 'hostUid', 'title', 'description', 'category', 'mode',
           'status', 'viewerCount', 'isPrivateFollowersOnly', 'isFeatured',
-          'thumbnailUrl', 'fallbackGradient', 'seatCount', 'createdAt', 'updatedAt'
+          'thumbnailUrl', 'fallbackGradient', 'seatCount',
+          'allowGuestRequests', 'allowViewerComments', 'allowGifts', 'hostApprovalForGuests',
+          'createdAt', 'updatedAt'
         ]) &&
         data.roomId == roomId &&
         isValidId(data.roomId) &&
@@ -240,11 +289,15 @@ service cloud.firestore {
         data.title is string && data.title.size() >= 1 && data.title.size() <= 120 &&
         (!('description' in data) || (data.description is string && data.description.size() <= 400)) &&
         (!('seatCount' in data) || data.seatCount in [8, 12, 16, 24]) &&
-        data.category in ['Popular', 'Music', 'Entertainment', 'Friendship', 'Chat', 'Gaming', 'Talent', 'New Live'] &&
+        data.category in ['Popular', 'Music', 'Entertainment', 'Friendship', 'Chat', 'Gaming', 'Talent', 'Education', 'Talk Show', 'New Live'] &&
         data.mode in ['VIDEO', 'AUDIO', 'MULTI_GUEST'] &&
         data.status in ['LIVE', 'ENDED'] &&
         data.viewerCount is int && data.viewerCount >= 0 &&
         data.isPrivateFollowersOnly is bool &&
+        (!('allowGuestRequests' in data) || data.allowGuestRequests is bool) &&
+        (!('allowViewerComments' in data) || data.allowViewerComments is bool) &&
+        (!('allowGifts' in data) || data.allowGifts is bool) &&
+        (!('hostApprovalForGuests' in data) || data.hostApprovalForGuests is bool) &&
         (!('isFeatured' in data) || data.isFeatured is bool) &&
         (!('thumbnailUrl' in data) || (data.thumbnailUrl is string && data.thumbnailUrl.size() <= 300)) &&
         (!('fallbackGradient' in data) || (data.fallbackGradient is string && data.fallbackGradient.size() <= 160)) &&
@@ -440,7 +493,10 @@ service cloud.firestore {
 
     function isValidConversation(data, conversationId) {
       return data.keys().hasAll(['conversationId', 'memberUids', 'createdAt', 'updatedAt']) &&
-        data.keys().hasOnly(['conversationId', 'memberUids', 'lastMessageText', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly([
+          'conversationId', 'memberUids', 'lastMessageText', 'createdAt', 'updatedAt',
+          'lastSenderUid', 'lastMessageAtMs', 'unreadCounts', 'readAt'
+        ]) &&
         data.conversationId == conversationId &&
         isValidId(data.conversationId) &&
         data.memberUids is list &&
@@ -448,6 +504,25 @@ service cloud.firestore {
         data.memberUids[0] is string && data.memberUids[1] is string &&
         request.auth.uid in data.memberUids &&
         (!('lastMessageText' in data) || (data.lastMessageText is string && data.lastMessageText.size() <= 500)) &&
+        (!('lastSenderUid' in data) || (data.lastSenderUid is string && data.lastSenderUid in data.memberUids)) &&
+        (!('lastMessageAtMs' in data) || (data.lastMessageAtMs is int && data.lastMessageAtMs > 0)) &&
+        (!('unreadCounts' in data) || (
+          data.unreadCounts is map &&
+          data.unreadCounts.keys().size() <= 2 &&
+          (!(request.auth.uid in data.unreadCounts) || (
+            data.unreadCounts[request.auth.uid] is int &&
+            data.unreadCounts[request.auth.uid] >= 0 &&
+            data.unreadCounts[request.auth.uid] <= 9999
+          ))
+        )) &&
+        (!('readAt' in data) || (
+          data.readAt is map &&
+          data.readAt.keys().size() <= 2 &&
+          (!(request.auth.uid in data.readAt) || (
+            data.readAt[request.auth.uid] is int &&
+            data.readAt[request.auth.uid] > 0
+          ))
+        )) &&
         data.createdAt is timestamp &&
         data.updatedAt is timestamp;
     }
@@ -457,7 +532,9 @@ service cloud.firestore {
         data.keys().hasOnly([
           'id', 'senderUid', 'memberUids', 'text', 'createdAt',
           'isGiftEvent', 'giftId', 'giftName', 'giftCurrency', 'giftAmount',
-          'giftRecipientUid', 'giftRecipientName', 'giftRecipientDiamonds'
+          'giftRecipientUid', 'giftRecipientName', 'giftRecipientDiamonds',
+          'createdAtMs', 'kind', 'mediaUrl', 'mediaName', 'durationMs',
+          'replyToId', 'replySenderName', 'replyText'
         ]) &&
         data.id == messageId &&
         isValidId(data.id) &&
@@ -475,6 +552,14 @@ service cloud.firestore {
         (!('giftRecipientUid' in data) || isValidId(data.giftRecipientUid)) &&
         (!('giftRecipientName' in data) || (data.giftRecipientName is string && data.giftRecipientName.size() <= 64)) &&
         (!('giftRecipientDiamonds' in data) || (data.giftRecipientDiamonds is int && data.giftRecipientDiamonds >= 0)) &&
+        (!('createdAtMs' in data) || (data.createdAtMs is int && data.createdAtMs > 0)) &&
+        (!('kind' in data) || data.kind in ['TEXT', 'IMAGE', 'VOICE', 'FILE']) &&
+        (!('mediaUrl' in data) || (data.mediaUrl is string && data.mediaUrl.size() <= 2048 && data.mediaUrl.matches('^https://'))) &&
+        (!('mediaName' in data) || (data.mediaName is string && data.mediaName.size() <= 120)) &&
+        (!('durationMs' in data) || (data.durationMs is int && data.durationMs >= 0 && data.durationMs <= 600000)) &&
+        (!('replyToId' in data) || (data.replyToId is string && data.replyToId.size() <= 128)) &&
+        (!('replySenderName' in data) || (data.replySenderName is string && data.replySenderName.size() <= 64)) &&
+        (!('replyText' in data) || (data.replyText is string && data.replyText.size() <= 160)) &&
         data.createdAt == request.time;
     }
 
@@ -666,6 +751,16 @@ service cloud.firestore {
         incoming().diff(existing()).affectedKeys().hasOnly(['email', 'updatedAt']);
     }
 
+    // Personal preferences (language + notification toggles), owner-only.
+    match /userSettings/{uid} {
+      allow get: if isValidId(uid) && (isOwner(uid) || isAdmin());
+      allow delete: if isAdmin();
+      allow create, update: if isVerifiedUser() &&
+        isOwner(uid) &&
+        isValidUserSettings(incoming(), uid) &&
+        incoming().updatedAt == request.time;
+    }
+
     // Reward Center: daily check-in + task progress (owner-managed, bounded)
     match /rewardProfiles/{uid} {
       allow get: if isValidId(uid) && (isOwner(uid) || isAdmin());
@@ -725,7 +820,7 @@ service cloud.firestore {
         );
     }
 
-    // 30-Day Deposit Vault: principal locked for 30 days, 10% Diamond reward
+    // 15-Day Deposit Vault: principal locked for 15 days, 10% Diamond reward
     // credited at maturity (claim window: 15 days).
     match /depositVaults/{uid} {
       allow read, write: if false;
@@ -775,7 +870,9 @@ service cloud.firestore {
     // Username uniqueness index
     match /usernames/{username} {
       allow get: if username is string && username.size() >= 3 && username.size() <= 32;
-      allow delete: if isAdmin();
+      // A username change releases the owner's previous index entry.
+      allow delete: if isAdmin() ||
+        (isVerifiedUser() && isValidId(username) && isOwner(existing().uid));
       allow create: if isVerifiedUser() &&
         !exists(/databases/$(database)/documents/usernames/$(username)) &&
         isValidUsernameDoc(incoming(), username);
@@ -811,9 +908,128 @@ service cloud.firestore {
       allow delete: if isVerifiedUser() && isValidId(blockId) && (existing().blockerUid == request.auth.uid || isAdmin());
     }
 
+    // Presence heartbeat — written only by the signed-in owner, readable by
+    // signed-in members so online indicators use real presence, never guesses.
+    match /presence/{uid} {
+      allow get, list: if isSignedIn();
+      allow create, update: if isVerifiedUser() &&
+        uid == request.auth.uid &&
+        incoming().keys().hasAll(['uid', 'lastSeenMs']) &&
+        incoming().keys().hasOnly(['uid', 'lastSeenMs']) &&
+        incoming().uid == request.auth.uid &&
+        incoming().lastSeenMs is int && incoming().lastSeenMs > 0;
+      allow delete: if isAdmin();
+    }
+
+    // Friend requests (deterministic id fromUid_toUid prevents duplicates).
+    // Accepting deletes the request and creates the reverse follow, so a pair
+    // becomes mutual friends using the existing follow graph.
+    match /friendRequests/{requestId} {
+      allow get: if isSignedIn() && isValidId(requestId);
+      allow list: if isSignedIn() && request.auth.uid in resource.data.memberUids;
+      allow create: if isVerifiedUser() &&
+        isValidId(requestId) &&
+        incoming().keys().hasAll([
+          'fromUid', 'toUid', 'memberUids', 'fromUsername', 'fromDisplayName',
+          'fromAvatarColor', 'createdAt'
+        ]) &&
+        incoming().keys().hasOnly([
+          'fromUid', 'toUid', 'memberUids', 'fromUsername', 'fromDisplayName',
+          'fromAvatarColor', 'fromAvatarUrl', 'createdAt'
+        ]) &&
+        incoming().fromUid == request.auth.uid &&
+        isValidId(incoming().toUid) &&
+        incoming().toUid != request.auth.uid &&
+        incoming().memberUids is list &&
+        incoming().memberUids.size() == 2 &&
+        request.auth.uid in incoming().memberUids &&
+        incoming().toUid in incoming().memberUids &&
+        incoming().fromUsername is string &&
+        incoming().fromUsername.size() >= 1 && incoming().fromUsername.size() <= 32 &&
+        incoming().fromDisplayName is string &&
+        incoming().fromDisplayName.size() >= 1 && incoming().fromDisplayName.size() <= 64 &&
+        incoming().fromAvatarColor is string && incoming().fromAvatarColor.size() <= 32 &&
+        (!('fromAvatarUrl' in incoming()) || (
+          incoming().fromAvatarUrl is string && incoming().fromAvatarUrl.size() <= 2048
+        )) &&
+        incoming().createdAt == request.time;
+      allow delete: if isSignedIn() &&
+        (existing().fromUid == request.auth.uid ||
+         existing().toUid == request.auth.uid ||
+         isAdmin());
+    }
+
+    // Per-user conversation settings (pin / mute / archive / hide / cleared).
+    match /conversationPrefs/{prefId} {
+      allow get, list: if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow create, update: if isVerifiedUser() &&
+        isValidId(prefId) &&
+        incoming().keys().hasAll(['conversationId', 'uid', 'updatedAt']) &&
+        incoming().keys().hasOnly([
+          'conversationId', 'uid', 'pinned', 'muted', 'archived', 'hidden',
+          'clearedAtMs', 'updatedAt'
+        ]) &&
+        incoming().uid == request.auth.uid &&
+        isValidId(incoming().conversationId) &&
+        request.auth.uid in get(/databases/$(database)/documents/conversations/$(incoming().conversationId)).data.memberUids &&
+        (!('pinned' in incoming()) || incoming().pinned is bool) &&
+        (!('muted' in incoming()) || incoming().muted is bool) &&
+        (!('archived' in incoming()) || incoming().archived is bool) &&
+        (!('hidden' in incoming()) || incoming().hidden is bool) &&
+        (!('clearedAtMs' in incoming()) || (
+          incoming().clearedAtMs is int && incoming().clearedAtMs >= 0
+        )) &&
+        incoming().updatedAt == request.time;
+      allow delete: if isSignedIn() && resource.data.uid == request.auth.uid;
+    }
+
+    // In-app notification inbox per user. Any verified signed-in actor may
+    // drop a notification for someone else, but only with their own actor
+    // identity and never to themselves (prevents spoofed or self-spam items).
+    match /notifications/{uid} {
+      match /items/{notificationId} {
+        allow get, list: if isSignedIn() && (request.auth.uid == uid || isAdmin());
+        allow create: if isVerifiedUser() &&
+          isValidId(notificationId) &&
+          uid != request.auth.uid &&
+          incoming().keys().hasAll([
+            'type', 'title', 'body', 'isRead', 'actorUid', 'actorUsername', 'createdAt'
+          ]) &&
+          incoming().keys().hasOnly([
+            'type', 'title', 'body', 'isRead', 'actorUid', 'actorUsername',
+            'targetId', 'createdAt'
+          ]) &&
+          incoming().actorUid == request.auth.uid &&
+          incoming().isRead == false &&
+          incoming().type in [
+            'FOLLOW', 'NEW_FOLLOWER', 'SEAT_INVITE', 'GIFT', 'PROMOTION',
+            'SYSTEM', 'FRIEND_REQUEST', 'FRIEND_ACCEPT', 'MESSAGE', 'LIVE_INVITE'
+          ] &&
+          incoming().title is string && incoming().title.size() >= 1 && incoming().title.size() <= 120 &&
+          incoming().body is string && incoming().body.size() <= 500 &&
+          incoming().actorUsername is string && incoming().actorUsername.size() <= 32 &&
+          (!('targetId' in incoming()) || (
+            incoming().targetId is string && incoming().targetId.size() <= 128
+          )) &&
+          incoming().createdAt == request.time;
+        allow update: if isSignedIn() &&
+          request.auth.uid == uid &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['isRead']) &&
+          incoming().isRead == true;
+        allow delete: if isSignedIn() && (request.auth.uid == uid || isAdmin());
+      }
+    }
+
     // Live Rooms
     match /liveRooms/{roomId} {
-      allow get: if isValidId(roomId);
+      allow get: if isValidId(roomId) && (
+        resource.data.isPrivateFollowersOnly == false ||
+        (isSignedIn() && (
+          isAdmin() ||
+          resource.data.hostUid == request.auth.uid ||
+          exists(/databases/$(database)/documents/follows/$(request.auth.uid + '_' + resource.data.hostUid))
+        ))
+      );
       allow list: if resource.data.status == 'LIVE' &&
         (resource.data.isPrivateFollowersOnly == false || (isSignedIn() && resource.data.hostUid == request.auth.uid));
       allow create: if isVerifiedUser() &&
@@ -848,8 +1064,8 @@ service cloud.firestore {
 
       // Multi-guest seats (8 / 12 / 16 / 24 capacity)
       match /seats/{seatId} {
-        allow get: if isValidId(roomId) && isValidId(seatId);
-        allow list: if resource.data.seatNumber >= 1 && resource.data.seatNumber <= 24;
+        allow get: if isValidId(roomId) && isValidId(seatId) && canViewRoom(roomId);
+        allow list: if resource.data.seatNumber >= 1 && resource.data.seatNumber <= 24 && canViewRoom(roomId);
         allow delete: if isAdmin();
         allow create: if isVerifiedUser() &&
           (isRoomHostAfter(roomId) || isAdmin()) &&
@@ -858,11 +1074,23 @@ service cloud.firestore {
           isValidRoomSeat(incoming(), seatId) &&
           incoming().seatNumber == existing().seatNumber && (
             isRoomHost(roomId) ||
+            isRoomModerator(roomId) ||
             isAdmin() ||
             (
               existing().status == 'AVAILABLE' &&
               incoming().status == 'REQUESTED' &&
+              canViewRoom(roomId) &&
+              get(/databases/$(database)/documents/liveRooms/$(roomId)).data.allowGuestRequests != false &&
               incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])
+            ) ||
+            (
+              existing().status == 'AVAILABLE' &&
+              incoming().status == 'OCCUPIED' &&
+              incoming().occupantUid == request.auth.uid &&
+              canViewRoom(roomId) &&
+              get(/databases/$(database)/documents/liveRooms/$(roomId)).data.allowGuestRequests != false &&
+              get(/databases/$(database)/documents/liveRooms/$(roomId)).data.hostApprovalForGuests == false &&
+              incoming().diff(existing()).affectedKeys().hasOnly(['status', 'occupantUid', 'occupantName', 'occupantUsername', 'occupantAvatarColor', 'isMuted', 'isSpeaking', 'updatedAt'])
             ) ||
             (
               existing().status == 'OCCUPIED' &&
@@ -875,13 +1103,15 @@ service cloud.firestore {
 
       // Guest Seat Join Requests
       match /joinRequests/{requestId} {
-        allow get: if isValidId(roomId) && isValidId(requestId) && isSignedIn();
-        allow list: if isSignedIn() && resource.data.roomId == roomId;
+        allow get: if isValidId(roomId) && isValidId(requestId) && isSignedIn() && canViewRoom(roomId);
+        allow list: if isSignedIn() && resource.data.roomId == roomId && canViewRoom(roomId);
         allow delete: if isAdmin();
         allow create: if isVerifiedUser() &&
           isValidId(roomId) &&
           isValidId(requestId) &&
           exists(/databases/$(database)/documents/liveRooms/$(roomId)) &&
+          canViewRoom(roomId) &&
+          get(/databases/$(database)/documents/liveRooms/$(roomId)).data.allowGuestRequests != false &&
           isValidJoinRequest(incoming(), requestId, roomId);
         allow delete: if isVerifiedUser() &&
           isValidId(roomId) &&
@@ -891,12 +1121,13 @@ service cloud.firestore {
 
       // WebRTC broadcast signaling (host <-> viewer peer connection setup)
       match /rtc/{viewerUid} {
-        allow get: if isValidId(roomId) && isValidId(viewerUid) && isSignedIn();
-        allow list: if isValidId(roomId) && isSignedIn();
+        allow get: if isValidId(roomId) && isValidId(viewerUid) && isSignedIn() && canViewRoom(roomId);
+        allow list: if isValidId(roomId) && isSignedIn() && canViewRoom(roomId);
         allow create: if isVerifiedUser() &&
           isValidId(roomId) &&
           isValidId(viewerUid) &&
           isOwner(viewerUid) &&
+          canViewRoom(roomId) &&
           exists(/databases/$(database)/documents/liveRooms/$(roomId)) &&
           get(/databases/$(database)/documents/liveRooms/$(roomId)).data.status == 'LIVE' &&
           incoming().keys().hasOnly(['viewerUid', 'createdAt']) &&
@@ -916,8 +1147,8 @@ service cloud.firestore {
 
       // WebRTC guest-seat signaling: guestRtc/{guestUid}__{viewerUid}
       match /guestRtc/{signalId} {
-        allow get: if isValidId(roomId) && isValidId(signalId) && isSignedIn();
-        allow list: if isValidId(roomId) && isSignedIn();
+        allow get: if isValidId(roomId) && isValidId(signalId) && isSignedIn() && canViewRoom(roomId);
+        allow list: if isValidId(roomId) && isSignedIn() && canViewRoom(roomId);
         allow create: if isVerifiedUser() &&
           isValidId(roomId) &&
           isValidId(signalId) &&
@@ -925,6 +1156,7 @@ service cloud.firestore {
           isValidId(signalId.split('__')[0]) &&
           isValidId(signalId.split('__')[1]) &&
           isOwner(signalId.split('__')[1]) &&
+          canViewRoom(roomId) &&
           exists(/databases/$(database)/documents/liveRooms/$(roomId)) &&
           get(/databases/$(database)/documents/liveRooms/$(roomId)).data.status == 'LIVE' &&
           incoming().keys().hasOnly(['viewerUid', 'createdAt']) &&
@@ -950,15 +1182,77 @@ service cloud.firestore {
 
       // Live Room Chat & Gift Events
       match /messages/{messageId} {
-        allow get: if isValidId(roomId) && isValidId(messageId);
-        allow list: if resource.data.roomId == roomId;
-        allow delete: if isAdmin();
+        allow get: if isValidId(roomId) && isValidId(messageId) && canViewRoom(roomId);
+        allow list: if resource.data.roomId == roomId && canViewRoom(roomId);
+        // Author can retract their own message; the host, moderators and
+        // admins can remove any message for room moderation.
+        allow delete: if isAdmin() ||
+          isRoomHost(roomId) ||
+          isRoomModerator(roomId) ||
+          (isSignedIn() && resource.data.uid == request.auth.uid);
         allow create: if isVerifiedUser() &&
           isValidId(roomId) &&
           isValidId(messageId) &&
           exists(/databases/$(database)/documents/liveRooms/$(roomId)) &&
           get(/databases/$(database)/documents/liveRooms/$(roomId)).data.status == 'LIVE' &&
+          canViewRoom(roomId) &&
+          (
+            isRoomHost(roomId) ||
+            isRoomModerator(roomId) ||
+            get(/databases/$(database)/documents/liveRooms/$(roomId)).data.allowViewerComments != false
+          ) &&
           isValidRoomMessage(incoming(), messageId, roomId);
+      }
+
+      // Per-room moderators appointed by the host (or an admin).
+      match /moderators/{moderatorUid} {
+        allow get: if isValidId(roomId) && isValidId(moderatorUid) && isSignedIn() && canViewRoom(roomId);
+        allow list: if isValidId(roomId) && isSignedIn() && canViewRoom(roomId);
+        allow create: if isVerifiedUser() &&
+          isValidId(roomId) &&
+          isValidId(moderatorUid) &&
+          (isRoomHost(roomId) || isAdmin()) &&
+          incoming().keys().hasAll(['uid', 'username', 'displayName', 'addedBy', 'createdAt']) &&
+          incoming().keys().hasOnly(['uid', 'username', 'displayName', 'addedBy', 'createdAt']) &&
+          incoming().uid == moderatorUid &&
+          isValidId(incoming().uid) &&
+          incoming().username is string && incoming().username.size() >= 1 && incoming().username.size() <= 32 &&
+          incoming().displayName is string && incoming().displayName.size() >= 1 && incoming().displayName.size() <= 64 &&
+          incoming().addedBy == request.auth.uid &&
+          incoming().createdAt == request.time;
+        allow delete: if isVerifiedUser() &&
+          isValidId(roomId) &&
+          isValidId(moderatorUid) &&
+          (isRoomHost(roomId) || isAdmin());
+      }
+
+      // Live likes — every viewer keeps their own additive counter doc and the
+      // client sums the counters in real time. Counts can only grow, by at
+      // most 500 per write, and only the owner may touch their doc.
+      match /likes/{uid} {
+        allow get: if isValidId(roomId) && isValidId(uid) && canViewRoom(roomId);
+        allow list: if isValidId(roomId) && isSignedIn() && canViewRoom(roomId);
+        allow delete: if isAdmin() || (isSignedIn() && isOwner(uid));
+        allow create: if isVerifiedUser() &&
+          isOwner(uid) &&
+          isValidId(roomId) &&
+          isValidId(uid) &&
+          canViewRoom(roomId) &&
+          exists(/databases/$(database)/documents/liveRooms/$(roomId)) &&
+          get(/databases/$(database)/documents/liveRooms/$(roomId)).data.status == 'LIVE' &&
+          incoming().keys().hasOnly(['uid', 'count', 'createdAt', 'updatedAt']) &&
+          incoming().uid == uid &&
+          incoming().count is int && incoming().count >= 1 && incoming().count <= 500 &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time;
+        allow update: if isVerifiedUser() &&
+          isOwner(uid) &&
+          incoming().keys().hasOnly(['uid', 'count', 'updatedAt']) &&
+          incoming().uid == existing().uid &&
+          incoming().count is int &&
+          incoming().count >= existing().count &&
+          incoming().count <= existing().count + 500 &&
+          incoming().updatedAt == request.time;
       }
     }
 
@@ -1005,10 +1299,27 @@ service cloud.firestore {
         incoming().memberUids == existing().memberUids &&
         incoming().createdAt == existing().createdAt &&
         incoming().updatedAt == request.time &&
-        incoming().diff(existing()).affectedKeys().hasOnly(['lastMessageText', 'updatedAt']);
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'lastMessageText', 'updatedAt', 'lastSenderUid', 'lastMessageAtMs',
+          'unreadCounts', 'readAt'
+        ]);
+
+      match /typing/{typingId} {
+        allow get, list: if isSignedIn() &&
+          request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.memberUids;
+        allow create, update: if isVerifiedUser() &&
+          typingId == request.auth.uid &&
+          incoming().keys().hasAll(['uid', 'atMs']) &&
+          incoming().keys().hasOnly(['uid', 'atMs']) &&
+          incoming().uid == request.auth.uid &&
+          incoming().atMs is int && incoming().atMs > 0;
+        allow delete: if isSignedIn() && typingId == request.auth.uid;
+      }
 
       match /messages/{messageId} {
-        allow delete: if isAdmin();
+        allow delete: if isSignedIn() &&
+          isValidId(messageId) &&
+          (existing().senderUid == request.auth.uid || isAdmin());
         allow get: if isValidId(conversationId) &&
           isValidId(messageId) &&
           isSignedIn() &&
@@ -1019,6 +1330,10 @@ service cloud.firestore {
           isValidId(messageId) &&
           request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.memberUids &&
           incoming().memberUids == get(/databases/$(database)/documents/conversations/$(conversationId)).data.memberUids &&
+          !exists(/databases/$(database)/documents/blocks/$(request.auth.uid + '_' + get(/databases/$(database)/documents/conversations/$(conversationId)).data.memberUids[0])) &&
+          !exists(/databases/$(database)/documents/blocks/$(request.auth.uid + '_' + get(/databases/$(database)/documents/conversations/$(conversationId)).data.memberUids[1])) &&
+          !exists(/databases/$(database)/documents/blocks/$(get(/databases/$(database)/documents/conversations/$(conversationId)).data.memberUids[0] + '_' + request.auth.uid)) &&
+          !exists(/databases/$(database)/documents/blocks/$(get(/databases/$(database)/documents/conversations/$(conversationId)).data.memberUids[1] + '_' + request.auth.uid)) &&
           isValidDirectMessage(incoming(), messageId);
       }
     }
@@ -1297,7 +1612,7 @@ service cloud.firestore {
             (incoming().coinBalance < existing().coinBalance || incoming().diamondBalance < existing().diamondBalance)
           ) ||
           (
-            // 30-Day Deposit: 10% Diamond reward paid at maturity. The credit
+            // 15-Day Deposit: 10% Diamond reward paid at maturity. The credit
             // must equal the pending reward on the deposit record, which flips
             // rewardCredited to true in the same transaction.
             isOwner(uid) &&
@@ -1313,7 +1628,7 @@ service cloud.firestore {
               get(/databases/$(database)/documents/depositVaults/$(uid)/records/$(incoming().lastDepositEventId)).data.rewardAmount
           ) ||
           (
-            // 30-Day Deposit: principal returned to the Coin balance; the
+            // 15-Day Deposit: principal returned to the Coin balance; the
             // deposit record flips principalWithdrawn in the same transaction.
             isOwner(uid) &&
             incoming().diff(existing()).affectedKeys().hasOnly(['coinBalance', 'lastDepositEventId', 'updatedAt']) &&
@@ -1529,7 +1844,7 @@ service cloud.firestore {
               incoming().idempotencyKey.matches('^welcome_grant_.*$')
             ) ||
             (
-              // 30-Day Deposit principal return.
+              // 15-Day Deposit principal return.
               isOwner(uid) &&
               incoming().direction == 'CREDIT' &&
               incoming().currency == 'COIN' &&
@@ -1539,7 +1854,7 @@ service cloud.firestore {
                 get(/databases/$(database)/documents/wallets/$(uid)).data.coinBalance
             ) ||
             (
-              // 30-Day Deposit 10% Diamond reward.
+              // 15-Day Deposit 10% Diamond reward.
               isOwner(uid) &&
               incoming().direction == 'CREDIT' &&
               incoming().currency == 'DIAMOND' &&

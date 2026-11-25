@@ -55,7 +55,8 @@ function startPublisherBroadcast(
   roomId: string,
   colName: string,
   docIdToViewer: (docId: string) => string | null,
-  stream: MediaStream
+  stream: MediaStream,
+  onPeers?: (count: number) => void
 ): () => void {
   const sessionId = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const peers = new Map<string, { pc: RTCPeerConnection; unsub: () => void }>();
@@ -67,6 +68,7 @@ function startPublisherBroadcast(
     entry.unsub();
     entry.pc.close();
     peers.delete(viewerUid);
+    onPeers?.(peers.size);
   };
 
   const attachViewer = (docId: string, viewerUid: string) => {
@@ -126,6 +128,7 @@ function startPublisherBroadcast(
     });
 
     peers.set(viewerUid, { pc, unsub });
+    onPeers?.(peers.size);
   };
 
   const unsubCollection = onSnapshot(
@@ -241,8 +244,12 @@ function joinPublisherStream(
 }
 
 // Host: broadcast to every viewer via liveRooms/{roomId}/rtc/{viewerUid}
-export function startHostBroadcast(roomId: string, stream: MediaStream): () => void {
-  return startPublisherBroadcast(roomId, 'rtc', (id) => id, stream);
+export function startHostBroadcast(
+  roomId: string,
+  stream: MediaStream,
+  onPeers?: (count: number) => void
+): () => void {
+  return startPublisherBroadcast(roomId, 'rtc', (id) => id, stream, onPeers);
 }
 
 // Seated guest: broadcast via liveRooms/{roomId}/guestRtc/{guestUid}__{viewerUid}

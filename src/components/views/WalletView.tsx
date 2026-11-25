@@ -36,13 +36,24 @@ export const WalletView: React.FC<WalletViewProps> = ({
   onToast,
 }) => {
   const [filter, setFilter] = useState<'ALL' | CurrencyType>('ALL');
+  const [category, setCategory] = useState<'ALL' | 'SENT' | 'RECEIVED' | 'BALANCE'>('ALL');
   const [showConvertModal, setShowConvertModal] = useState(false);
   const [convertAmount, setConvertAmount] = useState('');
   const [isConverting, setIsConverting] = useState(false);
 
-  const filteredTx = transactions.filter(
-    (t) => filter === 'ALL' || t.currency === filter
-  );
+  const categoryOf = (tx: WalletTransaction): 'SENT' | 'RECEIVED' | 'BALANCE' => {
+    if (tx.reason.startsWith('Sent ')) return 'SENT';
+    if (tx.reason.startsWith('Received ')) return 'RECEIVED';
+    return 'BALANCE';
+  };
+
+  const currencyTx = transactions.filter((t) => filter === 'ALL' || t.currency === filter);
+  const filteredTx = currencyTx.filter((t) => category === 'ALL' || categoryOf(t) === category);
+  const categoryCounts = {
+    SENT: currencyTx.filter((t) => categoryOf(t) === 'SENT').length,
+    RECEIVED: currencyTx.filter((t) => categoryOf(t) === 'RECEIVED').length,
+    BALANCE: currencyTx.filter((t) => categoryOf(t) === 'BALANCE').length,
+  };
 
   const isAgencyUser =
     currentUser?.accountType === 'AGENT' ||
@@ -99,11 +110,9 @@ export const WalletView: React.FC<WalletViewProps> = ({
             </button>
           )}
           <div>
-            <h1 className="font-display text-2xl font-bold text-white">
-              Wallet & Balance Ledger
-            </h1>
+            <h1 className="font-display text-2xl font-bold text-white">Wallet Center</h1>
             <p className="text-xs sm:text-sm text-slate-400 mt-1">
-              Coins & Diamonds with immutable transactional auditing.
+              Balances, gifts and balance changes, audited server-side.
             </p>
           </div>
         </div>
@@ -176,6 +185,23 @@ export const WalletView: React.FC<WalletViewProps> = ({
             <span>Diamonds Withdraw</span>
           </button>
         </div>
+      </div>
+
+      {/* Wallet details */}
+      <div className="rounded-2xl bg-[#111420] border border-white/[0.08] px-4 py-3 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[11px] text-slate-400">
+        <span>
+          Account <span className="font-mono text-slate-200">@{currentUser?.username ?? '—'}</span>
+        </span>
+        <span>
+          User ID <span className="font-mono text-slate-200">{currentUser?.platformId ?? '—'}</span>
+        </span>
+        <span>
+          Currency <span className="text-slate-200">Coins · Diamonds</span>
+        </span>
+        <span className="inline-flex items-center gap-1 text-emerald-300">
+          <ShieldCheck className="w-3.5 h-3.5" />
+          Balances change only through audited transactions
+        </span>
       </div>
 
       {/* Agency Coins Trading Balance banner for Agents */}
@@ -284,9 +310,14 @@ export const WalletView: React.FC<WalletViewProps> = ({
       {/* Immutable Ledger Table */}
       <section className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <h2 className="font-display text-base font-semibold text-white">
-            Transaction Ledger
-          </h2>
+          <div>
+            <h2 className="font-display text-base font-semibold text-white">
+              Transaction History
+            </h2>
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              Latest {transactions.length} ledger entries
+            </p>
+          </div>
 
           <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-[#111420] border border-white/[0.08] self-start sm:self-auto">
             {(['ALL', 'COIN', 'DIAMOND'] as const).map((tab) => (
@@ -300,10 +331,34 @@ export const WalletView: React.FC<WalletViewProps> = ({
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
-                {tab === 'ALL' ? 'All Entries' : tab === 'COIN' ? 'Coins' : 'Diamonds'}
+                {tab === 'ALL' ? 'All Currency' : tab === 'COIN' ? 'Coins' : 'Diamonds'}
               </button>
             ))}
           </div>
+        </div>
+
+        <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+          {(
+            [
+              { id: 'ALL', label: 'All' },
+              { id: 'SENT', label: `Gifts Sent (${categoryCounts.SENT})` },
+              { id: 'RECEIVED', label: `Gifts Received (${categoryCounts.RECEIVED})` },
+              { id: 'BALANCE', label: `Balance Updates (${categoryCounts.BALANCE})` },
+            ] as const
+          ).map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setCategory(tab.id)}
+              className={`px-3 py-1.5 rounded-full text-[11px] font-medium whitespace-nowrap transition-colors border ${
+                category === tab.id
+                  ? 'bg-violet-600 border-violet-500 text-white'
+                  : 'bg-white/[0.03] border-white/[0.08] text-slate-400 hover:text-white'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
         <div className="rounded-2xl bg-[#111420] border border-white/[0.08] overflow-hidden">
@@ -321,7 +376,15 @@ export const WalletView: React.FC<WalletViewProps> = ({
                 {filteredTx.length === 0 ? (
                   <tr>
                     <td colSpan={4} className="py-8 text-center text-xs text-slate-500">
-                      No transactions recorded yet.
+                      {transactions.length === 0
+                        ? 'No transactions recorded yet.'
+                        : category === 'SENT'
+                        ? 'No gifts sent in the loaded history window.'
+                        : category === 'RECEIVED'
+                        ? 'No gifts received in the loaded history window.'
+                        : category === 'BALANCE'
+                        ? 'No balance updates in the loaded history window.'
+                        : 'No transactions match this filter.'}
                     </td>
                   </tr>
                 ) : (
@@ -330,8 +393,17 @@ export const WalletView: React.FC<WalletViewProps> = ({
                       <td className="py-3 px-4 text-slate-400 whitespace-nowrap font-mono">
                         {tx.timestampLabel}
                       </td>
-                      <td className="py-3 px-4 text-slate-100 font-medium">{tx.reason}</td>
-                      <td className="py-3 px-4 text-slate-300 font-mono">{tx.currency}</td>
+                      <td className="py-3 px-4 text-slate-100 font-medium">
+                        <span className="block">{tx.reason}</span>
+                        {tx.counterparty && (
+                          <span className="block text-[10px] font-normal text-slate-500 mt-0.5">
+                            {tx.counterparty}
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 text-slate-300 font-mono">
+                        {tx.currency === 'COIN' ? 'COIN' : 'DIAMOND'}
+                      </td>
                       <td
                         className={`py-3 px-4 text-right font-mono font-semibold tabular-nums whitespace-nowrap ${
                           tx.direction === 'CREDIT' ? 'text-emerald-400' : 'text-rose-400'

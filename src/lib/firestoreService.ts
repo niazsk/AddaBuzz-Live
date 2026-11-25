@@ -6,6 +6,7 @@ import {
   getDocFromCache,
   getDocs,
   limit,
+  onSnapshot,
   orderBy,
   query,
   runTransaction,
@@ -40,6 +41,7 @@ import {
   OperationType,
 } from './firebase';
 import { classifySyncError, listenWithRetry } from './sync';
+import { sendNotificationDoc } from './chatService';
 import {
   AccountPromotionRecord,
   AdminAuditRecord,
@@ -48,19 +50,24 @@ import {
   AgencyMemberRecord,
   AnnouncementRecord,
   Conversation,
+  CreateLiveRoomPayload,
   DirectMessage,
   GenderOption,
   GiftCatalogItem,
   GuestSeat,
   JoinRequest,
+  LanguageCode,
   LiveRoom,
+  NotificationPrefs,
   ReportRecord,
   RewardProfile,
   HostRewardProfile,
   RoomCategory,
   RoomComment,
+  RoomModerator,
   RoomMode,
   UserProfile,
+  UserSettings,
   WalletTransaction,
 } from '../types/app';
 import {
@@ -332,6 +339,145 @@ export async function isUsernameAvailable(rawUsername: string): Promise<boolean>
     return !snap.exists();
   } catch (error) {
     handleFirestoreError(error, OperationType.GET, path);
+  }
+}
+
+const USERNAME_PATTERN = /^[a-z0-9_]{3,32}$/;
+
+export function normalizeUsername(raw: string): string {
+  return raw.trim().toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 32);
+}
+
+/**
+ * Renames the signed-in account's username. The uniqueness index is claimed
+ * first, the profile is updated in the same batch, and the old index entry is
+ * released. If the new name was taken between the check and the write, the
+ * security rules reject the batch and nothing changes.
+ */
+export async function changeUsername(
+  uid: string,
+  currentUsername: string,
+  rawNext: string
+): Promise<string> {
+  const next = normalizeUsername(rawNext);
+  if (!USERNAME_PATTERN.test(next)) {
+    throw new Error('Username must be 3-32 characters: a-z, 0-9 or underscore.');
+  }
+  const current = currentUsername.trim().toLowerCase();
+  if (next === current) return next;
+
+  const nextRef = doc(db, 'usernames', next);
+  const path = `usernames/${next}`;
+  try {
+    const existingSnap = await getDoc(nextRef);
+    if (existingSnap.exists()) {
+      throw new Error(`Username @${next} is already taken. Please choose another.`);
+    }
+    const batch = writeBatch(db);
+    batch.set(nextRef, { uid, username: next, createdAt: serverTimestamp() });
+    batch.update(doc(db, 'users', uid), {
+      username: next,
+      updatedAt: serverTimestamp(),
+    });
+    if (current && USERNAME_PATTERN.test(current)) {
+      batch.delete(doc(db, 'usernames', current));
+    }
+    await batch.commit();
+    return next;
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('already taken')) throw error;
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
+  friendRequests: true,
+  friendAccepts: true,
+  newFollowers: true,
+  messages: true,
+  liveInvites: true,
+  gifts: true,
+  promotions: true,
+};
+
+export const LANGUAGE_OPTIONS: { code: LanguageCode; label: string; native: string }[] = [
+  { code: 'en', label: 'English', native: 'English' },
+  { code: 'bn', label: 'Bengali', native: 'বাংলা' },
+  { code: 'hi', label: 'Hindi', native: 'हिन्दी' },
+  { code: 'ur', label: 'Urdu', native: 'اردو' },
+  { code: 'ar', label: 'Arabic', native: 'العربية' },
+  { code: 'id', label: 'Indonesian', native: 'Bahasa Indonesia' },
+  { code: 'tr', label: 'Turkish', native: 'Türkçe' },
+  { code: 'es', label: 'Spanish', native: 'Español' },
+  { code: 'fr', label: 'French', native: 'Français' },
+];
+
+export function defaultUserSettings(uid: string): UserSettings {
+  return {
+    uid,
+    language: 'en',
+    notifications: { ...DEFAULT_NOTIFICATION_PREFS },
+  };
+}
+
+function mapUserSettings(uid: string, data: DocumentData | undefined): UserSettings {
+  if (!data) return defaultUserSettings(uid);
+  const prefs = (data.notifications ?? {}) as Partial<NotificationPrefs>;
+  const language = LANGUAGE_OPTIONS.some((o) => o.code === data.language)
+    ? (data.language as LanguageCode)
+    : 'en';
+  return {
+    uid,
+    language,
+    notifications: {
+      ...DEFAULT_NOTIFICATION_PREFS,
+      ...Object.fromEntries(
+        Object.entries(prefs).map(([key, value]) => [key, value !== false])
+      ),
+    },
+  };
+}
+
+export function subscribeUserSettings(
+  uid: string,
+  onSettings: (settings: UserSettings) => void
+): Unsubscribe {
+  return listenWithRetry(
+    doc(db, 'userSettings', uid),
+    (snap) => onSettings(mapUserSettings(uid, snap.exists() ? snap.data() : undefined)),
+    () => onSettings(defaultUserSettings(uid))
+  );
+}
+
+export async function saveUserSettings(
+  uid: string,
+  settings: Pick<UserSettings, 'language' | 'notifications'>
+): Promise<void> {
+  const path = `userSettings/${uid}`;
+  try {
+    await setDoc(doc(db, 'userSettings', uid), {
+      uid,
+      language: settings.language,
+      notifications: { ...settings.notifications },
+      updatedAt: serverTimestamp(),
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+export async function updatePresencePreference(
+  uid: string,
+  showPresence: boolean
+): Promise<void> {
+  const path = `users/${uid}`;
+  try {
+    await updateDoc(doc(db, 'users', uid), {
+      showPresence,
+      updatedAt: serverTimestamp(),
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, path);
   }
 }
 
@@ -615,6 +761,45 @@ export function subscribePublicUsers(
   );
 }
 
+export function mapLiveRoomDoc(roomId: string, d: DocumentData): LiveRoom {
+  const createdAtMs =
+    d.createdAt instanceof Timestamp ? d.createdAt.toMillis() : Date.now();
+  const durationSeconds = Math.max(0, Math.floor((Date.now() - createdAtMs) / 1000));
+  const seatCount = normalizeSeatCount(d.seatCount);
+  return {
+    roomId: String(d.roomId ?? roomId),
+    title: String(d.title ?? 'Live room'),
+    description: String(d.description ?? ''),
+    category: d.category,
+    mode: d.mode,
+    hostUid: String(d.hostUid),
+    status: d.status === 'ENDED' ? 'ENDED' : 'LIVE',
+    thumbnailUrl: d.thumbnailUrl ? String(d.thumbnailUrl) : undefined,
+    fallbackGradient: String(
+      d.fallbackGradient ?? 'linear-gradient(135deg, #3B0764 0%, #1D4ED8 100%)'
+    ),
+    viewerCount: Number(d.viewerCount ?? 1),
+    startedAtLabel:
+      durationSeconds < 60 ? 'Just started' : `${Math.floor(durationSeconds / 60)}m live`,
+    durationSeconds,
+    lastHeartbeatMs:
+      d.updatedAt instanceof Timestamp ? d.updatedAt.toMillis() : createdAtMs,
+    isFeatured: Boolean(d.isFeatured ?? false),
+    isPrivateFollowersOnly: Boolean(d.isPrivateFollowersOnly ?? false),
+    allowGuestRequests: d.allowGuestRequests !== false,
+    allowViewerComments: d.allowViewerComments !== false,
+    allowGifts: d.allowGifts !== false,
+    hostApprovalForGuests: d.hostApprovalForGuests !== false,
+    seatCount,
+    seats: Array.from({ length: seatCount }, (_, idx) => ({
+      seatNumber: idx + 1,
+      status: 'AVAILABLE' as const,
+    })),
+    joinRequests: [],
+    comments: [],
+  };
+}
+
 export function subscribeLiveRooms(
   onData: (rooms: LiveRoom[]) => void,
   onError?: (err: Error) => void
@@ -628,47 +813,7 @@ export function subscribeLiveRooms(
   return listenWithRetry(
     q,
     (snapshot) => {
-      const list: LiveRoom[] = snapshot.docs.map((docSnap) => {
-        const d = docSnap.data();
-        const createdAtMs =
-          d.createdAt instanceof Timestamp ? d.createdAt.toMillis() : Date.now();
-        const durationSeconds = Math.max(
-          0,
-          Math.floor((Date.now() - createdAtMs) / 1000)
-        );
-        return {
-          roomId: String(d.roomId),
-          title: String(d.title),
-          description: String(d.description ?? ''),
-          category: d.category,
-          mode: d.mode,
-          hostUid: String(d.hostUid),
-          status: d.status === 'ENDED' ? 'ENDED' : 'LIVE',
-          thumbnailUrl: d.thumbnailUrl ? String(d.thumbnailUrl) : undefined,
-          fallbackGradient: String(
-            d.fallbackGradient ??
-              'linear-gradient(135deg, #3B0764 0%, #1D4ED8 100%)'
-          ),
-          viewerCount: Number(d.viewerCount ?? 1),
-          startedAtLabel:
-            durationSeconds < 60
-              ? 'Just started'
-              : `${Math.floor(durationSeconds / 60)}m live`,
-          durationSeconds,
-          lastHeartbeatMs:
-            d.updatedAt instanceof Timestamp ? d.updatedAt.toMillis() : createdAtMs,
-          isFeatured: Boolean(d.isFeatured ?? false),
-          isPrivateFollowersOnly: Boolean(d.isPrivateFollowersOnly ?? false),
-          seatCount: normalizeSeatCount(d.seatCount),
-          seats: Array.from({ length: normalizeSeatCount(d.seatCount) }, (_, idx) => ({
-            seatNumber: idx + 1,
-            status: 'AVAILABLE' as const,
-          })),
-          joinRequests: [],
-          comments: [],
-        };
-      });
-      onData(list);
+      onData(snapshot.docs.map((docSnap) => mapLiveRoomDoc(docSnap.id, docSnap.data())));
     },
     (error) => {
       try {
@@ -677,6 +822,22 @@ export function subscribeLiveRooms(
         if (onError && e instanceof Error) onError(e);
       }
     }
+  );
+}
+
+// Single-doc subscription so hosts can stay inside their own followers-only
+// room (excluded from the public Discover query) and shared room links resolve
+// even when the room is not in the first page of the list query.
+export function subscribeLiveRoomDoc(
+  roomId: string,
+  onData: (room: LiveRoom | null) => void
+): Unsubscribe {
+  return onSnapshot(
+    doc(db, 'liveRooms', roomId),
+    (snap) => {
+      onData(snap.exists() ? mapLiveRoomDoc(snap.id, snap.data()) : null);
+    },
+    () => onData(null)
   );
 }
 
@@ -810,14 +971,7 @@ export function subscribeRoomDetails(
 
 export async function createLiveRoomDoc(
   host: UserProfile,
-  payload: {
-    title: string;
-    description: string;
-    category: Exclude<RoomCategory, 'All'>;
-    mode: RoomMode;
-    seatCount?: number;
-    isPrivateFollowersOnly: boolean;
-  }
+  payload: CreateLiveRoomPayload
 ): Promise<string> {
   const roomId = `room_${Date.now()}_${host.uid.slice(0, 6)}`;
   const batch = writeBatch(db);
@@ -834,6 +988,10 @@ export async function createLiveRoomDoc(
     status: 'LIVE',
     viewerCount: 1,
     isPrivateFollowersOnly: payload.isPrivateFollowersOnly,
+    allowGuestRequests: payload.allowGuestRequests,
+    allowViewerComments: payload.allowViewerComments,
+    allowGifts: payload.allowGifts,
+    hostApprovalForGuests: payload.hostApprovalForGuests,
     isFeatured: false,
     fallbackGradient: 'linear-gradient(135deg, #3B0764 0%, #1E3A8A 100%)',
     createdAt: serverTimestamp(),
@@ -891,23 +1049,126 @@ export async function postRoomMessageDoc(
   }
 }
 
+export async function deleteRoomMessageDoc(
+  roomId: string,
+  messageId: string
+): Promise<void> {
+  try {
+    await deleteDoc(doc(db, 'liveRooms', roomId, 'messages', messageId));
+  } catch (error) {
+    handleFirestoreError(
+      error,
+      OperationType.DELETE,
+      `liveRooms/${roomId}/messages/${messageId}`
+    );
+  }
+}
+
+// Room moderators are granted by the host (or an admin) and can mute/remove
+// guests and delete chat messages. The list is public to signed-in readers so
+// every client can show the shield badge consistently.
+export function subscribeRoomModerators(
+  roomId: string,
+  onData: (moderators: RoomModerator[]) => void
+): Unsubscribe {
+  return listenWithRetry(
+    collection(db, 'liveRooms', roomId, 'moderators'),
+    (snap) => {
+      onData(
+        snap.docs.map((docSnap) => {
+          const d = docSnap.data();
+          return {
+            uid: String(d.uid ?? docSnap.id),
+            username: String(d.username ?? ''),
+            displayName: String(d.displayName ?? ''),
+            addedBy: String(d.addedBy ?? ''),
+          } satisfies RoomModerator;
+        })
+      );
+    },
+    (error) =>
+      handleFirestoreError(error, OperationType.LIST, `liveRooms/${roomId}/moderators`)
+  );
+}
+
+export async function addRoomModeratorDoc(
+  roomId: string,
+  actor: UserProfile,
+  target: Pick<UserProfile, 'uid' | 'username' | 'displayName'>
+): Promise<void> {
+  try {
+    await setDoc(doc(db, 'liveRooms', roomId, 'moderators', target.uid), {
+      uid: target.uid,
+      username: clampStr(target.username, 32),
+      displayName: clampStr(target.displayName, 64),
+      addedBy: actor.uid,
+      createdAt: serverTimestamp(),
+    });
+  } catch (error) {
+    handleFirestoreError(
+      error,
+      OperationType.CREATE,
+      `liveRooms/${roomId}/moderators/${target.uid}`
+    );
+  }
+}
+
+export async function removeRoomModeratorDoc(
+  roomId: string,
+  uid: string
+): Promise<void> {
+  try {
+    await deleteDoc(doc(db, 'liveRooms', roomId, 'moderators', uid));
+  } catch (error) {
+    handleFirestoreError(
+      error,
+      OperationType.DELETE,
+      `liveRooms/${roomId}/moderators/${uid}`
+    );
+  }
+}
+
 export async function requestRoomSeatDoc(
   roomId: string,
   user: UserProfile,
   seatNumber: number
-): Promise<void> {
+): Promise<'joined' | 'requested'> {
   const reqId = `req_${user.uid.slice(0, 12)}_${seatNumber}`;
   const seatRef = doc(db, 'liveRooms', roomId, 'seats', `seat_${seatNumber}`);
   const reqRef = doc(db, 'liveRooms', roomId, 'joinRequests', reqId);
 
   try {
-    await runTransaction(db, async (tx) => {
+    return await runTransaction(db, async (tx) => {
+      const roomSnap = await tx.get(doc(db, 'liveRooms', roomId));
+      if (!roomSnap.exists()) throw new Error('This room is no longer available.');
+      const roomData = roomSnap.data();
+      if (roomData.status !== 'LIVE') throw new Error('This live room has ended.');
+      if (roomData.allowGuestRequests === false) {
+        throw new Error('The host has turned off guest seat requests.');
+      }
       const seatSnap = await tx.get(seatRef);
       if (!seatSnap.exists()) throw new Error('Seat not found.');
       const seatData = seatSnap.data();
       if (seatData.status !== 'AVAILABLE') {
         throw new Error(`Seat ${seatNumber} is no longer available.`);
       }
+
+      // Auto-open seats: when the host does not require approval the seat is
+      // occupied immediately, no join request round-trip needed.
+      if (roomData.hostApprovalForGuests === false) {
+        tx.update(seatRef, {
+          status: 'OCCUPIED',
+          occupantUid: user.uid,
+          occupantName: clampStr(user.displayName, 64),
+          occupantUsername: clampStr(user.username, 32),
+          occupantAvatarColor: clampStr(user.avatarColor, 24),
+          isMuted: false,
+          isSpeaking: true,
+          updatedAt: serverTimestamp(),
+        });
+        return 'joined' as const;
+      }
+
       tx.update(seatRef, {
         status: 'REQUESTED',
         updatedAt: serverTimestamp(),
@@ -922,6 +1183,7 @@ export async function requestRoomSeatDoc(
         preferredSeatNumber: seatNumber,
         createdAt: serverTimestamp(),
       });
+      return 'requested' as const;
     });
   } catch (error) {
     handleFirestoreError(
@@ -1059,6 +1321,8 @@ export async function adjustRoomViewerCountDoc(
       if (!snap.exists()) return;
       const data = snap.data();
       if (data.status !== 'LIVE') return;
+      // viewerCount is seeded with 1 for the host; the host's own join must not add another.
+      if (delta === 1 && data.hostUid === auth.currentUser?.uid) return;
       const current = Number(data.viewerCount ?? 1);
       const next = delta === 1 ? current + 1 : Math.max(1, current - 1);
       if (next !== current) {
@@ -1070,6 +1334,86 @@ export async function adjustRoomViewerCountDoc(
     });
   } catch {
     // Non-critical presence metric
+  }
+}
+
+// Real connected viewers: every viewer keeps one signaling doc in rtc/{uid}
+// while they are receiving the stream, so the host can list who is watching.
+export function subscribeRoomPresence(
+  roomId: string,
+  onViewerUids: (uids: string[]) => void
+): Unsubscribe {
+  return listenWithRetry(
+    collection(db, 'liveRooms', roomId, 'rtc'),
+    (snap) => {
+      const uids = snap.docs
+        .map((docSnap) => String(docSnap.data().viewerUid ?? docSnap.id))
+        .filter(Boolean);
+      onViewerUids(Array.from(new Set(uids)));
+    },
+    (error) =>
+      handleFirestoreError(error, OperationType.LIST, `liveRooms/${roomId}/rtc`)
+  );
+}
+
+// Live likes: each viewer owns a likes/{uid} counter doc; the UI sums all
+// counters in real time. Updates are additive only, capped per write.
+export function subscribeRoomLikes(
+  roomId: string,
+  onTotal: (total: number) => void
+): Unsubscribe {
+  return listenWithRetry(
+    collection(db, 'liveRooms', roomId, 'likes'),
+    (snap) => {
+      let total = 0;
+      snap.forEach((docSnap) => {
+        total += Math.max(0, Number(docSnap.data().count ?? 0));
+      });
+      onTotal(total);
+    },
+    (error) =>
+      handleFirestoreError(error, OperationType.LIST, `liveRooms/${roomId}/likes`)
+  );
+}
+
+export async function sendRoomLikesDoc(
+  roomId: string,
+  uid: string,
+  delta: number
+): Promise<void> {
+  if (delta <= 0) return;
+  const ref = doc(db, 'liveRooms', roomId, 'likes', uid);
+  const path = `liveRooms/${roomId}/likes/${uid}`;
+  try {
+    const snap = await getDoc(ref);
+    if (snap.exists()) {
+      await updateDoc(ref, {
+        count: increment(delta),
+        updatedAt: serverTimestamp(),
+      });
+    } else {
+      await setDoc(ref, {
+        uid,
+        count: delta,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+    }
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+// Host moderation: deleting a viewer's signaling doc closes their peer
+// connection and drops them from the presence list.
+export async function removeRoomViewerDoc(
+  roomId: string,
+  viewerUid: string
+): Promise<void> {
+  try {
+    await deleteDoc(doc(db, 'liveRooms', roomId, 'rtc', viewerUid));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, `liveRooms/${roomId}/rtc/${viewerUid}`);
   }
 }
 
@@ -2757,6 +3101,29 @@ export async function toggleFollowDoc(
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, `follows/${followId}`);
   }
+
+  if (!currentlyFollowing) {
+    // Best-effort follower notification; a missing notification collection
+    // must never make the follow itself fail.
+    void getDoc(doc(db, 'users', followerUid))
+      .then((snapshot) => {
+        if (!snapshot.exists()) return;
+        const d = snapshot.data();
+        return sendNotificationDoc({
+          toUid: targetUid,
+          actor: {
+            uid: followerUid,
+            username: String(d.username ?? ''),
+            displayName: String(d.displayName ?? 'Creator'),
+          },
+          type: 'NEW_FOLLOWER',
+          title: 'New follower',
+          body: `${String(d.displayName ?? 'Someone')} started following you.`,
+          notificationId: `follow_${followerUid}_${targetUid}`,
+        });
+      })
+      .catch(() => undefined);
+  }
 }
 
 export async function toggleBlockDoc(
@@ -2799,15 +3166,33 @@ export function subscribeConversationsList(
           ? (d.memberUids as string[])
           : [];
         const partner = members.find((m) => m !== uid) ?? uid;
+        const lastSenderUid = d.lastSenderUid ? String(d.lastSenderUid) : partner;
+        const unreadCounts =
+          d.unreadCounts && typeof d.unreadCounts === 'object'
+            ? (d.unreadCounts as Record<string, unknown>)
+            : {};
+        const readAt =
+          d.readAt && typeof d.readAt === 'object'
+            ? (d.readAt as Record<string, unknown>)
+            : {};
         return {
           conversationId: String(d.conversationId),
           participantUid: partner,
-          unreadCount: 0,
+          unreadCount: Math.max(0, Number(unreadCounts[uid] ?? 0)),
+          lastSenderUid,
+          lastMessageAtMs: d.lastMessageAtMs
+            ? Number(d.lastMessageAtMs)
+            : d.updatedAt instanceof Timestamp
+              ? d.updatedAt.toMillis()
+              : undefined,
+          readAt: Object.fromEntries(
+            Object.entries(readAt).map(([k, v]) => [k, Number(v ?? 0)])
+          ),
           messages: d.lastMessageText
             ? [
                 {
                   id: 'preview',
-                  senderUid: partner,
+                  senderUid: lastSenderUid,
                   text: String(d.lastMessageText),
                   timestampLabel: formatTimestamp(d.updatedAt),
                 },
@@ -2846,6 +3231,22 @@ export function subscribeConversationMessages(
               senderUid: String(d.senderUid),
               text: String(d.text),
               timestampLabel: formatTimestamp(d.createdAt),
+              createdAtMs:
+                typeof d.createdAtMs === 'number'
+                  ? Number(d.createdAtMs)
+                  : sortMs,
+              kind: d.kind,
+              mediaUrl: d.mediaUrl ? String(d.mediaUrl) : undefined,
+              mediaName: d.mediaName ? String(d.mediaName) : undefined,
+              durationMs:
+                typeof d.durationMs === 'number' ? Number(d.durationMs) : undefined,
+              replyTo: d.replyToId
+                ? {
+                    id: String(d.replyToId),
+                    senderName: String(d.replySenderName ?? ''),
+                    text: String(d.replyText ?? ''),
+                  }
+                : undefined,
               isGiftEvent: Boolean(d.isGiftEvent ?? false),
               giftId: d.giftId ? String(d.giftId) : undefined,
               giftName: d.giftName ? String(d.giftName) : undefined,
@@ -2898,36 +3299,6 @@ export async function ensureConversationDoc(
     return convId;
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, `conversations/${convId}`);
-  }
-}
-
-export async function sendDirectMessageDoc(
-  conversationId: string,
-  memberUids: string[],
-  senderUid: string,
-  text: string
-): Promise<void> {
-  const msgId = `dm_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-  const batch = writeBatch(db);
-  batch.set(doc(db, 'conversations', conversationId, 'messages', msgId), {
-    id: msgId,
-    senderUid,
-    memberUids,
-    text: clampStr(text, 1000),
-    createdAt: serverTimestamp(),
-  });
-  batch.update(doc(db, 'conversations', conversationId), {
-    lastMessageText: clampStr(text, 500),
-    updatedAt: serverTimestamp(),
-  });
-  try {
-    await batch.commit();
-  } catch (error) {
-    handleFirestoreError(
-      error,
-      OperationType.WRITE,
-      `conversations/${conversationId}/messages/${msgId}`
-    );
   }
 }
 
@@ -4007,12 +4378,12 @@ export async function claimHostReward(
 }
 
 // ---------------------------------------------------------------------------
-// 30-DAY DEPOSIT VAULT — server-tracked principal + 10% Diamond reward
-// Deposit for 30 days; at maturity 10% of the amount is credited to the
+// 15-DAY DEPOSIT VAULT — server-tracked principal + 10% Diamond reward
+// Deposit for 15 days; at maturity 10% of the amount is credited to the
 // Diamond balance automatically. The reward window stays open for 15 days.
 // ---------------------------------------------------------------------------
 
-export const DEPOSIT_TERM_DAYS = 30;
+export const DEPOSIT_TERM_DAYS = 15;
 export const DEPOSIT_REWARD_WINDOW_DAYS = 15;
 export const DEPOSIT_BONUS_PERCENT = 10;
 export const DEPOSIT_MIN_AMOUNT = 1000;
@@ -4120,7 +4491,7 @@ export async function createDepositRecord(
       currency: 'COIN',
       direction: 'DEBIT',
       amount,
-      reason: `30-Day Deposit (${DEPOSIT_TERM_DAYS} days)`,
+      reason: `${DEPOSIT_TERM_DAYS}-Day Deposit (${DEPOSIT_TERM_DAYS} days)`,
       idempotencyKey,
       createdAt: serverTimestamp(),
     });
@@ -4181,7 +4552,7 @@ export async function claimDepositReward(
           currency: 'DIAMOND',
           direction: 'CREDIT',
           amount: rewardAmount,
-          reason: '30-Day Deposit Reward (10%)',
+          reason: `${DEPOSIT_TERM_DAYS}-Day Deposit Reward (10%)`,
           idempotencyKey: ledgerKey,
           createdAt: serverTimestamp(),
         });

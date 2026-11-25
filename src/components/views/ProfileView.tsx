@@ -3,9 +3,9 @@ import { createPortal } from 'react-dom';
 import {
   BadgeCheck,
   Camera,
-  Check,
   ChevronRight,
   Coins,
+  Copy,
   CreditCard,
   Crown,
   Edit3,
@@ -16,8 +16,11 @@ import {
   LogIn,
   LogOut,
   MapPin,
+  MessageSquare,
   Mic,
   Send,
+  Settings,
+  Share2,
   ShieldCheck,
   ShoppingBag,
   Sparkles,
@@ -29,12 +32,16 @@ import {
   Wallet,
   X,
 } from 'lucide-react';
-import { AppSection, GenderOption, UserProfile } from '../../types/app';
+import { AppSection, UserProfile } from '../../types/app';
 import { Avatar } from '../ui/Avatar';
 import { ProfileImageKind, compressProfileImage } from '../../lib/profileImages';
-import { fetchCoverImage, isBdAgentProfile, saveCoverImage } from '../../lib/firestoreService';
+import {
+  accountRoleLabel,
+  fetchCoverImage,
+  isBdAgentProfile,
+  saveCoverImage,
+} from '../../lib/firestoreService';
 import { visibleBio } from '../../lib/profileBio';
-import { COUNTRIES } from '../../data/countries';
 
 interface ProfileViewProps {
   currentUser: UserProfile | null;
@@ -52,16 +59,22 @@ interface ProfileViewProps {
     displayName: string;
     bio: string;
     country: string;
-    gender: GenderOption;
+    gender: UserProfile['gender'];
     showPresence: boolean;
     avatarUrl?: string;
-    coverUrl?: string;
   }) => Promise<void>;
+  onToggleFollow?: (uid: string) => void;
+  onStartMessage?: (user: UserProfile) => void;
   onUnblockUser: (uid: string) => void;
   onOpenUserProfile?: (user: UserProfile) => void;
   onOpenSection: (section: AppSection) => void;
   onOpenAuth: () => void;
   onSignOut: () => void;
+  onToast?: (
+    title: string,
+    desc?: string,
+    tone?: 'info' | 'success' | 'warning' | 'error'
+  ) => void;
 }
 
 type TileTone = 'amber' | 'rose' | 'gold' | 'emerald' | 'sky' | 'indigo' | 'violet' | 'fuchsia' | 'cyan';
@@ -83,46 +96,50 @@ type Tile = {
   label: string;
   icon: React.FC<{ className?: string }>;
   tone: TileTone;
-  wide?: boolean;
+  section: AppSection;
 };
 
-const FEATURE_TILES: Tile[] = [
-  { id: 'reward', label: 'Reward', icon: Gift, tone: 'amber' },
-  { id: 'host-rewards', label: 'Host Reward', icon: Crown, tone: 'rose' },
-  { id: 'rank', label: 'Rank', icon: Trophy, tone: 'gold' },
-  { id: 'games', label: 'Games', icon: Gamepad2, tone: 'emerald' },
-  { id: 'store', label: 'Store', icon: ShoppingBag, tone: 'sky' },
-  { id: 'invite', label: 'Invite', icon: Send, tone: 'indigo' },
-  { id: 'honor', label: 'Honor Level', icon: ShieldCheck, tone: 'violet' },
-  { id: 'deposit', label: 'Deposit', icon: CreditCard, tone: 'cyan' },
-  { id: 'salary', label: 'Salary', icon: Gem, tone: 'fuchsia' },
+const CREATOR_TILES: Tile[] = [
+  { id: 'reward', label: 'Reward', icon: Gift, tone: 'amber', section: 'reward' },
+  { id: 'host-rewards', label: 'Host Reward', icon: Crown, tone: 'rose', section: 'host-rewards' },
+  { id: 'rank', label: 'Rank', icon: Trophy, tone: 'gold', section: 'rank' },
+  { id: 'honor', label: 'Honor Level', icon: ShieldCheck, tone: 'violet', section: 'honor' },
+  { id: 'games', label: 'Games', icon: Gamepad2, tone: 'emerald', section: 'games' },
+  { id: 'invite', label: 'Invite', icon: Send, tone: 'indigo', section: 'invite' },
+];
+
+const COMMERCE_TILES: Tile[] = [
+  { id: 'wallet', label: 'Wallet', icon: Wallet, tone: 'amber', section: 'wallet' },
+  { id: 'store', label: 'Store', icon: ShoppingBag, tone: 'sky', section: 'store' },
+  { id: 'deposit', label: 'Deposit', icon: CreditCard, tone: 'cyan', section: 'deposit' },
+  { id: 'salary', label: 'Salary', icon: Gem, tone: 'fuchsia', section: 'salary' },
 ];
 
 const AGENT_TILES: Tile[] = [
-  { id: 'agent-list', label: 'Agent List', icon: Users, tone: 'indigo' },
-  { id: 'my-host', label: 'My Host', icon: Mic, tone: 'rose' },
-  { id: 'invite-agent', label: 'Invite Agent', icon: UserPlus, tone: 'violet' },
-  { id: 'coins-trading', label: 'Coins Trading', icon: Coins, tone: 'amber' },
-  { id: 'agent-ranking', label: 'Agent Ranking', icon: TrendingUp, tone: 'emerald' },
+  { id: 'agent-list', label: 'Agent List', icon: Users, tone: 'indigo', section: 'agent-list' },
+  { id: 'my-host', label: 'My Host', icon: Mic, tone: 'rose', section: 'my-host' },
+  { id: 'invite-agent', label: 'Invite Agent', icon: UserPlus, tone: 'violet', section: 'invite-agent' },
+  { id: 'coins-trading', label: 'Coins Trading', icon: Coins, tone: 'amber', section: 'coins-trading' },
+  { id: 'agent-ranking', label: 'Agent Ranking', icon: TrendingUp, tone: 'emerald', section: 'agent-ranking' },
 ];
 
 const SUPER_AGENT_TILES: Tile[] = [
-  { id: 'my-agent', label: 'My Agent', icon: Users, tone: 'indigo' },
-  { id: 'my-host', label: 'My Host', icon: Mic, tone: 'rose' },
-  { id: 'invite-agent', label: 'Invite Agent', icon: UserPlus, tone: 'violet' },
-  { id: 'coins-trading', label: 'Coins Trading', icon: Coins, tone: 'amber' },
-  { id: 'agent-ranking', label: 'Agent Ranking', icon: TrendingUp, tone: 'emerald' },
+  { id: 'my-agent', label: 'My Agent', icon: Users, tone: 'indigo', section: 'my-agent' },
+  { id: 'my-host', label: 'My Host', icon: Mic, tone: 'rose', section: 'my-host' },
+  { id: 'invite-agent', label: 'Invite Agent', icon: UserPlus, tone: 'violet', section: 'invite-agent' },
+  { id: 'coins-trading', label: 'Coins Trading', icon: Coins, tone: 'amber', section: 'coins-trading' },
+  { id: 'agent-ranking', label: 'Agent Ranking', icon: TrendingUp, tone: 'emerald', section: 'agent-ranking' },
 ];
 
 const BD_AGENT_TILES: Tile[] = [
-  { id: 'super-agent-list', label: 'Super Agent List', icon: BadgeCheck, tone: 'sky' },
-  { id: 'agent-list', label: 'Agent List', icon: Users, tone: 'indigo' },
-  { id: 'my-agent', label: 'My Agent', icon: Users, tone: 'violet' },
-  { id: 'my-host', label: 'My Host', icon: Mic, tone: 'rose' },
-  { id: 'invite-agent', label: 'Invite Agent', icon: UserPlus, tone: 'cyan' },
-  { id: 'agent-promote', label: 'Agent Promote', icon: TrendingUp, tone: 'emerald' },
-  { id: 'coins-trading', label: 'Coins Trading', icon: Coins, tone: 'amber' },
-  { id: 'agent-ranking', label: 'Agent Ranking', icon: TrendingUp, tone: 'emerald' },
+  { id: 'super-agent-list', label: 'Super Agent List', icon: BadgeCheck, tone: 'sky', section: 'super-agent-list' },
+  { id: 'agent-list', label: 'Agent List', icon: Users, tone: 'indigo', section: 'agent-list' },
+  { id: 'my-agent', label: 'My Agent', icon: Users, tone: 'violet', section: 'my-agent' },
+  { id: 'my-host', label: 'My Host', icon: Mic, tone: 'rose', section: 'my-host' },
+  { id: 'invite-agent', label: 'Invite Agent', icon: UserPlus, tone: 'cyan', section: 'invite-agent' },
+  { id: 'agent-promote', label: 'Agent Promote', icon: TrendingUp, tone: 'emerald', section: 'agent-promote' },
+  { id: 'coins-trading', label: 'Coins Trading', icon: Coins, tone: 'amber', section: 'coins-trading' },
+  { id: 'agent-ranking', label: 'Agent Ranking', icon: TrendingUp, tone: 'emerald', section: 'agent-ranking' },
 ];
 
 export const ProfileView: React.FC<ProfileViewProps> = ({
@@ -138,27 +155,20 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   diamondBalance,
   tradingCoinBalance = 0,
   onUpdateProfile,
+  onToggleFollow,
+  onStartMessage,
   onUnblockUser,
   onOpenUserProfile,
   onOpenSection,
   onOpenAuth,
   onSignOut,
+  onToast,
 }) => {
   const [statsList, setStatsList] = useState<
     'followers' | 'following' | 'friends' | 'visitors' | null
   >(null);
-  const [editing, setEditing] = useState(false);
-  const [displayName, setDisplayName] = useState(currentUser?.displayName ?? '');
-  const [bio, setBio] = useState(visibleBio(currentUser?.bio));
-  const [country, setCountry] = useState(currentUser?.country ?? 'United States');
-  const [gender, setGender] = useState<GenderOption>(
-    currentUser?.gender ?? 'Prefer not to say'
-  );
-  const [showPresence, setShowPresence] = useState(currentUser?.showPresence ?? true);
-  const [comingSoon, setComingSoon] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
+  const [confirmSignOut, setConfirmSignOut] = useState(false);
   const [photoBusy, setPhotoBusy] = useState<ProfileImageKind | null>(null);
-  const [photoMsg, setPhotoMsg] = useState<string | null>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
   const [coverImage, setCoverImage] = useState<string | null>(null);
@@ -205,13 +215,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     currentUser.accountType === 'AGENT' ||
     currentUser.accountType === 'SUPER_AGENT';
   const isBdAgent = isBdAgentProfile(currentUser);
-  const roleLabel = isBdAgent
-    ? 'BD Agent'
-    : currentUser.accountType === 'SUPER_AGENT'
-    ? 'Super Agent'
-    : currentUser.accountType === 'AGENT'
-    ? 'Agent'
-    : 'User';
+  const roleLabel = accountRoleLabel(currentUser);
 
   const friendUids = followingUids.filter((uid) => followersUids.includes(uid));
   const statsListUids: Record<NonNullable<typeof statsList>, string[]> = {
@@ -231,33 +235,35 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const statsListUsers = statsList
     ? statsListUids[statsList]
         .map((uid) => allUsers.find((u) => u.uid === uid))
-        .filter((u): u is UserProfile => Boolean(u))
+        .filter((u): u is UserProfile => u !== undefined && u.uid !== currentUser.uid)
     : [];
 
-  const startEditing = () => {
-    setDisplayName(currentUser.displayName);
-    setBio(currentUser.bio);
-    setCountry(currentUser.country);
-    setGender(currentUser.gender);
-    setShowPresence(currentUser.showPresence);
-    setEditing(true);
+  const copyText = async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      onToast?.('Copied', `${label} copied to clipboard.`, 'success');
+    } catch {
+      onToast?.(label, text, 'info');
+    }
   };
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      await onUpdateProfile({
-        displayName: displayName.trim() || currentUser.displayName,
-        bio: bio.trim(),
-        country: country.trim() || currentUser.country,
-        gender,
-        showPresence,
-      });
-      setEditing(false);
-    } finally {
-      setSaving(false);
+  const shareProfile = async () => {
+    const url = `${window.location.origin}${window.location.pathname}?u=${encodeURIComponent(
+      currentUser.platformId
+    )}`;
+    if (typeof navigator.share === 'function') {
+      try {
+        await navigator.share({
+          title: `${currentUser.displayName} on AddaBuzz Live`,
+          text: `Find @${currentUser.username} (ID ${currentUser.platformId}) on AddaBuzz Live`,
+          url,
+        });
+        return;
+      } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') return;
+      }
     }
+    await copyText(url, 'Profile link');
   };
 
   const handlePhotoPick =
@@ -266,7 +272,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       e.target.value = '';
       if (!file) return;
       setPhotoBusy(kind);
-      setPhotoMsg(null);
       try {
         const dataUrl = await compressProfileImage(kind, file);
         if (kind === 'avatar') {
@@ -278,14 +283,18 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             showPresence: currentUser.showPresence,
             avatarUrl: dataUrl,
           });
-          setPhotoMsg('Profile photo updated.');
+          onToast?.('Profile photo updated', undefined, 'success');
         } else {
           await saveCoverImage(currentUser.uid, dataUrl);
           setCoverImage(dataUrl);
-          setPhotoMsg('Wall photo updated.');
+          onToast?.('Cover photo updated', undefined, 'success');
         }
       } catch (err) {
-        setPhotoMsg(err instanceof Error ? err.message : 'Photo upload failed.');
+        onToast?.(
+          'Photo upload failed',
+          err instanceof Error ? err.message : 'Could not process this image.',
+          'error'
+        );
       } finally {
         setPhotoBusy(null);
       }
@@ -298,29 +307,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       <button
         key={tile.id}
         type="button"
-        onClick={() => {
-          if (tile.id === 'coins-trading') onOpenSection('coins-trading');
-          else if (tile.id === 'games') onOpenSection('games');
-          else if (tile.id === 'super-agent-list') onOpenSection('super-agent-list');
-          else if (tile.id === 'agent-list') onOpenSection('agent-list');
-          else if (tile.id === 'my-agent') onOpenSection('my-agent');
-          else if (tile.id === 'my-host') onOpenSection('my-host');
-          else if (tile.id === 'agent-rewards') onOpenSection('agent-promote');
-          else if (tile.id === 'agent-promote') onOpenSection('agent-promote');
-          else if (tile.id === 'rank') onOpenSection('rank');
-          else if (tile.id === 'agent-ranking') onOpenSection('agent-ranking');
-          else if (tile.id === 'invite') onOpenSection('invite');
-          else if (tile.id === 'invite-agent') onOpenSection('invite-agent');
-          else if (tile.id === 'store') onOpenSection('store');
-          else if (tile.id === 'deposit') onOpenSection('deposit');
-          else if (tile.id === 'salary') onOpenSection('salary');
-          else if (tile.id === 'reward') onOpenSection('reward');
-          else if (tile.id === 'host-rewards') onOpenSection('host-rewards');
-          else setComingSoon(tile.label);
-        }}
-        className={`group relative overflow-hidden rounded-2xl bg-white/[0.035] border border-white/[0.07] hover:bg-white/[0.07] hover:border-white/[0.16] p-3.5 flex flex-col items-center gap-2.5 transition-all duration-200 hover:-translate-y-0.5 ${
-          tile.wide ? 'col-span-2' : ''
-        }`}
+        onClick={() => onOpenSection(tile.section)}
+        className="group relative overflow-hidden rounded-2xl bg-white/[0.035] border border-white/[0.07] hover:bg-white/[0.07] hover:border-white/[0.16] p-3.5 flex flex-col items-center gap-2.5 transition-all duration-200 hover:-translate-y-0.5"
       >
         <span
           className={`relative w-11 h-11 rounded-[14px] bg-gradient-to-br ${tone.chip} flex items-center justify-center ring-1 ring-white/25 shadow-lg ${tone.glow} transition-transform duration-200 group-hover:scale-110`}
@@ -357,15 +345,23 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             type="button"
             onClick={() => coverInputRef.current?.click()}
             disabled={photoBusy !== null}
-            aria-label="Change wall photo"
+            aria-label="Change cover photo"
             className="absolute top-3 left-3 w-9 h-9 rounded-full bg-black/40 backdrop-blur-md border border-white/15 hover:bg-black/60 disabled:opacity-50 flex items-center justify-center text-white transition-colors"
           >
             <Camera className="w-4 h-4" />
           </button>
-          <div className="absolute top-3 right-3 flex items-center gap-2">
+          <div className="absolute top-3 right-3 flex items-center gap-1.5">
             <button
               type="button"
-              onClick={startEditing}
+              onClick={shareProfile}
+              aria-label="Share profile"
+              className="w-9 h-9 rounded-full bg-black/40 backdrop-blur-md border border-white/15 hover:bg-black/60 flex items-center justify-center text-white transition-colors"
+            >
+              <Share2 className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => onOpenSection('edit-profile')}
               aria-label="Edit profile"
               className="w-9 h-9 rounded-full bg-black/40 backdrop-blur-md border border-white/15 hover:bg-black/60 flex items-center justify-center text-white transition-colors"
             >
@@ -373,7 +369,15 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             </button>
             <button
               type="button"
-              onClick={onSignOut}
+              onClick={() => onOpenSection('settings')}
+              aria-label="Open settings"
+              className="w-9 h-9 rounded-full bg-black/40 backdrop-blur-md border border-white/15 hover:bg-black/60 flex items-center justify-center text-white transition-colors"
+            >
+              <Settings className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmSignOut(true)}
               aria-label="Sign out"
               className="w-9 h-9 rounded-full bg-black/40 backdrop-blur-md border border-white/15 hover:bg-rose-600/60 flex items-center justify-center text-white transition-colors"
             >
@@ -414,7 +418,15 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             </h1>
             <p className="text-xs text-slate-400 flex flex-wrap items-center gap-x-2 gap-y-1">
               <span>@{currentUser.username}</span>
-              <span className="font-mono text-sky-300">{currentUser.platformId}</span>
+              <button
+                type="button"
+                onClick={() => copyText(currentUser.platformId, 'User ID')}
+                className="inline-flex items-center gap-1 font-mono text-sky-300 hover:text-sky-200 transition-colors"
+                aria-label="Copy user ID"
+              >
+                <span>ID {currentUser.platformId}</span>
+                <Copy className="w-3 h-3" />
+              </button>
               <span className="inline-flex items-center gap-1">
                 <MapPin className="w-3 h-3" />
                 {currentUser.country}
@@ -434,71 +446,82 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           )}
 
           {isBdAgent ? (
-            <div className="mt-5 rounded-2xl bg-gradient-to-r from-violet-600/20 via-[#111420] to-fuchsia-600/10 border border-violet-500/25 p-4 text-center cursor-pointer hover:border-violet-500/50 transition-colors" onClick={() => onOpenSection('coins-trading')}>
+            <div
+              className="mt-5 rounded-2xl bg-gradient-to-r from-violet-600/20 via-[#111420] to-fuchsia-600/10 border border-violet-500/25 p-4 text-center cursor-pointer hover:border-violet-500/50 transition-colors"
+              onClick={() => onOpenSection('coins-trading')}
+            >
               <p className="font-mono text-2xl font-black text-amber-300 tabular-nums">
-                {(tradingCoinBalance ?? 0).toLocaleString()}
+                {tradingCoinBalance.toLocaleString()}
               </p>
               <p className="text-xs font-semibold text-violet-300 mt-0.5">Coins Trading Balance</p>
             </div>
           ) : (
             <>
-          <div className="mt-5 grid grid-cols-4 divide-x divide-white/[0.07] rounded-2xl bg-white/[0.04] border border-white/[0.06] py-3 text-center">
-            <button
-              type="button"
-              onClick={() => setStatsList('followers')}
-              className="group px-1 rounded-lg transition-colors hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60"
-            >
-              <p className="font-mono text-lg font-bold text-white tabular-nums group-hover:text-sky-300 transition-colors">
-                {(currentUser.followersCount ?? 0).toLocaleString()}
-              </p>
-              <p className="text-[11px] text-slate-400">Followers</p>
-            </button>
-            <button
-              type="button"
-              onClick={() => setStatsList('following')}
-              className="group px-1 rounded-lg transition-colors hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60"
-            >
-              <p className="font-mono text-lg font-bold text-white tabular-nums group-hover:text-sky-300 transition-colors">
-                {(followingUids?.length ?? 0).toLocaleString()}
-              </p>
-              <p className="text-[11px] text-slate-400">Following</p>
-            </button>
-            <button
-              type="button"
-              onClick={() => setStatsList('friends')}
-              className="group px-1 rounded-lg transition-colors hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60"
-            >
-              <p className="font-mono text-lg font-bold text-white tabular-nums group-hover:text-sky-300 transition-colors">
-                {(friendsCount ?? 0).toLocaleString()}
-              </p>
-              <p className="text-[11px] text-slate-400">Friends</p>
-            </button>
-            <button
-              type="button"
-              onClick={() => setStatsList('visitors')}
-              className="group px-1 rounded-lg transition-colors hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60"
-            >
-              <p className="font-mono text-lg font-bold text-white tabular-nums group-hover:text-sky-300 transition-colors">
-                {(currentUser.visitorsCount ?? 0).toLocaleString()}
-              </p>
-              <p className="text-[11px] text-slate-400">Visitor</p>
-            </button>
-          </div>
+              <div className="mt-5 grid grid-cols-4 divide-x divide-white/[0.07] rounded-2xl bg-white/[0.04] border border-white/[0.06] py-3 text-center">
+                <button
+                  type="button"
+                  onClick={() => setStatsList('followers')}
+                  className="group px-1 rounded-lg transition-colors hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60"
+                >
+                  <p className="font-mono text-lg font-bold text-white tabular-nums group-hover:text-sky-300 transition-colors">
+                    {(currentUser.followersCount ?? 0).toLocaleString()}
+                  </p>
+                  <p className="text-[11px] text-slate-400">Followers</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatsList('following')}
+                  className="group px-1 rounded-lg transition-colors hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60"
+                >
+                  <p className="font-mono text-lg font-bold text-white tabular-nums group-hover:text-sky-300 transition-colors">
+                    {(followingUids?.length ?? 0).toLocaleString()}
+                  </p>
+                  <p className="text-[11px] text-slate-400">Following</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatsList('friends')}
+                  className="group px-1 rounded-lg transition-colors hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60"
+                >
+                  <p className="font-mono text-lg font-bold text-white tabular-nums group-hover:text-sky-300 transition-colors">
+                    {(friendsCount ?? 0).toLocaleString()}
+                  </p>
+                  <p className="text-[11px] text-slate-400">Friends</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatsList('visitors')}
+                  className="group px-1 rounded-lg transition-colors hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60"
+                >
+                  <p className="font-mono text-lg font-bold text-white tabular-nums group-hover:text-sky-300 transition-colors">
+                    {(currentUser.visitorsCount ?? 0).toLocaleString()}
+                  </p>
+                  <p className="text-[11px] text-slate-400">Visitor</p>
+                </button>
+              </div>
 
-          <div className="mt-2.5 grid grid-cols-2 divide-x divide-white/[0.07] rounded-2xl bg-white/[0.04] border border-white/[0.06] py-3 text-center">
-            <button type="button" onClick={() => onOpenSection('coins-convert')} className="hover:opacity-80 transition-opacity">
-              <p className="font-mono text-base sm:text-lg font-bold text-amber-300 tabular-nums">
-                {(coinBalance ?? 0).toLocaleString()}
+              <button
+                type="button"
+                onClick={() => onOpenSection('wallet')}
+                className="mt-2.5 w-full grid grid-cols-2 divide-x divide-white/[0.07] rounded-2xl bg-white/[0.04] border border-white/[0.06] py-3 text-center hover:border-white/[0.14] transition-colors"
+              >
+                <span>
+                  <span className="block font-mono text-base sm:text-lg font-bold text-amber-300 tabular-nums">
+                    {coinBalance.toLocaleString()}
+                  </span>
+                  <span className="block text-[11px] text-slate-400">Coins Balance</span>
+                </span>
+                <span>
+                  <span className="block font-mono text-base sm:text-lg font-bold text-sky-300 tabular-nums">
+                    {diamondBalance.toLocaleString()}
+                  </span>
+                  <span className="block text-[11px] text-slate-400">Diamonds Balance</span>
+                </span>
+              </button>
+              <p className="mt-1 text-center text-[10px] text-slate-500 inline-flex w-full items-center justify-center gap-1">
+                <Wallet className="w-3 h-3" />
+                Tap the balances to open Wallet Center
               </p>
-              <p className="text-[11px] text-slate-400">Coins Balance</p>
-            </button>
-            <button type="button" onClick={() => onOpenSection('salary')} className="hover:opacity-80 transition-opacity">
-              <p className="font-mono text-base sm:text-lg font-bold text-sky-300 tabular-nums">
-                {(diamondBalance ?? 0).toLocaleString()}
-              </p>
-              <p className="text-[11px] text-slate-400">Diamonds Balance</p>
-            </button>
-          </div>
             </>
           )}
         </div>
@@ -518,25 +541,58 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         className="hidden"
         onChange={handlePhotoPick('cover')}
       />
-      {(photoBusy || photoMsg) && (
+      {photoBusy && (
         <p className="rounded-xl bg-violet-500/10 border border-violet-500/30 px-4 py-2 text-xs text-violet-200 text-center">
-          {photoBusy ? 'Uploading photo…' : photoMsg}
+          Uploading {photoBusy === 'avatar' ? 'profile photo' : 'cover photo'}…
         </p>
       )}
 
-      {/* Feature grid */}
+      {confirmSignOut && (
+        <div className="rounded-2xl bg-rose-500/10 border border-rose-500/30 p-3.5 flex flex-col sm:flex-row sm:items-center gap-2">
+          <p className="text-xs text-rose-100 flex-1">
+            Sign out of this account? You can sign back in anytime.
+          </p>
+          <div className="flex gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => setConfirmSignOut(false)}
+              className="px-3 h-8 rounded-lg bg-white/[0.08] text-xs font-medium text-slate-200"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setConfirmSignOut(false);
+                onSignOut();
+              }}
+              className="px-3 h-8 rounded-lg bg-rose-600 hover:bg-rose-500 text-xs font-semibold text-white"
+            >
+              Sign Out
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Creator & social */}
       {!isBdAgent && (
         <section className="rounded-3xl bg-[#111420] border border-white/[0.08] p-4 sm:p-5 space-y-3">
+          <h2 className="font-display text-sm font-semibold text-white px-1">
+            Creator &amp; Social
+          </h2>
           <div className="grid grid-cols-4 gap-2.5">
-            {FEATURE_TILES.filter(
-              (t) => t.id !== 'host-rewards' || currentUser?.gender === 'Female'
+            {CREATOR_TILES.filter(
+              (t) => t.id !== 'host-rewards' || currentUser.gender === 'Female'
             ).map(renderTile)}
           </div>
-          {comingSoon && (
-            <p className="rounded-xl bg-violet-500/10 border border-violet-500/30 px-4 py-2 text-xs text-violet-200 text-center">
-              {comingSoon} — coming soon
-            </p>
-          )}
+        </section>
+      )}
+
+      {/* Commerce */}
+      {!isBdAgent && (
+        <section className="rounded-3xl bg-[#111420] border border-white/[0.08] p-4 sm:p-5 space-y-3">
+          <h2 className="font-display text-sm font-semibold text-white px-1">Wallet &amp; Store</h2>
+          <div className="grid grid-cols-4 gap-2.5">{COMMERCE_TILES.map(renderTile)}</div>
         </section>
       )}
 
@@ -549,10 +605,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           <div className="grid grid-cols-4 gap-2.5">
             {(isBdAgent
               ? BD_AGENT_TILES
-              : currentUser?.accountType === 'SUPER_AGENT'
+              : currentUser.accountType === 'SUPER_AGENT'
               ? SUPER_AGENT_TILES
-              : AGENT_TILES)
-              .map(renderTile)}
+              : AGENT_TILES
+            ).map(renderTile)}
           </div>
         </section>
       )}
@@ -582,6 +638,45 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
         </button>
       )}
+
+      {/* Account */}
+      <section className="rounded-3xl bg-[#111420] border border-white/[0.08] divide-y divide-white/[0.06] overflow-hidden">
+        <h2 className="font-display text-sm font-semibold text-white px-4 sm:px-5 pt-4 pb-2">
+          Account
+        </h2>
+        <button
+          type="button"
+          onClick={() => onOpenSection('edit-profile')}
+          className="w-full px-4 sm:px-5 py-3 flex items-center justify-between gap-3 text-left hover:bg-white/[0.03] transition-colors"
+        >
+          <span className="flex items-center gap-2.5">
+            <Edit3 className="w-4 h-4 text-violet-300" />
+            <span>
+              <span className="block text-xs font-medium text-slate-200">Edit Profile</span>
+              <span className="block text-[11px] text-slate-500">
+                Name, username, bio, photos and language
+              </span>
+            </span>
+          </span>
+          <ChevronRight className="w-4 h-4 text-slate-500" />
+        </button>
+        <button
+          type="button"
+          onClick={() => onOpenSection('settings')}
+          className="w-full px-4 sm:px-5 py-3 flex items-center justify-between gap-3 text-left hover:bg-white/[0.03] transition-colors"
+        >
+          <span className="flex items-center gap-2.5">
+            <Settings className="w-4 h-4 text-sky-300" />
+            <span>
+              <span className="block text-xs font-medium text-slate-200">Settings</span>
+              <span className="block text-[11px] text-slate-500">
+                Privacy, notifications, security, help
+              </span>
+            </span>
+          </span>
+          <ChevronRight className="w-4 h-4 text-slate-500" />
+        </button>
+      </section>
 
       {/* Blocked accounts */}
       {blockedUsers.length > 0 && (
@@ -622,168 +717,119 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             aria-labelledby="stats-list-title"
             onClick={() => setStatsList(null)}
           >
-          <div
-            className="w-full sm:max-w-md max-h-[80vh] flex flex-col rounded-t-3xl sm:rounded-3xl bg-[#111420] border border-white/[0.1] overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.08] shrink-0">
-              <div>
-                <h2 id="stats-list-title" className="font-display text-base font-semibold text-white">
-                  {statsListTitle}
-                </h2>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  {statsListUsers.length} {statsListUsers.length === 1 ? 'person' : 'people'}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setStatsList(null)}
-                aria-label={`Close ${statsListTitle}`}
-                className="w-8 h-8 rounded-full bg-white/[0.08] hover:bg-white/[0.15] flex items-center justify-center text-white"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="overflow-y-auto divide-y divide-white/[0.06]">
-              {statsListUsers.length === 0 ? (
-                <div className="px-5 py-10 text-center space-y-1.5">
-                  <Users className="w-6 h-6 text-slate-500 mx-auto" aria-hidden="true" />
-                  <p className="text-sm font-medium text-slate-200">No {statsListTitle.toLowerCase()} yet</p>
-                  <p className="text-xs text-slate-500">
-                    {statsList === 'visitors'
-                      ? 'Visitors appear here as people open your profile.'
-                      : 'People will show up here as your community grows.'}
+            <div
+              className="w-full sm:max-w-md max-h-[80vh] flex flex-col rounded-t-3xl sm:rounded-3xl bg-[#111420] border border-white/[0.1] overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.08] shrink-0">
+                <div>
+                  <h2 id="stats-list-title" className="font-display text-base font-semibold text-white">
+                    {statsListTitle}
+                  </h2>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    {statsListUsers.length} {statsListUsers.length === 1 ? 'person' : 'people'}
                   </p>
                 </div>
-              ) : (
-                statsListUsers.map((user) => (
-                  <button
-                    key={user.uid}
-                    type="button"
-                    onClick={() => {
-                      setStatsList(null);
-                      onOpenUserProfile?.(user);
-                    }}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-white/[0.04] transition-colors"
-                  >
-                    <Avatar name={user.displayName} color={user.avatarColor} src={user.avatarUrl} size="sm" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-white truncate">{user.displayName}</p>
-                      <p className="text-xs text-slate-400 truncate">
-                        @{user.username} · {user.country}
-                      </p>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-slate-500 shrink-0" />
-                  </button>
-                ))
-              )}
+                <button
+                  type="button"
+                  onClick={() => setStatsList(null)}
+                  aria-label={`Close ${statsListTitle}`}
+                  className="w-8 h-8 rounded-full bg-white/[0.08] hover:bg-white/[0.15] flex items-center justify-center text-white"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="overflow-y-auto divide-y divide-white/[0.06]">
+                {statsListUsers.length === 0 ? (
+                  <div className="px-5 py-10 text-center space-y-1.5">
+                    <Users className="w-6 h-6 text-slate-500 mx-auto" aria-hidden="true" />
+                    <p className="text-sm font-medium text-slate-200">No {statsListTitle.toLowerCase()} yet</p>
+                    <p className="text-xs text-slate-500">
+                      {statsList === 'visitors'
+                        ? 'Visitors appear here as people open your profile.'
+                        : 'People will show up here as your community grows.'}
+                    </p>
+                  </div>
+                ) : (
+                  statsListUsers.map((user) => {
+                    const isFollowing = followingUids.includes(user.uid);
+                    return (
+                      <div
+                        key={user.uid}
+                        className="flex items-center gap-3 px-4 py-3 hover:bg-white/[0.04] transition-colors"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setStatsList(null);
+                            onOpenUserProfile?.(user);
+                          }}
+                          className="flex items-center gap-3 min-w-0 flex-1 text-left"
+                        >
+                          <Avatar
+                            name={user.displayName}
+                            color={user.avatarColor}
+                            src={user.avatarUrl}
+                            size="sm"
+                          />
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-white truncate">
+                              {user.displayName}
+                            </p>
+                            <p className="text-xs text-slate-400 truncate">
+                              @{user.username} · {user.country}
+                            </p>
+                          </div>
+                        </button>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {onToggleFollow && (
+                            <button
+                              type="button"
+                              onClick={() => onToggleFollow(user.uid)}
+                              className={`h-7 px-2.5 rounded-lg text-[10px] font-semibold transition-colors ${
+                                isFollowing
+                                  ? 'bg-white/[0.08] text-slate-200 hover:bg-white/[0.14]'
+                                  : 'bg-violet-600 text-white hover:bg-violet-500'
+                              }`}
+                            >
+                              {isFollowing ? 'Following' : 'Follow'}
+                            </button>
+                          )}
+                          {onStartMessage && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setStatsList(null);
+                                onStartMessage(user);
+                              }}
+                              aria-label={`Message ${user.displayName}`}
+                              className="w-7 h-7 rounded-lg bg-white/[0.08] hover:bg-white/[0.15] text-white flex items-center justify-center"
+                            >
+                              <MessageSquare className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setStatsList(null);
+                              onOpenUserProfile?.(user);
+                            }}
+                            aria-label={`View ${user.displayName}`}
+                            className="w-7 h-7 rounded-lg bg-white/[0.08] hover:bg-white/[0.15] text-white flex items-center justify-center"
+                          >
+                            <ChevronRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
             </div>
-          </div>
           </div>,
           document.body
         )}
-
-      {/* Edit profile overlay */}
-      {editing && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-0 sm:p-6">
-          <form
-            onSubmit={handleSave}
-            className="w-full sm:max-w-lg max-h-[90vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-[#111420] border border-white/[0.1] p-5 sm:p-6 space-y-4"
-          >
-            <div className="flex items-center justify-between">
-              <h2 className="font-display text-base font-semibold text-white">Edit Profile</h2>
-              <button
-                type="button"
-                onClick={() => setEditing(false)}
-                aria-label="Close"
-                className="w-8 h-8 rounded-full bg-white/[0.08] hover:bg-white/[0.15] flex items-center justify-center text-white"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <label className="block space-y-1.5">
-              <span className="text-xs font-medium text-slate-300">Display Name</span>
-              <input
-                type="text"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                className="w-full h-10 px-3.5 rounded-xl bg-[#090B12] border border-white/[0.09] text-sm text-white focus:border-violet-500/60 focus:outline-none"
-              />
-            </label>
-
-            <label className="block space-y-1.5">
-              <span className="text-xs font-medium text-slate-300">Bio</span>
-              <textarea
-                rows={3}
-                value={bio}
-                onChange={(e) => setBio(e.target.value)}
-                className="w-full p-3.5 rounded-xl bg-[#090B12] border border-white/[0.09] text-sm text-white focus:border-violet-500/60 focus:outline-none"
-              />
-            </label>
-
-            <div className="grid grid-cols-2 gap-3">
-              <label className="block space-y-1.5">
-                <span className="text-xs font-medium text-slate-300">Country</span>
-                <select
-                  value={country}
-                  onChange={(e) => setCountry(e.target.value)}
-                  className="w-full h-10 px-3.5 rounded-xl bg-[#090B12] border border-white/[0.09] text-sm text-white focus:border-violet-500/60 focus:outline-none"
-                >
-                  {(COUNTRIES.includes(country) ? COUNTRIES : [country, ...COUNTRIES]).map(
-                    (c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    )
-                  )}
-                </select>
-              </label>
-              <label className="block space-y-1.5">
-                <span className="text-xs font-medium text-slate-300">Gender</span>
-                <select
-                  value={gender}
-                  onChange={(e) => setGender(e.target.value as GenderOption)}
-                  className="w-full h-10 px-3.5 rounded-xl bg-[#090B12] border border-white/[0.09] text-sm text-white focus:border-violet-500/60 focus:outline-none"
-                >
-                  <option value="Male">Male</option>
-                  <option value="Female">Female</option>
-                  <option value="Prefer not to say">Prefer not to say</option>
-                </select>
-              </label>
-            </div>
-
-            <label className="flex items-center gap-2.5 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={showPresence}
-                onChange={(e) => setShowPresence(e.target.checked)}
-                className="w-4 h-4 accent-violet-600 rounded"
-              />
-              <span className="text-xs text-slate-300">Show online status to friends</span>
-            </label>
-
-            <div className="flex justify-end gap-2 pt-1">
-              <button
-                type="button"
-                onClick={() => setEditing(false)}
-                className="px-4 py-2 rounded-xl bg-white/[0.08] text-xs font-medium text-slate-200"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={saving}
-                className="px-5 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:bg-white/[0.06] disabled:text-slate-500 text-xs font-semibold text-white inline-flex items-center gap-1.5"
-              >
-                <Check className="w-3.5 h-3.5" />
-                <span>{saving ? 'Saving…' : 'Save Changes'}</span>
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
     </div>
   );
 };

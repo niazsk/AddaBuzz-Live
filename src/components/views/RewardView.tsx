@@ -10,7 +10,7 @@ import {
   Heart,
   Radio,
 } from 'lucide-react';
-import { UserProfile, RewardProfile } from '../../types/app';
+import { UserProfile, RewardProfile, WalletTransaction } from '../../types/app';
 import {
   claimReward,
   ensureRewardProfile,
@@ -21,6 +21,7 @@ import { CHECK_IN_REWARDS, REWARD_TASKS, rewardDayKey } from '../../rewards/conf
 interface RewardViewProps {
   currentUser: UserProfile;
   coinBalance: number;
+  transactions?: WalletTransaction[];
   onBack: () => void;
   onToast?: (title: string, desc?: string, tone?: 'info' | 'success' | 'warning' | 'error') => void;
 }
@@ -35,6 +36,7 @@ const TASK_ICONS: Record<string, React.ComponentType<{ className?: string }>> = 
 export const RewardView: React.FC<RewardViewProps> = ({
   currentUser,
   coinBalance,
+  transactions = [],
   onBack,
   onToast,
 }) => {
@@ -65,6 +67,12 @@ export const RewardView: React.FC<RewardViewProps> = ({
 
   const progressOf = (field: 'watchSeconds' | 'giftsSent' | 'followsMade' | 'gamesPlayed') =>
     sameDay ? profile?.[field] ?? 0 : 0;
+
+  const rewardHistory = transactions.filter(
+    (tx) =>
+      tx.reason.startsWith('Daily Check-In Reward') ||
+      tx.reason.startsWith('Daily Task Reward')
+  );
 
   const handleClaim = async (kind: 'checkin' | 'watch' | 'gift' | 'follow' | 'game') => {
     if (busy) return;
@@ -242,6 +250,39 @@ export const RewardView: React.FC<RewardViewProps> = ({
         </div>
         <p className="text-[10px] text-slate-500 px-1">
           Tasks reset daily at 00:00 UTC. Rewards are added to your Main Coin balance.
+        </p>
+      </section>
+
+      {/* Reward history */}
+      <section className="space-y-2">
+        <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-1">
+          Reward History
+        </h2>
+        <div className="rounded-2xl bg-[#111420] border border-white/[0.08] divide-y divide-white/[0.06] overflow-hidden">
+          {rewardHistory.length === 0 ? (
+            <p className="px-4 py-6 text-center text-xs text-slate-500">
+              No rewards claimed in the loaded wallet history yet. Check-in and task rewards will
+              appear here.
+            </p>
+          ) : (
+            rewardHistory.map((tx) => (
+              <div
+                key={tx.transactionId}
+                className="flex items-center justify-between gap-3 px-4 py-3"
+              >
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-slate-200 truncate">{tx.reason}</p>
+                  <p className="text-[10px] text-slate-500">{tx.timestampLabel}</p>
+                </div>
+                <span className="text-xs font-bold text-emerald-300 tabular-nums shrink-0">
+                  +{tx.amount.toLocaleString()} 🪙
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+        <p className="text-[10px] text-slate-500 px-1">
+          Showing the latest claimed rewards from your audited wallet ledger.
         </p>
       </section>
     </div>

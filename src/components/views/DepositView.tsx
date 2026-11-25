@@ -36,7 +36,7 @@ interface DepositViewProps {
   onToast?: (title: string, desc?: string, tone?: 'info' | 'success' | 'warning' | 'error') => void;
 }
 
-// Deposits created before the 30-day migration live only in this browser.
+// Deposits created before the vault migration live only in this browser.
 interface LegacyDeposit {
   id: string;
   planId: string;
@@ -85,7 +85,7 @@ const GENDER_REWARD_RULES: GenderRewardRules[] = [
     accent: 'sky',
     requirements: [
       'Host a multi-guest video or audio board for at least 10 minutes.',
-      'Complete 1 hour within 24 hours.',
+      'Complete 3 hours within 24 hours.',
       'Receive gifts from viewers.',
     ],
   },
@@ -217,8 +217,8 @@ export const DepositView: React.FC<DepositViewProps> = ({
       const txKey = `dep_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
       await createDepositRecord(currentUser.uid, parsedAmount, txKey);
       onToast?.(
-        'Deposit Locked for 30 Days',
-        `${parsedAmount.toLocaleString()} Coins deposited. +${projectedReward.toLocaleString()} Diamonds will be credited automatically after 30 days.`,
+        `Deposit Locked for ${DEPOSIT_TERM_DAYS} Days`,
+        `${parsedAmount.toLocaleString()} Coins deposited. +${projectedReward.toLocaleString()} Diamonds will be credited automatically after ${DEPOSIT_TERM_DAYS} days.`,
         'success'
       );
       setActiveTab('VAULT');
@@ -336,7 +336,7 @@ export const DepositView: React.FC<DepositViewProps> = ({
         <div className="flex items-center justify-between">
           <span className="text-xs text-slate-400 font-medium uppercase tracking-wider flex items-center gap-1.5">
             <Lock className="w-4 h-4 text-amber-400" />
-            <span>30-Day Deposit Vault</span>
+            <span>{DEPOSIT_TERM_DAYS}-Day Deposit Vault</span>
           </span>
           <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
             <ShieldCheck className="w-3.5 h-3.5" />
@@ -413,7 +413,7 @@ export const DepositView: React.FC<DepositViewProps> = ({
 
       {activeTab === 'NEW' ? (
         <div className="space-y-5">
-          {/* 30-Day Program */}
+          {/* Deposit Program */}
           <section className="rounded-2xl bg-gradient-to-br from-amber-500/[0.12] via-[#111420] to-sky-500/[0.08] border border-amber-500/30 p-4 space-y-3">
             <div className="flex items-center justify-between gap-2">
               <h2 className="font-display text-sm font-bold text-white inline-flex items-center gap-2">
@@ -544,7 +544,7 @@ export const DepositView: React.FC<DepositViewProps> = ({
               <Lock className="w-10 h-10 text-slate-600 mx-auto" />
               <p className="text-sm font-bold text-white">No Deposits Yet</p>
               <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                Start a 30-day deposit to earn {DEPOSIT_BONUS_PERCENT}% Diamonds automatically on
+                Start a {DEPOSIT_TERM_DAYS}-day deposit to earn {DEPOSIT_BONUS_PERCENT}% Diamonds automatically on
                 maturity.
               </p>
               <button
@@ -752,13 +752,13 @@ export const DepositView: React.FC<DepositViewProps> = ({
               <p className="flex gap-2">
                 <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400 mt-0.5" />
                 <span>
-                  Deposit period is <span className="font-semibold text-white">30 days</span>.
+                  Deposit period is <span className="font-semibold text-white">{DEPOSIT_TERM_DAYS} days</span>.
                 </span>
               </p>
               <p className="flex gap-2">
                 <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400 mt-0.5" />
                 <span>
-                  After 30 days, <span className="font-semibold text-white">10%</span> of the
+                  After {DEPOSIT_TERM_DAYS} days, <span className="font-semibold text-white">10%</span> of the
                   deposited amount is added to your{' '}
                   <span className="font-semibold text-sky-300">Diamond balance</span>{' '}
                   automatically.

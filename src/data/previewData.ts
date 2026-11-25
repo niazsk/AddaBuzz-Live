@@ -9,5 +9,7 @@ export const ROOM_CATEGORIES: RoomCategory[] = [
   'Chat',
   'Gaming',
   'Talent',
+  'Education',
+  'Talk Show',
   'New Live',
 ];
