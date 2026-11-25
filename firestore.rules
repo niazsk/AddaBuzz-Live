@@ -185,6 +185,36 @@ service cloud.firestore {
         data.updatedAt is timestamp;
     }
 
+    // 30-Day Deposit Vault: locked principal plus an exact 10% reward that is
+    // paid in Diamonds once the deposit matures.
+    function isValidDepositRecord(data, uid, recordId) {
+      return data.keys().hasAll([
+          'uid', 'amount', 'bonusPercent', 'rewardAmount', 'createdAt',
+          'maturesAt', 'rewardWindowEndsAt', 'rewardCredited',
+          'principalWithdrawn', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'uid', 'amount', 'bonusPercent', 'rewardAmount', 'createdAt',
+          'maturesAt', 'rewardWindowEndsAt', 'rewardCredited',
+          'principalWithdrawn', 'updatedAt'
+        ]) &&
+        data.uid == uid &&
+        isValidId(uid) &&
+        isValidId(recordId) &&
+        data.amount is int && data.amount >= 1000 && data.amount <= 1000000 &&
+        data.bonusPercent == 10 &&
+        data.rewardAmount is int && data.rewardAmount >= 0 &&
+        data.rewardAmount * 10 <= data.amount &&
+        (data.rewardAmount + 1) * 10 > data.amount &&
+        data.createdAt == request.time &&
+        data.updatedAt == request.time &&
+        data.maturesAt >= request.time + duration.value(29, 'd') &&
+        data.maturesAt <= request.time + duration.value(30, 'd') + duration.value(6, 'h') &&
+        data.rewardWindowEndsAt == data.maturesAt + duration.value(15, 'd') &&
+        data.rewardCredited == false &&
+        data.principalWithdrawn == false;
+    }
+
     function isValidUsernameDoc(data, username) {
       return data.keys().hasAll(['uid', 'username', 'createdAt']) &&
         data.keys().hasOnly(['uid', 'username', 'createdAt']) &&
@@ -450,13 +480,14 @@ service cloud.firestore {
 
     function isValidWallet(data, uid) {
       return data.keys().hasAll(['uid', 'coinBalance', 'diamondBalance', 'createdAt', 'updatedAt']) &&
-        data.keys().hasOnly(['uid', 'coinBalance', 'diamondBalance', 'tradingCoinBalance', 'lastGiftEventId', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['uid', 'coinBalance', 'diamondBalance', 'tradingCoinBalance', 'lastGiftEventId', 'lastDepositEventId', 'createdAt', 'updatedAt']) &&
         data.uid == uid &&
         isValidId(data.uid) &&
         data.coinBalance is int && data.coinBalance >= 0 &&
         data.diamondBalance is int && data.diamondBalance >= 0 &&
         (!('tradingCoinBalance' in data) || (data.tradingCoinBalance is int && data.tradingCoinBalance >= 0)) &&
         (!('lastGiftEventId' in data) || isValidId(data.lastGiftEventId)) &&
+        (!('lastDepositEventId' in data) || isValidId(data.lastDepositEventId)) &&
         data.createdAt is timestamp &&
         data.updatedAt is timestamp;
     }
@@ -692,6 +723,53 @@ service cloud.firestore {
             incoming().validDays == existing().validDays + (existing().liveSeconds >= 3600 ? 1 : 0)
           )
         );
+    }
+
+    // 30-Day Deposit Vault: principal locked for 30 days, 10% Diamond reward
+    // credited at maturity (claim window: 15 days).
+    match /depositVaults/{uid} {
+      allow read, write: if false;
+      match /records/{recordId} {
+        allow get: if isValidId(uid) && isValidId(recordId) && (isOwner(uid) || isAdmin());
+        allow list: if isValidId(uid) && (isOwner(uid) || isAdmin());
+        allow delete: if isAdmin();
+        allow create: if isVerifiedUser() &&
+          isOwner(uid) &&
+          isValidDepositRecord(incoming(), uid, recordId) &&
+          get(/databases/$(database)/documents/wallets/$(uid)).data.coinBalance -
+            getAfter(/databases/$(database)/documents/wallets/$(uid)).data.coinBalance ==
+            incoming().amount;
+        allow update: if isVerifiedUser() && (
+          isAdmin() ||
+          (
+            // 10% Diamond reward credited at maturity.
+            isOwner(uid) &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['rewardCredited', 'updatedAt']) &&
+            existing().rewardCredited == false &&
+            incoming().rewardCredited == true &&
+            existing().maturesAt <= request.time &&
+            request.time <= existing().rewardWindowEndsAt
+          ) ||
+          (
+            // Principal withdrawn after maturity.
+            isOwner(uid) &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['principalWithdrawn', 'updatedAt']) &&
+            existing().principalWithdrawn == false &&
+            incoming().principalWithdrawn == true &&
+            existing().maturesAt <= request.time
+          ) ||
+          (
+            // Early withdrawal returns the principal only and forfeits the reward.
+            isOwner(uid) &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['principalWithdrawn', 'rewardCredited', 'updatedAt']) &&
+            existing().principalWithdrawn == false &&
+            incoming().principalWithdrawn == true &&
+            existing().rewardCredited == false &&
+            incoming().rewardCredited == true &&
+            request.time < existing().maturesAt
+          )
+        );
+      }
     }
 
     // Username uniqueness index
@@ -1209,6 +1287,45 @@ service cloud.firestore {
         incoming().updatedAt == request.time && (
           isAdmin() ||
           (
+            // Owner self-debits (game stakes, gift spending, withdrawals): the
+            // owner's own balances may only go down. Kept near the top so the
+            // common path stays inside the 1,000-expression evaluation budget.
+            isOwner(uid) &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['coinBalance', 'diamondBalance', 'updatedAt']) &&
+            incoming().coinBalance <= existing().coinBalance &&
+            incoming().diamondBalance <= existing().diamondBalance &&
+            (incoming().coinBalance < existing().coinBalance || incoming().diamondBalance < existing().diamondBalance)
+          ) ||
+          (
+            // 30-Day Deposit: 10% Diamond reward paid at maturity. The credit
+            // must equal the pending reward on the deposit record, which flips
+            // rewardCredited to true in the same transaction.
+            isOwner(uid) &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['diamondBalance', 'lastDepositEventId', 'updatedAt']) &&
+            incoming().lastDepositEventId is string &&
+            isValidId(incoming().lastDepositEventId) &&
+            incoming().diamondBalance > existing().diamondBalance &&
+            get(/databases/$(database)/documents/depositVaults/$(uid)/records/$(incoming().lastDepositEventId)).data.rewardCredited == false &&
+            getAfter(/databases/$(database)/documents/depositVaults/$(uid)/records/$(incoming().lastDepositEventId)).data.rewardCredited == true &&
+            get(/databases/$(database)/documents/depositVaults/$(uid)/records/$(incoming().lastDepositEventId)).data.maturesAt <= request.time &&
+            request.time <= get(/databases/$(database)/documents/depositVaults/$(uid)/records/$(incoming().lastDepositEventId)).data.rewardWindowEndsAt &&
+            incoming().diamondBalance - existing().diamondBalance ==
+              get(/databases/$(database)/documents/depositVaults/$(uid)/records/$(incoming().lastDepositEventId)).data.rewardAmount
+          ) ||
+          (
+            // 30-Day Deposit: principal returned to the Coin balance; the
+            // deposit record flips principalWithdrawn in the same transaction.
+            isOwner(uid) &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['coinBalance', 'lastDepositEventId', 'updatedAt']) &&
+            incoming().lastDepositEventId is string &&
+            isValidId(incoming().lastDepositEventId) &&
+            incoming().coinBalance > existing().coinBalance &&
+            get(/databases/$(database)/documents/depositVaults/$(uid)/records/$(incoming().lastDepositEventId)).data.principalWithdrawn == false &&
+            getAfter(/databases/$(database)/documents/depositVaults/$(uid)/records/$(incoming().lastDepositEventId)).data.principalWithdrawn == true &&
+            incoming().coinBalance - existing().coinBalance ==
+              get(/databases/$(database)/documents/depositVaults/$(uid)/records/$(incoming().lastDepositEventId)).data.amount
+          ) ||
+          (
             // Agency sender debits their own Coins Trading Balance.
             isOwner(uid) &&
             (isBdAgent() || isSuperAgent() || isAgent()) &&
@@ -1350,13 +1467,6 @@ service cloud.firestore {
               getAfter(/databases/$(database)/documents/hostRewardProfiles/$(uid)).data.validDays ==
                 get(/databases/$(database)/documents/hostRewardProfiles/$(uid)).data.validDays - 5
             )
-          ) ||
-          (
-            isOwner(uid) &&
-            incoming().diff(existing()).affectedKeys().hasOnly(['coinBalance', 'diamondBalance', 'updatedAt']) &&
-            incoming().coinBalance <= existing().coinBalance &&
-            incoming().diamondBalance <= existing().diamondBalance &&
-            (incoming().coinBalance < existing().coinBalance || incoming().diamondBalance < existing().diamondBalance)
           )
         );
 
@@ -1417,6 +1527,26 @@ service cloud.firestore {
               incoming().direction == 'CREDIT' &&
               incoming().amount <= 500 &&
               incoming().idempotencyKey.matches('^welcome_grant_.*$')
+            ) ||
+            (
+              // 30-Day Deposit principal return.
+              isOwner(uid) &&
+              incoming().direction == 'CREDIT' &&
+              incoming().currency == 'COIN' &&
+              incoming().idempotencyKey.matches('^depw_.*$') &&
+              incoming().amount ==
+                getAfter(/databases/$(database)/documents/wallets/$(uid)).data.coinBalance -
+                get(/databases/$(database)/documents/wallets/$(uid)).data.coinBalance
+            ) ||
+            (
+              // 30-Day Deposit 10% Diamond reward.
+              isOwner(uid) &&
+              incoming().direction == 'CREDIT' &&
+              incoming().currency == 'DIAMOND' &&
+              incoming().idempotencyKey.matches('^depr_.*$') &&
+              incoming().amount ==
+                getAfter(/databases/$(database)/documents/wallets/$(uid)).data.diamondBalance -
+                get(/databases/$(database)/documents/wallets/$(uid)).data.diamondBalance
             ) ||
             (
               // Fruit Manor payouts: the credited amount must equal the exact

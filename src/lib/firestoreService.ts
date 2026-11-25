@@ -4006,4 +4006,286 @@ export async function claimHostReward(
   }
 }
 
+// ---------------------------------------------------------------------------
+// 30-DAY DEPOSIT VAULT — server-tracked principal + 10% Diamond reward
+// Deposit for 30 days; at maturity 10% of the amount is credited to the
+// Diamond balance automatically. The reward window stays open for 15 days.
+// ---------------------------------------------------------------------------
+
+export const DEPOSIT_TERM_DAYS = 30;
+export const DEPOSIT_REWARD_WINDOW_DAYS = 15;
+export const DEPOSIT_BONUS_PERCENT = 10;
+export const DEPOSIT_MIN_AMOUNT = 1000;
+export const DEPOSIT_MAX_AMOUNT = 1000000;
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+export interface DepositRecord {
+  recordId: string;
+  uid: string;
+  amount: number;
+  bonusPercent: number;
+  rewardAmount: number;
+  createdAt: number;
+  maturesAt: number;
+  rewardWindowEndsAt: number;
+  rewardCredited: boolean;
+  principalWithdrawn: boolean;
+}
+
+function tsToMs(value: unknown): number {
+  if (value instanceof Timestamp) return value.toMillis();
+  const n = Number(value ?? 0);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function mapDepositRecord(d: DocumentSnapshot): DepositRecord {
+  const data = d.data() ?? {};
+  return {
+    recordId: d.id,
+    uid: String(data.uid ?? ''),
+    amount: Number(data.amount ?? 0),
+    bonusPercent: Number(data.bonusPercent ?? DEPOSIT_BONUS_PERCENT),
+    rewardAmount: Number(data.rewardAmount ?? 0),
+    createdAt: tsToMs(data.createdAt),
+    maturesAt: tsToMs(data.maturesAt),
+    rewardWindowEndsAt: tsToMs(data.rewardWindowEndsAt),
+    rewardCredited: Boolean(data.rewardCredited ?? false),
+    principalWithdrawn: Boolean(data.principalWithdrawn ?? false),
+  };
+}
+
+export function subscribeDepositRecords(
+  uid: string,
+  onData: (records: DepositRecord[]) => void
+): Unsubscribe {
+  return listenWithRetry(
+    query(
+      collection(db, 'depositVaults', uid, 'records'),
+      orderBy('createdAt', 'desc'),
+      limit(50)
+    ),
+    (snap) => onData(snap.docs.map(mapDepositRecord)),
+    () => onData([])
+  );
+}
+
+export async function createDepositRecord(
+  uid: string,
+  amount: number,
+  idempotencyKey: string
+): Promise<string> {
+  const recordId = gameTxDocId(idempotencyKey);
+  const recordRef = doc(db, 'depositVaults', uid, 'records', recordId);
+  const walletRef = doc(db, 'wallets', uid);
+  const txRef = doc(db, 'wallets', uid, 'transactions', recordId);
+  const now = Date.now();
+  const maturesMs = now + DEPOSIT_TERM_DAYS * DAY_MS;
+  const rewardAmount = Math.floor((amount * DEPOSIT_BONUS_PERCENT) / 100);
+
+  try {
+    const [walletSnap, recordSnap, ledgerSnap] = await Promise.all([
+      getDoc(walletRef),
+      getDoc(recordRef),
+      getDoc(txRef),
+    ]);
+    if (recordSnap.exists() || ledgerSnap.exists()) return recordId;
+    if (!walletSnap.exists()) throw new Error('Wallet not initialized.');
+    const coins = Number(walletSnap.data().coinBalance ?? 0);
+    if (coins < amount) {
+      throw new Error(`Insufficient Coins (need ${amount.toLocaleString('en-US')}).`);
+    }
+    const batch = writeBatch(db);
+    batch.update(walletRef, {
+      coinBalance: increment(-amount),
+      updatedAt: serverTimestamp(),
+    });
+    batch.set(recordRef, {
+      uid,
+      amount,
+      bonusPercent: DEPOSIT_BONUS_PERCENT,
+      rewardAmount,
+      createdAt: serverTimestamp(),
+      maturesAt: Timestamp.fromMillis(maturesMs),
+      rewardWindowEndsAt: Timestamp.fromMillis(
+        maturesMs + DEPOSIT_REWARD_WINDOW_DAYS * DAY_MS
+      ),
+      rewardCredited: false,
+      principalWithdrawn: false,
+      updatedAt: serverTimestamp(),
+    });
+    batch.set(txRef, {
+      transactionId: recordId,
+      uid,
+      currency: 'COIN',
+      direction: 'DEBIT',
+      amount,
+      reason: `30-Day Deposit (${DEPOSIT_TERM_DAYS} days)`,
+      idempotencyKey,
+      createdAt: serverTimestamp(),
+    });
+    await batch.commit();
+    return recordId;
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith('Insufficient')) throw error;
+    if (error instanceof Error && error.message.startsWith('Wallet not')) throw error;
+    handleFirestoreError(error, OperationType.WRITE, `depositVaults/${uid}`);
+  }
+}
+
+// Credits the 10% Diamond reward for a matured deposit. Idempotent: the
+// rewardCredited flag and the ledger doc make replays a no-op.
+export async function claimDepositReward(
+  uid: string,
+  recordId: string
+): Promise<number> {
+  const recordRef = doc(db, 'depositVaults', uid, 'records', recordId);
+  const walletRef = doc(db, 'wallets', uid);
+  const ledgerKey = `depr_${recordId}`;
+  const ledgerRef = doc(db, 'wallets', uid, 'transactions', gameTxDocId(ledgerKey));
+  let credited = 0;
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= GAME_TX_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      await runTransaction(db, async (tx) => {
+        const [recordSnap, walletSnap, ledgerSnap] = await Promise.all([
+          tx.get(recordRef),
+          tx.get(walletRef),
+          tx.get(ledgerRef),
+        ]);
+        if (ledgerSnap.exists()) return;
+        if (!recordSnap.exists()) throw new Error('Deposit record not found.');
+        if (!walletSnap.exists()) throw new Error('Wallet not initialized.');
+
+        const record = recordSnap.data();
+        if (Boolean(record.rewardCredited)) return;
+        const now = Date.now();
+        if (now < tsToMs(record.maturesAt)) throw new Error('Deposit has not matured yet.');
+        if (now > tsToMs(record.rewardWindowEndsAt)) {
+          throw new Error('Deposit reward window has expired.');
+        }
+        const rewardAmount = Number(record.rewardAmount ?? 0);
+        if (rewardAmount <= 0) return;
+
+        const diamonds = Number(walletSnap.data().diamondBalance ?? 0);
+        tx.update(walletRef, {
+          diamondBalance: diamonds + rewardAmount,
+          lastDepositEventId: recordId,
+          updatedAt: serverTimestamp(),
+        });
+        tx.update(recordRef, { rewardCredited: true, updatedAt: serverTimestamp() });
+        tx.set(ledgerRef, {
+          transactionId: gameTxDocId(ledgerKey),
+          uid,
+          currency: 'DIAMOND',
+          direction: 'CREDIT',
+          amount: rewardAmount,
+          reason: '30-Day Deposit Reward (10%)',
+          idempotencyKey: ledgerKey,
+          createdAt: serverTimestamp(),
+        });
+        credited = rewardAmount;
+      });
+      return credited;
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        (error.message.startsWith('Deposit record') ||
+          error.message.startsWith('Wallet not') ||
+          error.message.startsWith('Deposit has not') ||
+          error.message.startsWith('Deposit reward window'))
+      ) {
+        throw error;
+      }
+      lastError = error;
+      if (!isOptimisticWriteError(error)) {
+        handleFirestoreError(error, OperationType.WRITE, `depositVaults/${uid}`);
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, GAME_TX_RETRY_DELAY_MS * attempt));
+  }
+  handleFirestoreError(lastError, OperationType.WRITE, `depositVaults/${uid}`);
+}
+
+// Returns the principal to the Coin balance. Withdrawing before maturity
+// forfeits the Diamond reward.
+export async function withdrawDepositPrincipal(
+  uid: string,
+  recordId: string
+): Promise<{ amount: number; forfeitedReward: boolean }> {
+  const recordRef = doc(db, 'depositVaults', uid, 'records', recordId);
+  const walletRef = doc(db, 'wallets', uid);
+  const ledgerKey = `depw_${recordId}`;
+  const ledgerRef = doc(db, 'wallets', uid, 'transactions', gameTxDocId(ledgerKey));
+  let payout = 0;
+  let forfeited = false;
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= GAME_TX_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      await runTransaction(db, async (tx) => {
+        const [recordSnap, walletSnap, ledgerSnap] = await Promise.all([
+          tx.get(recordRef),
+          tx.get(walletRef),
+          tx.get(ledgerRef),
+        ]);
+        if (ledgerSnap.exists()) return;
+        if (!recordSnap.exists()) throw new Error('Deposit record not found.');
+        if (!walletSnap.exists()) throw new Error('Wallet not initialized.');
+
+        const record = recordSnap.data();
+        if (Boolean(record.principalWithdrawn)) throw new Error('Principal already withdrawn.');
+
+        const amount = Number(record.amount ?? 0);
+        const matured = Date.now() >= tsToMs(record.maturesAt);
+        const coins = Number(walletSnap.data().coinBalance ?? 0);
+
+        tx.update(walletRef, {
+          coinBalance: coins + amount,
+          lastDepositEventId: recordId,
+          updatedAt: serverTimestamp(),
+        });
+        if (matured) {
+          tx.update(recordRef, { principalWithdrawn: true, updatedAt: serverTimestamp() });
+        } else {
+          tx.update(recordRef, {
+            principalWithdrawn: true,
+            rewardCredited: true,
+            updatedAt: serverTimestamp(),
+          });
+        }
+        tx.set(ledgerRef, {
+          transactionId: gameTxDocId(ledgerKey),
+          uid,
+          currency: 'COIN',
+          direction: 'CREDIT',
+          amount,
+          reason: matured ? 'Deposit Principal (Matured)' : 'Deposit Principal (Early)',
+          idempotencyKey: ledgerKey,
+          createdAt: serverTimestamp(),
+        });
+        payout = amount;
+        forfeited = !matured;
+      });
+      return { amount: payout, forfeitedReward: forfeited };
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        (error.message.startsWith('Deposit record') ||
+          error.message.startsWith('Wallet not') ||
+          error.message.startsWith('Principal already'))
+      ) {
+        throw error;
+      }
+      lastError = error;
+      if (!isOptimisticWriteError(error)) {
+        handleFirestoreError(error, OperationType.WRITE, `depositVaults/${uid}`);
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, GAME_TX_RETRY_DELAY_MS * attempt));
+  }
+  handleFirestoreError(lastError, OperationType.WRITE, `depositVaults/${uid}`);
+}
+
 
