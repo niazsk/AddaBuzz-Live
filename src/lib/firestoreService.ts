@@ -1464,6 +1464,23 @@ function gameTxDocId(idempotencyKey: string): string {
   return idempotencyKey.replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 120);
 }
 
+// Optimistic-concurrency failures ("the stored version does not match the
+// required base version") happen when several clients touch the same wallet
+// document at once. These are safe to retry: the idempotency doc below makes
+// the retry skip the move when the first attempt actually committed.
+const GAME_TX_MAX_ATTEMPTS = 6;
+const GAME_TX_RETRY_DELAY_MS = 300;
+
+function isOptimisticWriteError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    /does not match the required base version|Please try again|concurrent|stale version/i.test(
+      error.message
+    )
+  );
+}
+
+
 // Exactly-once game wallet ops: the transaction doc id IS the idempotency key,
 // so a retry after a network failure sees the existing doc and skips the move.
 export async function gameCoinDebit(
@@ -1475,32 +1492,40 @@ export async function gameCoinDebit(
   const txId = gameTxDocId(idempotencyKey);
   const walletRef = doc(db, 'wallets', uid);
   const txRef = doc(db, 'wallets', uid, 'transactions', txId);
-  try {
-    await runTransaction(db, async (tx) => {
-      const [walletSnap, existing] = await Promise.all([tx.get(walletRef), tx.get(txRef)]);
-      if (existing.exists()) return;
-      if (!walletSnap.exists()) throw new Error('Wallet not initialized.');
-      const coins = Number(walletSnap.data().coinBalance ?? 0);
-      if (coins < amount) throw new Error(`Insufficient Coins (need ${amount.toLocaleString('en-US')}).`);
-      tx.update(walletRef, { coinBalance: coins - amount, updatedAt: serverTimestamp() });
-      tx.set(txRef, {
-        transactionId: txId,
-        uid,
-        currency: 'COIN',
-        direction: 'DEBIT',
-        amount,
-        reason: clampStr(reason, 160),
-        idempotencyKey,
-        createdAt: serverTimestamp(),
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= GAME_TX_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      await runTransaction(db, async (tx) => {
+        const [walletSnap, existing] = await Promise.all([tx.get(walletRef), tx.get(txRef)]);
+        if (existing.exists()) return;
+        if (!walletSnap.exists()) throw new Error('Wallet not initialized.');
+        const coins = Number(walletSnap.data().coinBalance ?? 0);
+        if (coins < amount) throw new Error(`Insufficient Coins (need ${amount.toLocaleString('en-US')}).`);
+        tx.update(walletRef, { coinBalance: coins - amount, updatedAt: serverTimestamp() });
+        tx.set(txRef, {
+          transactionId: txId,
+          uid,
+          currency: 'COIN',
+          direction: 'DEBIT',
+          amount,
+          reason: clampStr(reason, 160),
+          idempotencyKey,
+          createdAt: serverTimestamp(),
+        });
       });
-    });
-    void bumpRewardProgress(uid, 'gamesPlayed', 1);
-    return txId;
-  } catch (error) {
-    if (error instanceof Error && error.message.startsWith('Insufficient')) throw error;
-    if (error instanceof Error && error.message.startsWith('Wallet not')) throw error;
-    handleFirestoreError(error, OperationType.WRITE, `wallets/${uid}`);
+      void bumpRewardProgress(uid, 'gamesPlayed', 1);
+      return txId;
+    } catch (error) {
+      if (error instanceof Error && error.message.startsWith('Insufficient')) throw error;
+      if (error instanceof Error && error.message.startsWith('Wallet not')) throw error;
+      lastError = error;
+      if (!isOptimisticWriteError(error)) {
+        handleFirestoreError(error, OperationType.WRITE, `wallets/${uid}`);
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, GAME_TX_RETRY_DELAY_MS * attempt));
   }
+  handleFirestoreError(lastError, OperationType.WRITE, `wallets/${uid}`);
 }
 
 export async function gameCoinCredit(
@@ -1512,29 +1537,37 @@ export async function gameCoinCredit(
   const txId = gameTxDocId(idempotencyKey);
   const walletRef = doc(db, 'wallets', uid);
   const txRef = doc(db, 'wallets', uid, 'transactions', txId);
-  try {
-    await runTransaction(db, async (tx) => {
-      const [walletSnap, existing] = await Promise.all([tx.get(walletRef), tx.get(txRef)]);
-      if (existing.exists()) return;
-      if (!walletSnap.exists()) throw new Error('Wallet not initialized.');
-      const coins = Number(walletSnap.data().coinBalance ?? 0);
-      tx.update(walletRef, { coinBalance: coins + amount, updatedAt: serverTimestamp() });
-      tx.set(txRef, {
-        transactionId: txId,
-        uid,
-        currency: 'COIN',
-        direction: 'CREDIT',
-        amount,
-        reason: clampStr(reason, 160),
-        idempotencyKey,
-        createdAt: serverTimestamp(),
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= GAME_TX_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      await runTransaction(db, async (tx) => {
+        const [walletSnap, existing] = await Promise.all([tx.get(walletRef), tx.get(txRef)]);
+        if (existing.exists()) return;
+        if (!walletSnap.exists()) throw new Error('Wallet not initialized.');
+        const coins = Number(walletSnap.data().coinBalance ?? 0);
+        tx.update(walletRef, { coinBalance: coins + amount, updatedAt: serverTimestamp() });
+        tx.set(txRef, {
+          transactionId: txId,
+          uid,
+          currency: 'COIN',
+          direction: 'CREDIT',
+          amount,
+          reason: clampStr(reason, 160),
+          idempotencyKey,
+          createdAt: serverTimestamp(),
+        });
       });
-    });
-    return txId;
-  } catch (error) {
-    if (error instanceof Error && error.message.startsWith('Wallet not')) throw error;
-    handleFirestoreError(error, OperationType.WRITE, `wallets/${uid}`);
+      return txId;
+    } catch (error) {
+      if (error instanceof Error && error.message.startsWith('Wallet not')) throw error;
+      lastError = error;
+      if (!isOptimisticWriteError(error)) {
+        handleFirestoreError(error, OperationType.WRITE, `wallets/${uid}`);
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, GAME_TX_RETRY_DELAY_MS * attempt));
   }
+  handleFirestoreError(lastError, OperationType.WRITE, `wallets/${uid}`);
 }
 
 // ---------------------------------------------------------------------------

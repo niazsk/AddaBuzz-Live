@@ -32,14 +32,6 @@ import {
   subscribeGfBoard,
   subscribeGfConfig,
 } from '../../lib/firestoreService';
-import {
-  advanceSupabaseBoard,
-  claimSupabaseLeadership,
-  createSupabaseBetRecord,
-  resolveSupabaseBetRecord,
-  subscribeSupabaseLiveBets,
-  subscribeSupabaseLiveBoard,
-} from '../../lib/supabaseGameService';
 
 export type { GfRemoteConfig };
 export { GF_DEFAULT_CONFIG };
@@ -209,19 +201,18 @@ export class GfBoardEngine {
     this.pending = readJson<PendingCredit[]>(this.key('pending'), []);
     this.settledBetIds = readJson<string[]>(this.key('settledBets'), []);
 
-    this.boardUnsub = subscribeSupabaseLiveBoard(
-      'golden_flower',
+    this.boardUnsub = subscribeGfBoard(
       (board) => {
         this.connected = true;
         const prev = this.board;
-        this.board = board as any;
+        this.board = board;
         if (board && board.roundId !== this.betsRoundId) {
           this.watchRound(board.roundId);
         }
         if (board && prev && prev.roundId !== board.roundId) {
           this.idempotency.clear();
         }
-        this.detectEvents(prev, board as any);
+        this.detectEvents(prev, board);
         this.emit();
       },
       (message) => {
@@ -249,10 +240,10 @@ export class GfBoardEngine {
     this.betsRoundId = roundId;
     this.bets = [];
     if (!roundId) return;
-    this.betsUnsub = subscribeSupabaseLiveBets(
+    this.betsUnsub = subscribeGfBets(
       roundId,
       (list) => {
-        this.bets = list as any;
+        this.bets = list;
         this.emit();
         void this.settleMyBets();
       },
@@ -416,9 +407,10 @@ export class GfBoardEngine {
     this.lastClaimAttempt = now;
     this.leaderBusy = true;
     try {
-      await claimSupabaseLeadership('golden_flower', this.uid, {
+      await claimGfLeadership(this.uid, {
         roundId: `GF-${GF_FIRST_SEQ}`,
         seq: GF_FIRST_SEQ,
+        configVersion: GF_CONFIG_VERSION,
         phaseEndsAtMs: Date.now() + this.config.openMs,
       });
       this.lastError = null;
@@ -493,10 +485,7 @@ export class GfBoardEngine {
     this.lastAdvanceAttempt = now;
     this.leaderBusy = true;
     try {
-      await advanceSupabaseBoard('golden_flower', board.roundId, this.uid, {
-        seq: board.seq,
-        ...patch,
-      });
+      await advanceGfBoard(this.uid, board.roundId, phase, patch);
       this.lastError = null;
       this.noteSyncResult();
     } catch (error) {
@@ -604,10 +593,10 @@ export class GfBoardEngine {
     betId: string,
     status: 'WON' | 'LOST' | 'REFUNDED',
     payout: number,
-    _creditRef?: string
+    creditRef?: string
   ) {
     try {
-      await resolveSupabaseBetRecord(betId, status, payout);
+      await resolveGfBet(betId, status, payout, creditRef);
     } catch {
       // Wallet move is already idempotent
     }
@@ -699,14 +688,14 @@ export class GfBoardEngine {
 
     const betId = randId('GF-B-');
     try {
-      await createSupabaseBetRecord({
+      await createGfBet({
         betId,
         roundId,
-        gameType: 'golden_flower',
         uid: this.uid,
         username: this.username,
         seat,
         stake,
+        debitRef,
       });
     } catch {
       // Debit went through but the bet slip could not be recorded — refund so

@@ -86,6 +86,7 @@ export function formatCoins(n: number): string {
 }
 
 export function chipLabel(n: number): string {
+  if (!Number.isFinite(n)) return '∞';
   if (n >= 1000) return `${n / 1000}K`;
   return String(n);
 }

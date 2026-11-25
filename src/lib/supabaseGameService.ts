@@ -160,6 +160,17 @@ export async function advanceSupabaseBoard(
   if (!supabase || !isSupabaseConfigured) return;
 
   const targetId = patch.roundId || roundId;
+
+  // Merge with the existing result_data: later phase advances must not wipe
+  // fields (e.g. recentResults) that an earlier advance wrote.
+  const { data: existingRound } = await supabase
+    .from('game_rounds')
+    .select('result_data')
+    .eq('id', targetId)
+    .maybeSingle();
+  const currentResult =
+    (existingRound?.result_data as Record<string, unknown> | null) ?? {};
+
   const updateData: any = {
     id: targetId,
     game_type: gameType,
@@ -169,11 +180,12 @@ export async function advanceSupabaseBoard(
     leader_id: leaderUid,
     leader_leased_until: new Date(Date.now() + 30000).toISOString(),
     result_data: {
-      fruitId: patch.resultFruitId,
-      recentResults: patch.recentResults,
-      winnerSeat: patch.winnerSeat,
-      seatCats: patch.seatCats,
-      seatCards: patch.seatCards,
+      ...currentResult,
+      fruitId: patch.resultFruitId ?? currentResult.fruitId,
+      recentResults: patch.recentResults ?? currentResult.recentResults,
+      winnerSeat: patch.winnerSeat ?? currentResult.winnerSeat,
+      seatCats: patch.seatCats ?? currentResult.seatCats,
+      seatCards: patch.seatCards ?? currentResult.seatCards,
     },
   };
 

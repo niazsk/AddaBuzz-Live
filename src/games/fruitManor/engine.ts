@@ -14,14 +14,6 @@ import {
   subscribeFruitManorBets,
   subscribeFruitManorBoard,
 } from '../../lib/firestoreService';
-import {
-  advanceSupabaseBoard,
-  claimSupabaseLeadership,
-  createSupabaseBetRecord,
-  resolveSupabaseBetRecord,
-  subscribeSupabaseLiveBets,
-  subscribeSupabaseLiveBoard,
-} from '../../lib/supabaseGameService';
 
 export type RoundPhase = SharedBoardPhase;
 
@@ -235,8 +227,7 @@ export class FruitManorEngine {
       }
     }
 
-    this.boardUnsub = subscribeSupabaseLiveBoard(
-      'fruit_manor',
+    this.boardUnsub = subscribeFruitManorBoard(
       (board) => {
         this.connected = true;
         const prev = this.board;
@@ -270,7 +261,7 @@ export class FruitManorEngine {
     this.betsRoundId = roundId;
     this.bets = [];
     if (!roundId) return;
-    this.betsUnsub = subscribeSupabaseLiveBets(
+    this.betsUnsub = subscribeFruitManorBets(
       roundId,
       (list) => {
         this.bets = list;
@@ -463,9 +454,10 @@ export class FruitManorEngine {
     this.lastClaimAttempt = now;
     this.leaderBusy = true;
     try {
-      await claimSupabaseLeadership('fruit_manor', this.uid, {
+      await claimFruitManorLeadership(this.uid, {
         roundId: `FM-${FIRST_SEQ}`,
         seq: FIRST_SEQ,
+        configVersion: CFG.configVersion,
         phaseEndsAtMs: Date.now() + CFG.scheduledMs,
       });
       this.lastError = null;
@@ -490,20 +482,21 @@ export class FruitManorEngine {
     let patch: Parameters<typeof advanceFruitManorBoard>[3] | null = null;
 
     if (phase === 'SCHEDULED') {
-      patch = { phase: 'OPEN', phaseEndsAt: now + CFG.openMs };
+      patch = { phase: 'OPEN', phaseEndsAt: now + CFG.openMs, recentResults: board.recentResults };
     } else if (phase === 'OPEN') {
-      patch = { phase: 'LOCKED', phaseEndsAt: now + CFG.lockedMs };
+      patch = { phase: 'LOCKED', phaseEndsAt: now + CFG.lockedMs, recentResults: board.recentResults };
     } else if (phase === 'LOCKED') {
       const result = drawFruit();
       patch = {
         phase: 'DRAWN',
         resultFruitId: result,
         phaseEndsAt: now + CFG.spinMs,
+        recentResults: board.recentResults,
       };
     } else if (phase === 'DRAWN') {
-      patch = { phase: 'SETTLING', phaseEndsAt: now + CFG.settlingMs };
+      patch = { phase: 'SETTLING', phaseEndsAt: now + CFG.settlingMs, recentResults: board.recentResults };
     } else if (phase === 'SETTLING') {
-      patch = { phase: 'SETTLED', phaseEndsAt: now + CFG.settledDisplayMs };
+      patch = { phase: 'SETTLED', phaseEndsAt: now + CFG.settledDisplayMs, recentResults: board.recentResults };
     } else if (phase === 'SETTLED' || phase === 'VOIDED') {
       const recent = board.recentResults.slice();
       if (phase === 'SETTLED' && board.resultFruitId) {
@@ -528,11 +521,7 @@ export class FruitManorEngine {
     this.lastAdvanceAttempt = now;
     this.leaderBusy = true;
     try {
-      await advanceSupabaseBoard('fruit_manor', board.roundId, this.uid, {
-        seq: board.seq,
-        ...patch,
-        resultFruitId: patch.resultFruitId ?? (board.resultFruitId as any),
-      });
+      await advanceFruitManorBoard(this.uid, board.roundId, phase, patch);
       this.lastError = null;
       this.noteSyncResult();
     } catch (error) {
@@ -650,10 +639,10 @@ export class FruitManorEngine {
     betId: string,
     status: 'WON' | 'LOST' | 'REFUNDED',
     payout: number,
-    _creditRef?: string
+    creditRef?: string
   ) {
     try {
-      await resolveSupabaseBetRecord(betId, status, payout);
+      await resolveFruitManorBet(betId, status, payout, creditRef);
     } catch {
       // Retried on next pass
     }
@@ -706,7 +695,8 @@ export class FruitManorEngine {
     fruitId: FruitId,
     stake: number,
     availableBalance: number,
-    idempotencyKey: string
+    idempotencyKey: string,
+    allowUnlimited = false
   ): Promise<PlaceBetsResult> {
     const cached = this.idempotency.get(idempotencyKey);
     if (cached) return cached;
@@ -728,7 +718,7 @@ export class FruitManorEngine {
     if (!Number.isInteger(stake) || stake < CFG.minStake) {
       return fail(`Minimum stake is ${CFG.minStake} coins.`);
     }
-    if (stake > CFG.maxStakePerBet) {
+    if (!allowUnlimited && stake > CFG.maxStakePerBet) {
       return fail(`Maximum ${CFG.maxStakePerBet.toLocaleString('en-US')} coins per bet.`);
     }
     if (stake > availableBalance) return fail('Not enough Coins for this bet.');
@@ -749,15 +739,15 @@ export class FruitManorEngine {
 
     const betId = randId('FM-B-');
     try {
-      await createSupabaseBetRecord({
+      await createFruitManorBet({
         betId,
         roundId,
-        gameType: 'fruit_manor',
         uid: this.uid,
         username: this.username,
         fruitId,
         stake,
         multiplier: fruit.multiplier,
+        debitRef,
       });
     } catch {
       // The debit went through but the shared bet could not be recorded —
@@ -788,8 +778,10 @@ export class FruitManorEngine {
     };
     const res: PlaceBetsResult = { ok: true, bet };
     this.idempotency.set(idempotencyKey, res);
-    this.fire({ type: 'betsAccepted', bets: [bet], total: stake });
+    // Show your own bet immediately — don't wait for the live subscription.
+    this.bets = [...this.bets.filter((b) => b.betId !== betId), { ...bet, createdAt: bet.acceptedAt } as SharedBet];
     this.emit();
+    this.fire({ type: 'betsAccepted', bets: [bet], total: stake });
     return res;
   }
 
