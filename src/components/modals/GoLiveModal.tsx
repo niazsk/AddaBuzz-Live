@@ -3,6 +3,7 @@ import {
   AlertCircle,
   Camera,
   Check,
+  ChevronDown,
   Globe,
   Loader2,
   Lock,
@@ -57,28 +58,49 @@ const ToggleRow: React.FC<ToggleRowProps> = ({
     aria-label={label}
     disabled={disabled}
     onClick={() => onChange(!checked)}
-    className={`w-full rounded-2xl border px-3.5 py-3 flex items-center justify-between gap-3 text-left transition-colors disabled:opacity-45 ${
-      checked
-        ? 'border-violet-400/35 bg-violet-500/[0.08]'
-        : 'border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06]'
+    className={`flex w-full items-center justify-between gap-3 px-3.5 py-2.5 text-left transition-colors disabled:opacity-45 ${
+      checked ? 'bg-violet-500/[0.05]' : 'hover:bg-white/[0.03]'
     }`}
   >
     <span className="min-w-0">
-      <span className="block text-xs font-semibold text-slate-200">{label}</span>
-      {hint && <span className="mt-0.5 block text-[10px] text-slate-500">{hint}</span>}
+      <span className="block text-[11px] font-semibold text-slate-200">{label}</span>
+      {hint && <span className="mt-0.5 block text-[10px] leading-snug text-slate-500">{hint}</span>}
     </span>
     <span
       className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${
-        checked ? 'bg-gradient-to-r from-violet-500 to-fuchsia-500' : 'bg-white/20'
+        checked ? 'bg-gradient-to-r from-cyan-400 to-violet-500' : 'bg-white/15'
       }`}
     >
       <span
-        className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${
+        className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-all ${
           checked ? 'left-[18px]' : 'left-0.5'
         }`}
       />
     </span>
   </button>
+);
+
+const CONSENT_ERROR =
+  'Please accept the community guidelines and media consent before going live.';
+
+const SectionHeading: React.FC<{ step: string; title: string; trailing?: React.ReactNode }> = ({
+  step,
+  title,
+  trailing,
+}) => (
+  <div className="flex items-center gap-2">
+    <span className="font-mono text-[9px] font-semibold tracking-[0.2em] text-cyan-300/80">
+      {step}
+    </span>
+    <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-300">
+      {title}
+    </span>
+    <span
+      aria-hidden="true"
+      className="h-px flex-1 bg-gradient-to-r from-white/[0.10] to-transparent"
+    />
+    {trailing}
+  </div>
 );
 
 export const GoLiveModal: React.FC<GoLiveModalProps> = ({
@@ -98,6 +120,7 @@ export const GoLiveModal: React.FC<GoLiveModalProps> = ({
   const [allowGifts, setAllowGifts] = useState(true);
   const [hostApproval, setHostApproval] = useState(true);
   const [consent, setConsent] = useState(false);
+  const [consentAttention, setConsentAttention] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -121,6 +144,8 @@ export const GoLiveModal: React.FC<GoLiveModalProps> = ({
   const openRef = useRef(open);
   openRef.current = open;
   const startedModeRef = useRef<RoomMode | null>(null);
+  const consentRowRef = useRef<HTMLLabelElement | null>(null);
+  const consentInputRef = useRef<HTMLInputElement | null>(null);
 
   const effectiveMode: RoomMode =
     mode === 'VIDEO' ? 'VIDEO' : board === 'AUDIO' ? 'AUDIO' : 'MULTI_GUEST';
@@ -236,6 +261,7 @@ export const GoLiveModal: React.FC<GoLiveModalProps> = ({
     setAllowGifts(true);
     setHostApproval(true);
     setConsent(false);
+    setConsentAttention(false);
     setFormError(null);
     setSubmitting(false);
     setDeviceNote(null);
@@ -353,10 +379,22 @@ export const GoLiveModal: React.FC<GoLiveModalProps> = ({
     void startPreview({ facing: nextFacing, cameraId: '' });
   };
 
+  const highlightConsent = () => {
+    // The error banner grows the sticky footer, so scroll after layout settles.
+    const scrollConsentIntoView = () =>
+      consentRowRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    window.requestAnimationFrame(() => {
+      scrollConsentIntoView();
+      window.setTimeout(scrollConsentIntoView, 180);
+    });
+    consentInputRef.current?.focus({ preventScroll: true });
+    setConsentAttention(true);
+  };
+
   const validate = (): string | null => {
     if (title.trim().length < 3) return 'Room title must be at least 3 characters.';
     if (!consent) {
-      return 'Please accept the community guidelines and media consent before going live.';
+      return CONSENT_ERROR;
     }
     if (previewState === 'starting') {
       return 'Camera and microphone are still starting — wait a moment.';
@@ -378,6 +416,7 @@ export const GoLiveModal: React.FC<GoLiveModalProps> = ({
     const error = validate();
     if (error) {
       setFormError(error);
+      if (error === CONSENT_ERROR) highlightConsent();
       return;
     }
     setFormError(null);
@@ -422,44 +461,55 @@ export const GoLiveModal: React.FC<GoLiveModalProps> = ({
       <div
         ref={panelRef}
         tabIndex={-1}
-        className="relative flex h-[100dvh] sm:h-auto w-full sm:max-w-lg sm:max-h-[92dvh] flex-col overflow-hidden rounded-none sm:rounded-3xl border-0 sm:border border-white/10 bg-[#0C0E17]/97 shadow-[0_30px_90px_-24px_rgba(0,0,0,0.95)] outline-none"
+        className="relative flex h-[100dvh] sm:h-auto w-full sm:max-w-[980px] sm:max-h-[94dvh] flex-col overflow-hidden rounded-none sm:rounded-[28px] border-0 sm:border border-white/[0.09] bg-[#090B12] shadow-[0_40px_120px_-30px_rgba(0,0,0,0.95)] outline-none"
       >
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 overflow-hidden rounded-none sm:rounded-3xl"
+          className="pointer-events-none absolute inset-0 overflow-hidden rounded-none sm:rounded-[28px]"
         >
-          <div className="absolute -top-24 left-1/2 h-56 w-[130%] -translate-x-1/2 rounded-full bg-gradient-to-r from-violet-600/25 via-fuchsia-500/15 to-sky-500/25 blur-3xl" />
+          <div
+            className="absolute inset-0 opacity-40"
+            style={{
+              backgroundImage:
+                'linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px)',
+              backgroundSize: '34px 34px',
+              maskImage: 'radial-gradient(ellipse at 50% 0%, black 10%, transparent 70%)',
+              WebkitMaskImage: 'radial-gradient(ellipse at 50% 0%, black 10%, transparent 70%)',
+            }}
+          />
+          <div className="absolute -top-28 left-1/4 h-64 w-64 -translate-x-1/2 rounded-full bg-cyan-500/15 blur-3xl" />
+          <div className="absolute -top-24 right-0 h-56 w-56 rounded-full bg-fuchsia-500/15 blur-3xl" />
         </div>
         <div
           aria-hidden="true"
-          className="h-px w-full shrink-0 bg-gradient-to-r from-transparent via-violet-400/60 to-transparent"
+          className="h-px w-full shrink-0 bg-gradient-to-r from-transparent via-violet-400/50 to-transparent"
         />
 
-        <div className="relative flex items-center gap-3 px-5 sm:px-6 pt-[calc(env(safe-area-inset-top)+1rem)] sm:pt-5 pb-4 shrink-0">
-          <span className="relative flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-500 via-fuchsia-500 to-violet-600 text-white shadow-[0_10px_28px_-10px_rgba(217,70,239,0.8)]">
-            <Radio className="w-5 h-5" />
+        <div className="relative flex items-center gap-3 px-5 sm:px-7 pt-[calc(env(safe-area-inset-top)+0.9rem)] sm:pt-5 pb-4 shrink-0">
+          <span className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-300/25 bg-gradient-to-br from-cyan-500/20 via-violet-600/20 to-fuchsia-500/20 text-cyan-200">
+            <Radio className="w-4 h-4" />
             <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400 opacity-70" />
-              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-[#0C0E17]" />
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-[#090B12]" />
             </span>
           </span>
           <div className="min-w-0">
+            <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.32em] text-cyan-300/80">
+              AddaBuzz Studio
+            </p>
             <h2
               id="go-live-title"
-              className="font-display text-lg font-bold tracking-tight text-white"
+              className="truncate font-display text-base font-bold tracking-tight text-white sm:text-lg"
             >
               Start Live Room
             </h2>
-            <p className="truncate text-xs text-slate-400">
-              Test your camera and mic, set the stage, go live.
-            </p>
           </div>
           <button
             type="button"
             onClick={onClose}
             disabled={submitting}
             aria-label="Close Go Live modal"
-            className="ml-auto p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/[0.08] transition-colors disabled:opacity-40"
+            className="ml-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.03] text-slate-400 transition-colors hover:bg-white/[0.08] hover:text-white disabled:opacity-40"
           >
             <X className="w-4 h-4" />
           </button>
@@ -470,145 +520,85 @@ export const GoLiveModal: React.FC<GoLiveModalProps> = ({
           noValidate
           className="relative flex min-h-0 flex-1 flex-col"
         >
-          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 sm:px-6 pb-5 space-y-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <div className="space-y-2">
-              <span className="text-xs font-medium text-slate-300">Room Mode</span>
-              <div className="grid grid-cols-2 gap-2.5">
-                {(
-                  [
-                    { id: 'VIDEO', label: 'Video Live', desc: 'Solo broadcast', icon: Video },
-                    { id: 'MULTI_GUEST', label: 'Multi-Guest', desc: 'Seats & guests', icon: Users },
-                  ] as const
-                ).map((item) => {
-                  const Icon = item.icon;
-                  const active = mode === item.id;
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => setMode(item.id)}
-                      aria-pressed={active}
-                      className={`group relative p-3.5 rounded-2xl border text-left transition-all duration-200 active:scale-[0.98] ${
-                        active
-                          ? 'border-violet-400/60 bg-gradient-to-br from-violet-600/25 via-fuchsia-600/10 to-sky-500/20 shadow-[0_14px_34px_-18px_rgba(139,92,246,0.9)]'
-                          : 'border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] hover:border-white/15'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between">
-                        <span
-                          className={`flex h-9 w-9 items-center justify-center rounded-xl transition-colors ${
-                            active
-                              ? 'bg-gradient-to-br from-violet-500 to-sky-500 text-white'
-                              : 'bg-white/[0.06] text-sky-400 group-hover:text-sky-300'
-                          }`}
-                        >
-                          <Icon className="w-4.5 h-4.5" />
-                        </span>
-                        {active && (
-                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-violet-500 text-white shadow-[0_4px_12px_-4px_rgba(139,92,246,0.9)]">
-                            <Check className="w-3 h-3" />
-                          </span>
-                        )}
-                      </div>
-                      <p
-                        className={`mt-2.5 text-sm font-semibold ${
-                          active ? 'text-white' : 'text-slate-200'
-                        }`}
-                      >
-                        {item.label}
-                      </p>
-                      <p className="text-[11px] text-slate-400">{item.desc}</p>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {mode === 'MULTI_GUEST' && (
-              <div className="space-y-2">
-                <span className="text-xs font-medium text-slate-300">Board</span>
-                <div className="grid grid-cols-2 gap-1 p-1 rounded-2xl bg-white/[0.04] border border-white/[0.08]">
-                  {(
-                    [
-                      { id: 'VIDEO', label: 'Video Board', icon: Video },
-                      { id: 'AUDIO', label: 'Audio Board', icon: Mic },
-                    ] as const
-                  ).map((item) => {
-                    const Icon = item.icon;
-                    const active = board === item.id;
-                    return (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => setBoard(item.id)}
-                        aria-pressed={active}
-                        className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 ${
-                          active
-                            ? 'bg-gradient-to-r from-violet-600 to-sky-500 text-white shadow-[0_8px_22px_-10px_rgba(99,102,241,0.95)]'
-                            : 'text-slate-400 hover:text-white'
-                        }`}
-                      >
-                        <Icon className="w-3.5 h-3.5" />
-                        <span>{item.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-                <p className="flex items-center gap-1.5 text-[11px] text-slate-500">
-                  <span
-                    className={`h-1.5 w-1.5 rounded-full ${
-                      board === 'AUDIO' ? 'bg-emerald-400' : 'bg-sky-400'
-                    }`}
-                  />
-                  {board === 'AUDIO'
-                    ? 'Audio-only seats — microphone on, no camera required.'
-                    : 'Seats stream live camera and microphone.'}
-                </p>
-              </div>
-            )}
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 sm:px-7 pb-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:items-start">
+              <div className="space-y-3.5">
+                <SectionHeading
+                  step="01"
+                  title="Stage monitor"
+                  trailing={
+                    <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-slate-600">
+                      16:9
+                    </span>
+                  }
+                />
 
             {/* Camera & microphone test */}
             <div className="space-y-2.5">
-              <div className="flex items-center justify-between">
-                <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-300">
-                  <Camera className="w-3.5 h-3.5 text-sky-400" />
-                  Camera &amp; Microphone
-                </span>
-                <span
-                  className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                    previewState === 'ready'
-                      ? 'bg-emerald-500/15 text-emerald-300'
-                      : previewState === 'starting'
-                        ? 'bg-amber-500/15 text-amber-300'
-                        : previewState === 'error'
-                          ? 'bg-rose-500/15 text-rose-300'
-                          : 'bg-white/[0.06] text-slate-400'
-                  }`}
-                >
-                  {previewState === 'starting' ? (
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                  ) : (
+              <div className="relative overflow-hidden rounded-[20px] border border-white/[0.10] bg-[#05070D] shadow-[0_24px_60px_-34px_rgba(56,189,248,0.45)]">
+                <div className="relative aspect-video w-full">
+                  <span
+                    aria-hidden="true"
+                    className="pointer-events-none absolute left-1.5 top-1.5 h-3.5 w-3.5 rounded-tl-md border-l-2 border-t-2 border-cyan-300/30"
+                  />
+                  <span
+                    aria-hidden="true"
+                    className="pointer-events-none absolute right-1.5 top-1.5 h-3.5 w-3.5 rounded-tr-md border-r-2 border-t-2 border-cyan-300/30"
+                  />
+                  <span
+                    aria-hidden="true"
+                    className="pointer-events-none absolute bottom-1.5 left-1.5 h-3.5 w-3.5 rounded-bl-md border-b-2 border-l-2 border-cyan-300/30"
+                  />
+                  <span
+                    aria-hidden="true"
+                    className="pointer-events-none absolute bottom-1.5 right-1.5 h-3.5 w-3.5 rounded-br-md border-b-2 border-r-2 border-cyan-300/30"
+                  />
+                  <span
+                    className={`pointer-events-none absolute left-3 top-3 z-10 inline-flex items-center gap-1.5 rounded-full border px-2 py-1 font-mono text-[8px] font-semibold uppercase tracking-[0.22em] backdrop-blur-sm ${
+                      previewState === 'ready'
+                        ? 'border-rose-400/40 bg-rose-500/20 text-rose-100'
+                        : 'border-white/10 bg-black/45 text-slate-400'
+                    }`}
+                  >
                     <span
                       className={`h-1.5 w-1.5 rounded-full ${
-                        previewState === 'ready'
-                          ? 'bg-emerald-400'
-                          : previewState === 'error'
-                            ? 'bg-rose-400'
-                            : 'bg-slate-500'
+                        previewState === 'ready' ? 'animate-pulse bg-rose-400' : 'bg-slate-500'
                       }`}
                     />
-                  )}
-                  {previewState === 'ready'
-                    ? 'Preview live'
-                    : previewState === 'starting'
-                      ? 'Starting…'
-                      : previewState === 'error'
-                        ? 'Device error'
-                        : 'Idle'}
-                </span>
-              </div>
-
-              <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-white/10 bg-[#070910]">
+                    {wantsVideo ? 'Camera' : 'Audio'}
+                  </span>
+                  <span
+                    className={`pointer-events-none absolute right-3 top-3 z-10 inline-flex items-center gap-1 rounded-full border px-2 py-1 font-mono text-[8px] font-semibold uppercase tracking-[0.18em] backdrop-blur-sm ${
+                      previewState === 'ready'
+                        ? 'border-emerald-400/30 bg-emerald-500/15 text-emerald-200'
+                        : previewState === 'starting'
+                          ? 'border-amber-400/30 bg-amber-500/15 text-amber-200'
+                          : previewState === 'error'
+                            ? 'border-rose-400/30 bg-rose-500/15 text-rose-200'
+                            : 'border-white/10 bg-black/45 text-slate-400'
+                    }`}
+                  >
+                    {previewState === 'starting' ? (
+                      <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                    ) : (
+                      <span
+                        className={`h-1.5 w-1.5 rounded-full ${
+                          previewState === 'ready'
+                            ? 'bg-emerald-400'
+                            : previewState === 'error'
+                              ? 'bg-rose-400'
+                              : 'bg-slate-500'
+                        }`}
+                      />
+                    )}
+                    {previewState === 'ready'
+                      ? 'Preview live'
+                      : previewState === 'starting'
+                        ? 'Starting'
+                        : previewState === 'error'
+                          ? 'Device error'
+                          : 'Standby'}
+                  </span>
                 {wantsVideo ? (
                   <video
                     ref={videoRef}
@@ -623,8 +613,8 @@ export const GoLiveModal: React.FC<GoLiveModalProps> = ({
                   />
                 ) : null}
                 {(!previewHasVideo || !wantsVideo) && (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-[radial-gradient(circle_at_50%_35%,rgba(124,58,237,0.32),rgba(5,7,13,0.96)_70%)] px-6 text-center">
-                    <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/[0.06] text-violet-300">
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-[radial-gradient(circle_at_50%_30%,rgba(14,116,144,0.28),rgba(5,7,13,0.97)_68%)] px-6 text-center">
+                    <span className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-cyan-300">
                       {wantsVideo ? <Video className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
                     </span>
                     <p className="text-xs font-semibold text-slate-200">
@@ -648,14 +638,14 @@ export const GoLiveModal: React.FC<GoLiveModalProps> = ({
                   </div>
                 )}
 
-                <div className="absolute inset-x-0 bottom-0 flex items-center gap-2 bg-gradient-to-t from-black/85 to-transparent px-2.5 pt-6 pb-2">
+                <div className="absolute inset-x-0 bottom-0 z-10 flex items-center gap-2 bg-gradient-to-t from-black/90 via-black/40 to-transparent px-3 pt-8 pb-2.5">
                   <button
                     type="button"
                     onClick={() => void startPreview({ mode: effectiveMode })}
                     disabled={previewState === 'starting'}
                     aria-label="Retry camera and microphone"
                     title="Retry devices"
-                    className="flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-slate-200 hover:bg-black/80 disabled:opacity-40"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-black/55 text-slate-200 backdrop-blur-sm transition-colors hover:bg-black/80 disabled:opacity-40"
                   >
                     <RefreshCw className="w-3.5 h-3.5" />
                   </button>
@@ -666,7 +656,7 @@ export const GoLiveModal: React.FC<GoLiveModalProps> = ({
                       disabled={previewState === 'starting'}
                       aria-label="Switch camera"
                       title="Switch camera"
-                      className="flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-slate-200 hover:bg-black/80 disabled:opacity-40"
+                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-black/55 text-slate-200 backdrop-blur-sm transition-colors hover:bg-black/80 disabled:opacity-40"
                     >
                       <Camera className="w-3.5 h-3.5" />
                     </button>
@@ -677,19 +667,19 @@ export const GoLiveModal: React.FC<GoLiveModalProps> = ({
                     aria-label={micMuted ? 'Unmute microphone' : 'Mute microphone'}
                     aria-pressed={micMuted}
                     title={micMuted ? 'Unmute mic' : 'Mute mic'}
-                    className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
+                    className={`flex h-8 w-8 items-center justify-center rounded-lg border transition-colors ${
                       micMuted
-                        ? 'bg-rose-500/85 text-white'
-                        : 'bg-black/60 text-slate-200 hover:bg-black/80'
+                        ? 'border-rose-400/40 bg-rose-500/85 text-white'
+                        : 'border-white/10 bg-black/55 text-slate-200 backdrop-blur-sm hover:bg-black/80'
                     }`}
                   >
                     {micMuted ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
                   </button>
-                  <div className="ml-auto flex items-center gap-1.5">
-                    <span className="text-[9px] font-medium uppercase tracking-wider text-slate-400">
+                  <div className="ml-auto flex items-center gap-1.5 rounded-lg border border-white/10 bg-black/45 px-2 py-1.5 backdrop-blur-sm">
+                    <span className="font-mono text-[8px] font-semibold uppercase tracking-[0.18em] text-slate-400">
                       Mic
                     </span>
-                    <div className="h-1.5 w-16 overflow-hidden rounded-full bg-white/15">
+                    <div className="h-1 w-12 overflow-hidden rounded-full bg-white/15">
                       <div
                         className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-cyan-400 transition-all duration-75"
                         style={{ width: `${micMuted ? 0 : micLevel}%` }}
@@ -697,10 +687,11 @@ export const GoLiveModal: React.FC<GoLiveModalProps> = ({
                     </div>
                   </div>
                 </div>
+                </div>
               </div>
 
               {previewState === 'error' && previewError && (
-                <div className="rounded-2xl border border-rose-500/40 bg-rose-950/50 px-3.5 py-3 space-y-2">
+                <div className="rounded-xl border border-rose-500/30 bg-rose-950/40 px-3.5 py-3 space-y-2">
                   <p className="flex items-start gap-1.5 text-[11px] leading-relaxed text-rose-200">
                     <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                     <span>{previewError}</span>
@@ -740,7 +731,7 @@ export const GoLiveModal: React.FC<GoLiveModalProps> = ({
               )}
 
               {deviceNote && (
-                <p className="rounded-xl border border-amber-400/25 bg-amber-500/[0.08] px-3 py-2 text-[10px] text-amber-200">
+                <p className="rounded-xl border border-amber-400/25 bg-amber-500/[0.06] px-3 py-2 text-[10px] text-amber-200">
                   {deviceNote}
                 </p>
               )}
@@ -748,43 +739,55 @@ export const GoLiveModal: React.FC<GoLiveModalProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {wantsVideo && (
                   <label className="block">
-                    <span className="text-[10px] font-medium text-slate-400">Camera</span>
-                    <select
-                      value={cameraId}
-                      onChange={(e) => {
-                        setCameraId(e.target.value);
-                        void startPreview({ cameraId: e.target.value });
-                      }}
-                      aria-label="Select camera"
-                      className="mt-1 w-full h-10 rounded-xl bg-black/45 border border-white/15 px-2.5 text-xs text-white focus:outline-none focus:border-sky-400/60"
-                    >
-                      <option value="">Auto (default camera)</option>
-                      {cameraDevices.map((device, idx) => (
-                        <option key={device.deviceId || idx} value={device.deviceId}>
-                          {device.label || `Camera ${idx + 1}`}
-                        </option>
-                      ))}
-                    </select>
+                    <span className="flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-[0.16em] text-slate-500">
+                      <Camera className="h-3 w-3" />
+                      Camera
+                    </span>
+                    <div className="relative mt-1.5">
+                      <select
+                        value={cameraId}
+                        onChange={(e) => {
+                          setCameraId(e.target.value);
+                          void startPreview({ cameraId: e.target.value });
+                        }}
+                        aria-label="Select camera"
+                        className="h-10 w-full appearance-none rounded-xl border border-white/[0.09] bg-[#070A11] px-3 pr-8 text-xs text-slate-100 transition-colors focus:border-cyan-400/60 focus:outline-none"
+                      >
+                        <option value="">Auto (default camera)</option>
+                        {cameraDevices.map((device, idx) => (
+                          <option key={device.deviceId || idx} value={device.deviceId}>
+                            {device.label || `Camera ${idx + 1}`}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" />
+                    </div>
                   </label>
                 )}
                 <label className="block">
-                  <span className="text-[10px] font-medium text-slate-400">Microphone</span>
-                  <select
-                    value={micId}
-                    onChange={(e) => {
-                      setMicId(e.target.value);
-                      void startPreview({ micId: e.target.value });
-                    }}
-                    aria-label="Select microphone"
-                    className="mt-1 w-full h-10 rounded-xl bg-black/45 border border-white/15 px-2.5 text-xs text-white focus:outline-none focus:border-sky-400/60"
-                  >
-                    <option value="">Auto (default microphone)</option>
-                    {micDevices.map((device, idx) => (
-                      <option key={device.deviceId || idx} value={device.deviceId}>
-                        {device.label || `Microphone ${idx + 1}`}
-                      </option>
-                    ))}
-                  </select>
+                  <span className="flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-[0.16em] text-slate-500">
+                    <Mic className="h-3 w-3" />
+                    Microphone
+                  </span>
+                  <div className="relative mt-1.5">
+                    <select
+                      value={micId}
+                      onChange={(e) => {
+                        setMicId(e.target.value);
+                        void startPreview({ micId: e.target.value });
+                      }}
+                      aria-label="Select microphone"
+                      className="h-10 w-full appearance-none rounded-xl border border-white/[0.09] bg-[#070A11] px-3 pr-8 text-xs text-slate-100 transition-colors focus:border-cyan-400/60 focus:outline-none"
+                    >
+                      <option value="">Auto (default microphone)</option>
+                      {micDevices.map((device, idx) => (
+                        <option key={device.deviceId || idx} value={device.deviceId}>
+                          {device.label || `Microphone ${idx + 1}`}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" />
+                  </div>
                 </label>
               </div>
               {(cameraDevices.length === 0 || micDevices.some((d) => !d.label)) && (
@@ -793,245 +796,390 @@ export const GoLiveModal: React.FC<GoLiveModalProps> = ({
                 </p>
               )}
             </div>
+              </div>
 
-            <label className="block">
-              <span className="flex items-center justify-between">
-                <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-300">
-                  <Sparkles className="w-3.5 h-3.5 text-violet-400" />
-                  Room Title
-                </span>
-                <span className="text-[10px] tabular-nums text-slate-500">
-                  {title.length}/120
-                </span>
-              </span>
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                maxLength={120}
-                required
-                minLength={3}
-                placeholder="Give your room a catchy title"
-                className="mt-2 w-full h-11 px-3.5 rounded-2xl bg-[#090B12] border border-white/[0.09] text-sm text-white placeholder:text-slate-500 transition-colors focus:border-violet-400/70 focus:ring-2 focus:ring-violet-500/20 focus:outline-none"
-              />
-            </label>
+              <div className="space-y-5 lg:rounded-2xl lg:border lg:border-white/[0.07] lg:bg-white/[0.02] lg:p-4">
+                <div className="space-y-2.5">
+                  <SectionHeading step="02" title="Format" />
+                  <div className="grid grid-cols-2 gap-1.5 rounded-2xl border border-white/[0.08] bg-black/30 p-1.5">
+                    {(
+                      [
+                        { id: 'MULTI_GUEST', label: 'Multi-Guest', desc: '8–24 seats', icon: Users },
+                        { id: 'VIDEO', label: 'Video Live', desc: 'Solo stage', icon: Video },
+                      ] as const
+                    ).map((item) => {
+                      const Icon = item.icon;
+                      const active = mode === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => setMode(item.id)}
+                          aria-pressed={active}
+                          className={`flex items-center gap-2 rounded-xl border px-2.5 py-2 text-left transition-all duration-200 ${
+                            active
+                              ? 'border-cyan-300/35 bg-gradient-to-br from-violet-600/35 via-fuchsia-600/20 to-sky-500/25 text-white shadow-[0_10px_24px_-18px_rgba(139,92,246,0.8)]'
+                              : 'border-white/[0.06] text-slate-400 hover:border-white/10 hover:bg-white/[0.04] hover:text-slate-200'
+                          }`}
+                        >
+                          <span
+                            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${
+                              active ? 'bg-white/10 text-cyan-200' : 'bg-white/[0.05] text-cyan-300/70'
+                            }`}
+                          >
+                            <Icon className="w-3.5 h-3.5" />
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block truncate text-[11px] font-semibold">
+                              {item.label}
+                            </span>
+                            <span
+                              className={`block truncate text-[9px] ${
+                                active ? 'text-white/60' : 'text-slate-500'
+                              }`}
+                            >
+                              {item.desc}
+                            </span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {mode === 'MULTI_GUEST' && (
+                    <div className="space-y-2 rounded-2xl border border-white/[0.07] bg-white/[0.02] p-3">
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-slate-500">
+                          Board
+                        </span>
+                        <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-cyan-300/70">
+                          {board === 'AUDIO' ? 'Mic only' : 'Cam + mic'}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-1 rounded-xl bg-black/40 p-1">
+                        {(
+                          [
+                            { id: 'VIDEO', label: 'Video', icon: Video },
+                            { id: 'AUDIO', label: 'Audio', icon: Mic },
+                          ] as const
+                        ).map((item) => {
+                          const Icon = item.icon;
+                          const active = board === item.id;
+                          return (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() => setBoard(item.id)}
+                              aria-pressed={active}
+                              className={`flex h-8 items-center justify-center gap-1.5 rounded-lg text-[11px] font-semibold transition-colors ${
+                                active
+                                  ? 'bg-white/[0.10] text-white shadow-[inset_0_0_0_1px_rgba(103,232,249,0.25)]'
+                                  : 'text-slate-400 hover:text-white'
+                              }`}
+                            >
+                              <Icon className="w-3.5 h-3.5" />
+                              <span>{item.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <p className="text-[10px] leading-relaxed text-slate-500">
+                        {board === 'AUDIO'
+                          ? 'Audio-only seats — microphone on, no camera required.'
+                          : 'Seats stream live camera and microphone.'}
+                      </p>
+                    </div>
+                  )}
+                </div>
 
-            <label className="block">
-              <span className="flex items-center justify-between">
-                <span className="text-xs font-medium text-slate-300">Description</span>
-                <span className="text-[10px] tabular-nums text-slate-500">
-                  {description.length}/400
-                </span>
-              </span>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                maxLength={400}
-                rows={2}
-                placeholder="Tell viewers what to expect (optional)"
-                className="mt-2 w-full min-h-[72px] resize-none px-3.5 py-2.5 rounded-2xl bg-[#090B12] border border-white/[0.09] text-sm text-white placeholder:text-slate-500 transition-colors focus:border-violet-400/70 focus:ring-2 focus:ring-violet-500/20 focus:outline-none"
-              />
-            </label>
+                <div className="space-y-2.5">
+                  <SectionHeading step="03" title="Room details" />
+                  <label className="block">
+                    <span className="flex items-center justify-between">
+                      <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-slate-300">
+                        <Sparkles className="w-3 h-3 text-violet-400" />
+                        Title
+                      </span>
+                      <span className="font-mono text-[9px] tabular-nums text-slate-500">
+                        {title.length}/120
+                      </span>
+                    </span>
+                    <input
+                      type="text"
+                      value={title}
+                      onChange={(e) => {
+                        setTitle(e.target.value);
+                        if (formError) setFormError(null);
+                      }}
+                      maxLength={120}
+                      required
+                      minLength={3}
+                      placeholder="Give your room a catchy title"
+                      className="mt-1.5 h-11 w-full px-3.5 rounded-xl bg-black/35 border border-white/[0.09] text-sm text-white placeholder:text-slate-500 transition-colors focus:border-cyan-400/60 focus:ring-2 focus:ring-cyan-400/15 focus:outline-none"
+                    />
+                  </label>
 
-            <div className="space-y-2">
-              <span className="text-xs font-medium text-slate-300">Category</span>
-              <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                {selectableCategories.map((cat) => {
-                  const active = category === cat;
-                  return (
+                  <label className="block">
+                    <span className="flex items-center justify-between">
+                      <span className="text-[11px] font-medium text-slate-300">Description</span>
+                      <span className="font-mono text-[9px] tabular-nums text-slate-500">
+                        {description.length}/400
+                      </span>
+                    </span>
+                    <textarea
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      maxLength={400}
+                      rows={2}
+                      placeholder="Tell viewers what to expect (optional)"
+                      className="mt-1.5 w-full min-h-[64px] resize-none px-3.5 py-2.5 rounded-xl bg-black/35 border border-white/[0.09] text-sm text-white placeholder:text-slate-500 transition-colors focus:border-cyan-400/60 focus:ring-2 focus:ring-cyan-400/15 focus:outline-none"
+                    />
+                  </label>
+
+                  <div className="space-y-1.5">
+                    <span className="text-[11px] font-medium text-slate-300">Category</span>
+                    <div className="-mx-1 flex flex-wrap gap-1.5 px-1">
+                      {selectableCategories.map((cat) => {
+                        const active = category === cat;
+                        return (
+                          <button
+                            key={cat}
+                            type="button"
+                            onClick={() => setCategory(cat)}
+                            aria-pressed={active}
+                            className={`h-8 px-3 rounded-full border text-[11px] whitespace-nowrap transition-all duration-200 ${
+                              active
+                                ? 'bg-white text-[#08090E] border-white font-semibold shadow-[0_8px_20px_-14px_rgba(255,255,255,0.7)]'
+                                : 'bg-white/[0.02] border-white/[0.08] text-slate-300 hover:text-white hover:border-white/25'
+                            }`}
+                          >
+                            {cat}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                {mode === 'MULTI_GUEST' && (
+                  <div className="space-y-2.5">
+                    <SectionHeading step="04" title="Guest seats" />
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {SEAT_OPTIONS.map((option) => {
+                        const active = seatCount === option;
+                        return (
+                          <button
+                            key={option}
+                            type="button"
+                            onClick={() => setSeatCount(option)}
+                            aria-pressed={active}
+                            className={`rounded-xl border px-1.5 py-2 text-center transition-all duration-200 active:scale-[0.97] ${
+                              active
+                                ? 'border-cyan-300/50 bg-gradient-to-b from-violet-600/30 via-fuchsia-600/10 to-cyan-500/20 text-white shadow-[0_12px_28px_-18px_rgba(56,189,248,0.8)]'
+                                : 'border-white/[0.08] bg-white/[0.02] text-slate-400 hover:text-white hover:bg-white/[0.05]'
+                            }`}
+                          >
+                            <span className="block text-base font-bold tabular-nums leading-tight">
+                              {option}
+                            </span>
+                            <span className="block font-mono text-[8px] font-medium uppercase tracking-[0.16em] opacity-70">
+                              seats
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div aria-hidden="true" className="flex flex-wrap items-center gap-1">
+                      <span className="h-3.5 w-6 rounded-[3px] bg-gradient-to-br from-fuchsia-500 to-violet-600 shadow-[0_0_10px_-2px_rgba(217,70,239,0.7)]" />
+                      {Array.from({ length: seatCount }).map((_, index) => (
+                        <span
+                          key={index}
+                          className="h-3.5 w-6 rounded-[3px] border border-white/10 bg-white/[0.05]"
+                        />
+                      ))}
+                      <span className="ml-1 font-mono text-[9px] uppercase tracking-[0.16em] text-slate-500">
+                        Host + {seatCount}
+                      </span>
+                    </div>
+                    <p className="text-[10px] leading-relaxed text-slate-500">
+                      Host takes the stage; {seatCount} guests can join the{' '}
+                      {board === 'AUDIO' ? 'audio seat grid' : 'seat grid'}.
+                    </p>
+                  </div>
+                )}
+
+                <div className="space-y-2.5">
+                  <SectionHeading step="05" title="Access & rules" />
+                  <div className="grid grid-cols-2 gap-1.5">
                     <button
-                      key={cat}
                       type="button"
-                      onClick={() => setCategory(cat)}
-                      aria-pressed={active}
-                      className={`h-9 px-3.5 rounded-full border text-xs whitespace-nowrap shrink-0 transition-all duration-200 ${
-                        active
-                          ? 'bg-white text-[#08090E] border-white font-semibold shadow-[0_8px_20px_-12px_rgba(255,255,255,0.6)]'
-                          : 'bg-white/[0.03] border-white/[0.08] text-slate-300 hover:text-white hover:border-white/25'
+                      onClick={() => setPrivacy('public')}
+                      aria-pressed={privacy === 'public'}
+                      className={`flex items-start gap-2 rounded-xl border px-2.5 py-2.5 text-left transition-colors ${
+                        privacy === 'public'
+                          ? 'border-emerald-400/40 bg-emerald-500/[0.07]'
+                          : 'border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.05]'
                       }`}
                     >
-                      {cat}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {mode === 'MULTI_GUEST' && (
-              <div className="space-y-2">
-                <span className="text-xs font-medium text-slate-300">Guest Seats</span>
-                <div className="grid grid-cols-4 gap-2">
-                  {SEAT_OPTIONS.map((option) => {
-                    const active = seatCount === option;
-                    return (
-                      <button
-                        key={option}
-                        type="button"
-                        onClick={() => setSeatCount(option)}
-                        aria-pressed={active}
-                        className={`h-12 rounded-2xl border text-sm font-bold transition-all duration-200 active:scale-[0.97] ${
-                          active
-                            ? 'border-violet-400/70 bg-gradient-to-b from-violet-600/30 to-sky-500/15 text-white shadow-[0_10px_26px_-14px_rgba(139,92,246,0.95)]'
-                            : 'border-white/[0.08] bg-white/[0.03] text-slate-400 hover:text-white hover:bg-white/[0.06]'
-                        }`}
-                      >
-                        {option}
-                        <span className="block text-[9px] font-medium uppercase tracking-wider opacity-70">
-                          seats
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-300">
+                        <Globe className="w-3.5 h-3.5" />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="flex items-center gap-1 text-[11px] font-semibold text-white">
+                          Public
+                          {privacy === 'public' && <Check className="w-3 h-3 text-emerald-300" />}
                         </span>
-                      </button>
-                    );
-                  })}
+                        <span className="mt-0.5 block text-[10px] leading-snug text-slate-400">
+                          Listed on Discover for everyone.
+                        </span>
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPrivacy('followers')}
+                      aria-pressed={privacy === 'followers'}
+                      className={`flex items-start gap-2 rounded-xl border px-2.5 py-2.5 text-left transition-colors ${
+                        privacy === 'followers'
+                          ? 'border-violet-400/40 bg-violet-500/[0.09]'
+                          : 'border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.05]'
+                      }`}
+                    >
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-violet-500/10 text-violet-300">
+                        <Lock className="w-3.5 h-3.5" />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="flex items-center gap-1 text-[11px] font-semibold text-white">
+                          Followers only
+                          {privacy === 'followers' && <Check className="w-3 h-3 text-violet-300" />}
+                        </span>
+                        <span className="mt-0.5 block text-[10px] leading-snug text-slate-400">
+                          Hidden from Discover; only your followers can open it.
+                        </span>
+                      </span>
+                    </button>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <span className="flex items-center gap-1.5 text-[11px] font-medium text-slate-300">
+                      <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                      Room permissions
+                    </span>
+                    <div className="overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.02] divide-y divide-white/[0.05]">
+                      {mode === 'MULTI_GUEST' && (
+                        <ToggleRow
+                          label="Allow guest seat requests"
+                          hint="Viewers can ask to join the seat grid."
+                          checked={allowGuestRequests}
+                          onChange={setAllowGuestRequests}
+                        />
+                      )}
+                      {mode === 'MULTI_GUEST' && (
+                        <ToggleRow
+                          label="Require host approval for guests"
+                          hint={
+                            allowGuestRequests
+                              ? 'Off = seats open instantly without a request.'
+                              : 'Turn on seat requests to use approval.'
+                          }
+                          checked={hostApproval}
+                          onChange={setHostApproval}
+                          disabled={!allowGuestRequests}
+                        />
+                      )}
+                      <ToggleRow
+                        label="Allow viewer comments"
+                        hint="Off = only you and your moderators can chat."
+                        checked={allowViewerComments}
+                        onChange={setAllowViewerComments}
+                      />
+                      <ToggleRow
+                        label="Allow gifts"
+                        hint="Viewers can send gifts to the stage."
+                        checked={allowGifts}
+                        onChange={setAllowGifts}
+                      />
+                    </div>
+                  </div>
                 </div>
-                <p className="text-[11px] text-slate-500">
-                  Host takes the stage; {seatCount} guests can join the{' '}
-                  {board === 'AUDIO' ? 'audio seat grid' : 'seat grid'}.
-                </p>
-              </div>
-            )}
 
-            <div className="space-y-2">
-              <span className="text-xs font-medium text-slate-300">Visibility</span>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setPrivacy('public')}
-                  aria-pressed={privacy === 'public'}
-                  className={`rounded-2xl border p-3 text-left transition-colors ${
-                    privacy === 'public'
-                      ? 'border-emerald-400/45 bg-emerald-500/[0.08]'
-                      : 'border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06]'
+                <label
+                  ref={consentRowRef}
+                  className={`flex items-start gap-3 rounded-xl border px-3.5 py-3 cursor-pointer transition-colors ${
+                    consent
+                      ? 'border-emerald-400/30 bg-emerald-500/[0.06]'
+                      : consentAttention
+                      ? 'border-rose-400/60 bg-rose-500/[0.07] ring-2 ring-rose-400/40'
+                      : 'border-white/[0.08] bg-white/[0.02] hover:border-white/15'
                   }`}
                 >
-                  <span className="flex items-center gap-1.5 text-xs font-semibold text-white">
-                    <Globe className="w-3.5 h-3.5 text-emerald-300" />
-                    Public
+                  <input
+                    ref={consentInputRef}
+                    type="checkbox"
+                    checked={consent}
+                    onChange={(e) => {
+                      const next = e.target.checked;
+                      setConsent(next);
+                      setConsentAttention(false);
+                      if (next) setFormError(null);
+                    }}
+                    className="peer sr-only"
+                  />
+                  <span
+                    aria-hidden="true"
+                    className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-emerald-400/50 ${
+                      consent
+                        ? 'bg-gradient-to-br from-emerald-400 to-emerald-600 border-emerald-300 text-white'
+                        : 'border-white/25 text-transparent'
+                    }`}
+                  >
+                    <Check className="w-3.5 h-3.5" />
                   </span>
-                  <span className="mt-1 block text-[10px] text-slate-400">
-                    Listed on Discover for everyone.
+                  <span className="flex-1 text-[11px] text-slate-300 leading-relaxed">
+                    I grant microphone{wantsVideo ? ' and camera' : ''} permission for live streaming
+                    and agree to AddaBuzz Live community safety guidelines.
                   </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPrivacy('followers')}
-                  aria-pressed={privacy === 'followers'}
-                  className={`rounded-2xl border p-3 text-left transition-colors ${
-                    privacy === 'followers'
-                      ? 'border-violet-400/45 bg-violet-500/[0.10]'
-                      : 'border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06]'
-                  }`}
-                >
-                  <span className="flex items-center gap-1.5 text-xs font-semibold text-white">
-                    <Lock className="w-3.5 h-3.5 text-violet-300" />
-                    Followers only
-                  </span>
-                  <span className="mt-1 block text-[10px] text-slate-400">
-                    Hidden from Discover; only your followers can open it.
-                  </span>
-                </button>
+                  {!consent && (
+                    <span className="mt-0.5 shrink-0 rounded-full border border-rose-400/25 bg-rose-500/10 px-1.5 py-0.5 text-[8.5px] font-bold uppercase tracking-[0.12em] text-rose-300">
+                      Required
+                    </span>
+                  )}
+                </label>
               </div>
             </div>
-
-            <div className="space-y-2">
-              <span className="flex items-center gap-1.5 text-xs font-medium text-slate-300">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                Room permissions
-              </span>
-              {mode === 'MULTI_GUEST' && (
-                <ToggleRow
-                  label="Allow guest seat requests"
-                  hint="Viewers can ask to join the seat grid."
-                  checked={allowGuestRequests}
-                  onChange={setAllowGuestRequests}
-                />
-              )}
-              {mode === 'MULTI_GUEST' && (
-                <ToggleRow
-                  label="Require host approval for guests"
-                  hint={
-                    allowGuestRequests
-                      ? 'Off = seats open instantly without a request.'
-                      : 'Turn on seat requests to use approval.'
-                  }
-                  checked={hostApproval}
-                  onChange={setHostApproval}
-                  disabled={!allowGuestRequests}
-                />
-              )}
-              <ToggleRow
-                label="Allow viewer comments"
-                hint="Off = only you and your moderators can chat."
-                checked={allowViewerComments}
-                onChange={setAllowViewerComments}
-              />
-              <ToggleRow
-                label="Allow gifts"
-                hint="Viewers can send gifts to the stage."
-                checked={allowGifts}
-                onChange={setAllowGifts}
-              />
-            </div>
-
-            <label
-              className={`flex items-start gap-3 rounded-2xl border p-3.5 cursor-pointer transition-colors ${
-                consent
-                  ? 'border-emerald-400/25 bg-emerald-500/[0.06]'
-                  : 'border-white/[0.08] bg-white/[0.03] hover:border-white/15'
-              }`}
-            >
-              <input
-                type="checkbox"
-                checked={consent}
-                onChange={(e) => setConsent(e.target.checked)}
-                className="peer sr-only"
-              />
-              <span
-                aria-hidden="true"
-                className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-emerald-400/50 ${
-                  consent
-                    ? 'bg-gradient-to-br from-emerald-400 to-emerald-600 border-emerald-300 text-white'
-                    : 'border-white/25 text-transparent'
-                }`}
-              >
-                <Check className="w-3.5 h-3.5" />
-              </span>
-              <span className="text-xs text-slate-300 leading-relaxed">
-                I grant microphone{wantsVideo ? ' and camera' : ''} permission for live streaming
-                and agree to AddaBuzz Live community safety guidelines.
-              </span>
-            </label>
           </div>
 
-          <div className="shrink-0 border-t border-white/[0.06] bg-[#0A0C13]/90 backdrop-blur-md px-5 sm:px-6 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] sm:pb-4 space-y-2.5">
+          <div className="relative shrink-0 border-t border-white/[0.08] bg-[#070910]/95 backdrop-blur-xl px-5 sm:px-7 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] sm:pb-4">
             {formError && (
               <p
                 role="alert"
-                className="flex items-start gap-1.5 rounded-xl border border-rose-500/35 bg-rose-950/50 px-3 py-2 text-[11px] leading-relaxed text-rose-200"
+                className="mb-2.5 flex items-start gap-1.5 rounded-xl border border-rose-500/30 bg-rose-950/45 px-3 py-2 text-[11px] leading-relaxed text-rose-200"
               >
                 <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                 <span>{formError}</span>
               </p>
             )}
-            <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-500 opacity-60" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-rose-500" />
-              </span>
-              <span className="truncate">{modeSummary}</span>
-            </div>
             <div className="flex items-center gap-2.5">
+              <div className="hidden min-w-0 flex-1 sm:block">
+                <p className="flex items-center gap-1.5 font-mono text-[9px] font-semibold uppercase tracking-[0.24em] text-slate-500">
+                  <span className="relative flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-500 opacity-60" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-rose-500" />
+                  </span>
+                  Ready to broadcast
+                </p>
+                <p className="mt-1 truncate text-xs font-medium text-slate-300">{modeSummary}</p>
+              </div>
               <button
                 type="button"
                 onClick={onClose}
                 disabled={submitting}
-                className="flex-1 h-12 rounded-2xl bg-white/[0.07] hover:bg-white/[0.12] text-xs font-medium text-slate-200 transition-colors disabled:opacity-40"
+                className="h-11 rounded-xl border border-white/[0.10] bg-white/[0.03] px-4 text-xs font-medium text-slate-300 transition-colors hover:bg-white/[0.08] disabled:opacity-40 sm:h-12"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={submitting}
-                className="flex-[2] h-12 rounded-2xl bg-gradient-to-r from-violet-600 via-fuchsia-600 to-sky-500 hover:from-violet-500 hover:via-fuchsia-500 hover:to-sky-400 disabled:opacity-50 disabled:shadow-none text-sm font-semibold text-white inline-flex items-center justify-center gap-2 shadow-[0_16px_40px_-16px_rgba(139,92,246,0.95)] transition-all active:scale-[0.99]"
+                className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-500 via-violet-600 to-sky-500 text-sm font-semibold text-white shadow-[0_18px_44px_-18px_rgba(139,92,246,0.95)] transition-all hover:from-fuchsia-400 hover:via-violet-500 hover:to-sky-400 active:scale-[0.99] disabled:opacity-50 disabled:shadow-none sm:h-12 sm:flex-none sm:px-8"
               >
                 {submitting ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -1041,6 +1189,13 @@ export const GoLiveModal: React.FC<GoLiveModalProps> = ({
                 <span>{submitting ? 'Starting…' : 'Go Live'}</span>
               </button>
             </div>
+            <p className="mt-2 flex items-center gap-1.5 text-[10px] text-slate-500 sm:hidden">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-500 opacity-60" />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-rose-500" />
+              </span>
+              <span className="truncate">{modeSummary}</span>
+            </p>
           </div>
         </form>
       </div>

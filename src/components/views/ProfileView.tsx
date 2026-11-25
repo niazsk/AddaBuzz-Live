@@ -23,7 +23,6 @@ import {
   Share2,
   ShieldCheck,
   ShoppingBag,
-  Sparkles,
   TrendingUp,
   Trophy,
   UserPlus,
@@ -187,20 +186,30 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   if (!currentUser) {
     return (
       <div className="pb-8">
-        <div className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-gradient-to-br from-violet-600/25 via-[#111420] to-fuchsia-600/15 p-8 sm:p-12 text-center space-y-4">
-          <div className="mx-auto w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-600 to-fuchsia-600 flex items-center justify-center">
-            <BadgeCheck className="w-8 h-8 text-white" />
+        <div
+          className="relative overflow-hidden rounded-[30px] border border-transparent p-8 text-center sm:p-12"
+          style={{
+            background:
+              'linear-gradient(#0A0D16, #0A0D16) padding-box, linear-gradient(180deg, rgba(255,255,255,0.17), rgba(255,255,255,0.04)) border-box',
+          }}
+        >
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+            <div className="absolute -top-24 left-1/2 h-48 w-72 -translate-x-1/2 rounded-full bg-violet-600/25 blur-3xl" />
+            <div className="absolute -bottom-24 right-0 h-44 w-44 rounded-full bg-cyan-500/15 blur-3xl" />
           </div>
-          <h1 className="font-display text-2xl font-bold text-white">
+          <div className="relative mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-600 shadow-[0_18px_40px_-18px_rgba(167,139,250,0.9)]">
+            <BadgeCheck className="h-8 w-8 text-white" />
+          </div>
+          <h1 className="relative mt-4 font-display text-2xl font-bold text-white">
             Your AddaBuzz profile
           </h1>
-          <p className="text-sm text-slate-400 max-w-md mx-auto leading-relaxed">
+          <p className="relative mx-auto mt-2 max-w-md text-sm leading-relaxed text-slate-400">
             Sign in to reserve your username, manage your wallet, follow creators and host live rooms.
           </p>
           <button
             type="button"
             onClick={onOpenAuth}
-            className="px-6 py-2.5 rounded-full bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white text-sm font-semibold inline-flex items-center gap-2 shadow-lg shadow-violet-900/40"
+            className="relative mt-5 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-violet-600 to-fuchsia-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-900/40 hover:from-violet-500 hover:to-fuchsia-500"
           >
             <LogIn className="w-4 h-4" />
             <span>Sign In</span>
@@ -308,30 +317,54 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         key={tile.id}
         type="button"
         onClick={() => onOpenSection(tile.section)}
-        className="group relative overflow-hidden rounded-2xl bg-white/[0.035] border border-white/[0.07] hover:bg-white/[0.07] hover:border-white/[0.16] p-3.5 flex flex-col items-center gap-2.5 transition-all duration-200 hover:-translate-y-0.5"
+        className="group flex flex-col items-center gap-2 rounded-2xl border border-white/[0.055] bg-white/[0.018] px-1 py-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-white/[0.14] hover:bg-white/[0.05] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60"
       >
         <span
-          className={`relative w-11 h-11 rounded-[14px] bg-gradient-to-br ${tone.chip} flex items-center justify-center ring-1 ring-white/25 shadow-lg ${tone.glow} transition-transform duration-200 group-hover:scale-110`}
+          className={`relative flex h-10 w-10 items-center justify-center rounded-[13px] bg-gradient-to-br ${tone.chip} ring-1 ring-white/25 shadow-lg ${tone.glow} transition-transform duration-200 group-hover:scale-110`}
         >
           <span
             aria-hidden="true"
-            className="absolute inset-0 rounded-[14px] bg-gradient-to-b from-white/35 via-white/0 to-black/15"
+            className="absolute inset-0 rounded-[13px] bg-gradient-to-b from-white/35 via-white/0 to-black/15"
           />
-          <Icon className="relative w-5 h-5 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]" />
+          <Icon className="relative h-[18px] w-[18px] text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]" />
         </span>
-        <span className="text-[11px] font-medium text-slate-300 group-hover:text-white text-center leading-tight">
+        <span className="text-center text-[10.5px] font-medium leading-tight text-slate-300 transition-colors group-hover:text-white">
           {tile.label}
         </span>
       </button>
     );
   };
 
+  const renderSectionHeading = (title: string, accent = 'from-cyan-400 to-violet-500') => (
+    <div className="flex items-center gap-2 px-1">
+      <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full bg-gradient-to-r ${accent}`} />
+      <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-400">
+        {title}
+      </h2>
+      <span
+        aria-hidden="true"
+        className="h-px flex-1 bg-gradient-to-r from-white/[0.08] to-transparent"
+      />
+    </div>
+  );
+
   return (
-    <div className="space-y-5 pb-8">
+    <div className="relative space-y-5 pb-10">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -top-24 left-1/2 h-56 w-80 -translate-x-1/2 rounded-full bg-violet-600/[0.1] blur-3xl"
+      />
+
       {/* Identity card */}
-      <div className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-[#111420]">
+      <div
+        className="relative overflow-hidden rounded-[30px] border border-transparent shadow-[0_30px_80px_-42px_rgba(139,92,246,0.65)]"
+        style={{
+          background:
+            'linear-gradient(#0A0D16, #0A0D16) padding-box, linear-gradient(180deg, rgba(255,255,255,0.17), rgba(255,255,255,0.04)) border-box',
+        }}
+      >
         <div
-          className="h-36 sm:h-44 w-full relative"
+          className="relative h-36 w-full sm:h-44"
           style={{
             background: coverImage
               ? `center / cover no-repeat url(${coverImage})`
@@ -340,188 +373,230 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               : currentUser.coverGradient,
           }}
         >
-          <div className="absolute inset-0 bg-gradient-to-t from-[#111420] via-transparent to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0A0D16] via-[#0A0D16]/20 to-black/10" />
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
+            <div className="absolute -left-10 -top-16 h-40 w-40 rounded-full bg-fuchsia-500/[0.18] blur-3xl" />
+            <div className="absolute -right-12 top-4 h-36 w-36 rounded-full bg-cyan-400/[0.14] blur-3xl" />
+            <div
+              className="absolute inset-0 opacity-40"
+              style={{
+                backgroundImage: 'radial-gradient(rgba(255,255,255,0.35) 1px, transparent 1px)',
+                backgroundSize: '16px 16px',
+                maskImage: 'radial-gradient(ellipse at 70% 10%, black 15%, transparent 70%)',
+                WebkitMaskImage: 'radial-gradient(ellipse at 70% 10%, black 15%, transparent 70%)',
+              }}
+            />
+          </div>
           <button
             type="button"
             onClick={() => coverInputRef.current?.click()}
             disabled={photoBusy !== null}
             aria-label="Change cover photo"
-            className="absolute top-3 left-3 w-9 h-9 rounded-full bg-black/40 backdrop-blur-md border border-white/15 hover:bg-black/60 disabled:opacity-50 flex items-center justify-center text-white transition-colors"
+            className="absolute left-3 top-3 flex h-8 w-8 items-center justify-center rounded-xl border border-white/[0.12] bg-black/35 text-white backdrop-blur-xl transition-colors hover:bg-black/60 disabled:opacity-50"
           >
-            <Camera className="w-4 h-4" />
+            <Camera className="w-3.5 h-3.5" />
           </button>
-          <div className="absolute top-3 right-3 flex items-center gap-1.5">
+          <div className="absolute right-3 top-3 flex items-center gap-0.5 rounded-2xl border border-white/[0.12] bg-black/35 p-1 backdrop-blur-xl">
             <button
               type="button"
               onClick={shareProfile}
               aria-label="Share profile"
-              className="w-9 h-9 rounded-full bg-black/40 backdrop-blur-md border border-white/15 hover:bg-black/60 flex items-center justify-center text-white transition-colors"
+              className="flex h-8 w-8 items-center justify-center rounded-xl text-white/85 transition-colors hover:bg-white/[0.1] hover:text-white"
             >
-              <Share2 className="w-4 h-4" />
+              <Share2 className="w-3.5 h-3.5" />
             </button>
             <button
               type="button"
               onClick={() => onOpenSection('edit-profile')}
               aria-label="Edit profile"
-              className="w-9 h-9 rounded-full bg-black/40 backdrop-blur-md border border-white/15 hover:bg-black/60 flex items-center justify-center text-white transition-colors"
+              className="flex h-8 w-8 items-center justify-center rounded-xl text-white/85 transition-colors hover:bg-white/[0.1] hover:text-white"
             >
-              <Edit3 className="w-4 h-4" />
+              <Edit3 className="w-3.5 h-3.5" />
             </button>
             <button
               type="button"
               onClick={() => onOpenSection('settings')}
               aria-label="Open settings"
-              className="w-9 h-9 rounded-full bg-black/40 backdrop-blur-md border border-white/15 hover:bg-black/60 flex items-center justify-center text-white transition-colors"
+              className="flex h-8 w-8 items-center justify-center rounded-xl text-white/85 transition-colors hover:bg-white/[0.1] hover:text-white"
             >
-              <Settings className="w-4 h-4" />
+              <Settings className="w-3.5 h-3.5" />
             </button>
+            <span aria-hidden="true" className="mx-1 h-4 w-px bg-white/[0.12]" />
             <button
               type="button"
               onClick={() => setConfirmSignOut(true)}
               aria-label="Sign out"
-              className="w-9 h-9 rounded-full bg-black/40 backdrop-blur-md border border-white/15 hover:bg-rose-600/60 flex items-center justify-center text-white transition-colors"
+              className="flex h-8 w-8 items-center justify-center rounded-xl text-white/75 transition-colors hover:bg-rose-500/25 hover:text-rose-100"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
 
-        <div className="px-5 sm:px-7 pb-6 -mt-12 relative">
-          <div className="flex items-end justify-between gap-3">
-            <div className="relative">
+        <div className="relative px-4 pb-4 sm:px-5">
+          <div className="-mt-11">
+            <span className="relative inline-flex shrink-0 rounded-full bg-gradient-to-br from-cyan-400 via-violet-500 to-fuchsia-500 p-[2.5px] shadow-[0_22px_48px_-20px_rgba(0,0,0,0.95)]">
               <Avatar
                 name={currentUser.displayName}
                 color={currentUser.avatarColor}
                 src={currentUser.avatarUrl}
                 size="xl"
-                className="ring-4 ring-[#111420]"
+                className="border-[3px] border-[#0A0D16]"
               />
               <button
                 type="button"
                 onClick={() => avatarInputRef.current?.click()}
                 disabled={photoBusy !== null}
                 aria-label="Change profile photo"
-                className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-violet-600 hover:bg-violet-500 disabled:opacity-50 border-2 border-[#111420] flex items-center justify-center text-white transition-colors"
+                className="absolute -bottom-0.5 -right-0.5 flex h-7 w-7 items-center justify-center rounded-full border-2 border-[#0A0D16] bg-violet-600 text-white transition-colors hover:bg-violet-500 disabled:opacity-50"
               >
-                <Camera className="w-3.5 h-3.5" />
+                <Camera className="h-3 w-3" />
               </button>
-            </div>
-            <span className="mb-1 inline-flex items-center gap-1.5 rounded-full bg-violet-600/20 border border-violet-500/30 px-3 py-1 text-[11px] font-semibold text-violet-200">
-              <BadgeCheck className="w-3.5 h-3.5" />
+            </span>
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1.5">
+            <h1 className="font-display text-[22px] font-bold leading-tight text-white">
+              {currentUser.displayName}
+            </h1>
+            <span className="inline-flex items-center gap-1 rounded-full border border-white/[0.1] bg-white/[0.05] px-2 py-0.5 text-[9.5px] font-semibold uppercase tracking-[0.14em] text-slate-200">
+              <BadgeCheck className="h-3 w-3 text-fuchsia-300" />
               <span>{roleLabel}</span>
             </span>
           </div>
-
-          <div className="mt-3 space-y-1">
-            <h1 className="font-display text-2xl font-bold text-white leading-tight">
-              {currentUser.displayName}
-            </h1>
-            <p className="text-xs text-slate-400 flex flex-wrap items-center gap-x-2 gap-y-1">
-              <span>@{currentUser.username}</span>
-              <button
-                type="button"
-                onClick={() => copyText(currentUser.platformId, 'User ID')}
-                className="inline-flex items-center gap-1 font-mono text-sky-300 hover:text-sky-200 transition-colors"
-                aria-label="Copy user ID"
-              >
-                <span>ID {currentUser.platformId}</span>
-                <Copy className="w-3 h-3" />
-              </button>
-              <span className="inline-flex items-center gap-1">
-                <MapPin className="w-3 h-3" />
-                {currentUser.country}
-              </span>
-            </p>
+          <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-slate-400">
+            <span>@{currentUser.username}</span>
+            <span aria-hidden="true" className="text-slate-600">
+              ·
+            </span>
+            <button
+              type="button"
+              onClick={() => copyText(currentUser.platformId, 'User ID')}
+              className="inline-flex items-center gap-1 font-mono text-sky-300 transition-colors hover:text-sky-200"
+              aria-label="Copy user ID"
+            >
+              <span>ID {currentUser.platformId}</span>
+              <Copy className="h-2.5 w-2.5" />
+            </button>
+            <span aria-hidden="true" className="text-slate-600">
+              ·
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <MapPin className="h-2.5 w-2.5 text-slate-500" />
+              {currentUser.country}
+            </span>
           </div>
 
-          <p className="mt-2 inline-flex items-center gap-2 rounded-full border border-white/[0.09] bg-white/[0.04] px-3 py-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-            <Sparkles className="h-3 w-3 text-fuchsia-300" aria-hidden="true" />
-            <span className="bg-[linear-gradient(92deg,#7DD3FC_0%,#C4B5FD_50%,#F0ABFC_100%)] bg-clip-text text-[10px] font-extrabold uppercase tracking-[0.22em] text-transparent">
-              Connect · Stream · Chat · Enjoy
-            </span>
-          </p>
-
           {visibleBio(currentUser.bio) && (
-            <p className="text-sm text-slate-300 mt-3 leading-relaxed">{visibleBio(currentUser.bio)}</p>
+            <p className="mt-2.5 text-[13px] leading-relaxed text-slate-300">
+              {visibleBio(currentUser.bio)}
+            </p>
           )}
 
           {isBdAgent ? (
-            <div
-              className="mt-5 rounded-2xl bg-gradient-to-r from-violet-600/20 via-[#111420] to-fuchsia-600/10 border border-violet-500/25 p-4 text-center cursor-pointer hover:border-violet-500/50 transition-colors"
+            <button
+              type="button"
               onClick={() => onOpenSection('coins-trading')}
+              className="mt-4 flex w-full items-center justify-between gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.025] px-3.5 py-3 text-left transition-colors hover:border-white/[0.14] hover:bg-white/[0.045]"
             >
-              <p className="font-mono text-2xl font-black text-amber-300 tabular-nums">
-                {tradingCoinBalance.toLocaleString()}
-              </p>
-              <p className="text-xs font-semibold text-violet-300 mt-0.5">Coins Trading Balance</p>
-            </div>
+              <span className="flex items-center gap-2.5">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-400/[0.12] ring-1 ring-amber-300/20">
+                  <Coins className="h-4 w-4 text-amber-300" />
+                </span>
+                <span>
+                  <span className="block text-[9.5px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                    Coins Trading Balance
+                  </span>
+                  <span className="mt-0.5 block font-mono text-lg font-black tabular-nums text-amber-300">
+                    {tradingCoinBalance.toLocaleString()}
+                  </span>
+                </span>
+              </span>
+              <ChevronRight className="h-4 w-4 shrink-0 text-slate-500" />
+            </button>
           ) : (
             <>
-              <div className="mt-5 grid grid-cols-4 divide-x divide-white/[0.07] rounded-2xl bg-white/[0.04] border border-white/[0.06] py-3 text-center">
+              <div className="mt-4 grid grid-cols-4 divide-x divide-white/[0.06] overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.025] text-center">
                 <button
                   type="button"
                   onClick={() => setStatsList('followers')}
-                  className="group px-1 rounded-lg transition-colors hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60"
+                  className="group py-2.5 transition-colors hover:bg-white/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60"
                 >
-                  <p className="font-mono text-lg font-bold text-white tabular-nums group-hover:text-sky-300 transition-colors">
+                  <p className="font-mono text-[15px] font-bold tabular-nums text-white transition-colors group-hover:text-cyan-200">
                     {(currentUser.followersCount ?? 0).toLocaleString()}
                   </p>
-                  <p className="text-[11px] text-slate-400">Followers</p>
+                  <p className="mt-0.5 text-[9px] font-medium uppercase tracking-[0.16em] text-slate-400">
+                    Followers
+                  </p>
                 </button>
                 <button
                   type="button"
                   onClick={() => setStatsList('following')}
-                  className="group px-1 rounded-lg transition-colors hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60"
+                  className="group py-2.5 transition-colors hover:bg-white/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60"
                 >
-                  <p className="font-mono text-lg font-bold text-white tabular-nums group-hover:text-sky-300 transition-colors">
+                  <p className="font-mono text-[15px] font-bold tabular-nums text-white transition-colors group-hover:text-cyan-200">
                     {(followingUids?.length ?? 0).toLocaleString()}
                   </p>
-                  <p className="text-[11px] text-slate-400">Following</p>
+                  <p className="mt-0.5 text-[9px] font-medium uppercase tracking-[0.16em] text-slate-400">
+                    Following
+                  </p>
                 </button>
                 <button
                   type="button"
                   onClick={() => setStatsList('friends')}
-                  className="group px-1 rounded-lg transition-colors hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60"
+                  className="group py-2.5 transition-colors hover:bg-white/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60"
                 >
-                  <p className="font-mono text-lg font-bold text-white tabular-nums group-hover:text-sky-300 transition-colors">
+                  <p className="font-mono text-[15px] font-bold tabular-nums text-white transition-colors group-hover:text-cyan-200">
                     {(friendsCount ?? 0).toLocaleString()}
                   </p>
-                  <p className="text-[11px] text-slate-400">Friends</p>
+                  <p className="mt-0.5 text-[9px] font-medium uppercase tracking-[0.16em] text-slate-400">
+                    Friends
+                  </p>
                 </button>
                 <button
                   type="button"
                   onClick={() => setStatsList('visitors')}
-                  className="group px-1 rounded-lg transition-colors hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60"
+                  className="group py-2.5 transition-colors hover:bg-white/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60"
                 >
-                  <p className="font-mono text-lg font-bold text-white tabular-nums group-hover:text-sky-300 transition-colors">
+                  <p className="font-mono text-[15px] font-bold tabular-nums text-white transition-colors group-hover:text-cyan-200">
                     {(currentUser.visitorsCount ?? 0).toLocaleString()}
                   </p>
-                  <p className="text-[11px] text-slate-400">Visitor</p>
+                  <p className="mt-0.5 text-[9px] font-medium uppercase tracking-[0.16em] text-slate-400">
+                    Visitor
+                  </p>
                 </button>
               </div>
 
               <button
                 type="button"
                 onClick={() => onOpenSection('wallet')}
-                className="mt-2.5 w-full grid grid-cols-2 divide-x divide-white/[0.07] rounded-2xl bg-white/[0.04] border border-white/[0.06] py-3 text-center hover:border-white/[0.14] transition-colors"
+                className="mt-2 w-full overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.025] text-left transition-colors hover:border-white/[0.14] hover:bg-white/[0.045]"
               >
-                <span>
-                  <span className="block font-mono text-base sm:text-lg font-bold text-amber-300 tabular-nums">
+                <span className="flex items-center gap-2.5 px-3.5 py-2.5">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-400/[0.12] ring-1 ring-amber-300/20">
+                    <Coins className="h-4 w-4 text-amber-300" />
+                  </span>
+                  <span className="min-w-0 flex-1 text-[9.5px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                    Coins
+                  </span>
+                  <span className="font-mono text-sm font-bold tabular-nums text-amber-200">
                     {coinBalance.toLocaleString()}
                   </span>
-                  <span className="block text-[11px] text-slate-400">Coins Balance</span>
+                  <ChevronRight className="h-3.5 w-3.5 shrink-0 text-slate-600" />
                 </span>
-                <span>
-                  <span className="block font-mono text-base sm:text-lg font-bold text-sky-300 tabular-nums">
+                <span className="flex items-center gap-2.5 border-t border-white/[0.05] px-3.5 py-2.5">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sky-400/[0.12] ring-1 ring-sky-300/20">
+                    <Gem className="h-4 w-4 text-sky-300" />
+                  </span>
+                  <span className="min-w-0 flex-1 text-[9.5px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                    Diamonds
+                  </span>
+                  <span className="font-mono text-sm font-bold tabular-nums text-sky-200">
                     {diamondBalance.toLocaleString()}
                   </span>
-                  <span className="block text-[11px] text-slate-400">Diamonds Balance</span>
+                  <ChevronRight className="h-3.5 w-3.5 shrink-0 text-slate-600" />
                 </span>
               </button>
-              <p className="mt-1 text-center text-[10px] text-slate-500 inline-flex w-full items-center justify-center gap-1">
-                <Wallet className="w-3 h-3" />
-                Tap the balances to open Wallet Center
-              </p>
             </>
           )}
         </div>
@@ -542,45 +617,72 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         onChange={handlePhotoPick('cover')}
       />
       {photoBusy && (
-        <p className="rounded-xl bg-violet-500/10 border border-violet-500/30 px-4 py-2 text-xs text-violet-200 text-center">
+        <p
+          role="status"
+          className="flex items-center justify-center gap-2 rounded-2xl border border-cyan-400/20 bg-cyan-500/[0.06] px-4 py-2.5 text-center text-[11px] font-medium text-cyan-100"
+        >
+          <span
+            aria-hidden="true"
+            className="h-1.5 w-1.5 animate-pulse rounded-full bg-cyan-300"
+          />
           Uploading {photoBusy === 'avatar' ? 'profile photo' : 'cover photo'}…
         </p>
       )}
 
-      {confirmSignOut && (
-        <div className="rounded-2xl bg-rose-500/10 border border-rose-500/30 p-3.5 flex flex-col sm:flex-row sm:items-center gap-2">
-          <p className="text-xs text-rose-100 flex-1">
-            Sign out of this account? You can sign back in anytime.
-          </p>
-          <div className="flex gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={() => setConfirmSignOut(false)}
-              className="px-3 h-8 rounded-lg bg-white/[0.08] text-xs font-medium text-slate-200"
+      {confirmSignOut &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="signout-title"
+            onClick={() => setConfirmSignOut(false)}
+          >
+            <div
+              className="w-full max-w-[300px] overflow-hidden rounded-[24px] border border-white/[0.1] bg-[#0B0E18] p-5 shadow-[0_30px_80px_-30px_rgba(0,0,0,0.95)]"
+              onClick={(e) => e.stopPropagation()}
             >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setConfirmSignOut(false);
-                onSignOut();
-              }}
-              className="px-3 h-8 rounded-lg bg-rose-600 hover:bg-rose-500 text-xs font-semibold text-white"
-            >
-              Sign Out
-            </button>
-          </div>
-        </div>
-      )}
+              <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl border border-rose-400/25 bg-rose-500/[0.1]">
+                <LogOut className="h-5 w-5 text-rose-300" />
+              </span>
+              <h2
+                id="signout-title"
+                className="mt-3 text-center font-display text-base font-semibold text-white"
+              >
+                Sign out?
+              </h2>
+              <p className="mt-1 text-center text-[11.5px] leading-relaxed text-slate-400">
+                You can sign back in anytime.
+              </p>
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setConfirmSignOut(false)}
+                  className="h-9 rounded-xl border border-white/[0.1] bg-white/[0.06] text-[11.5px] font-semibold text-slate-200 transition-colors hover:bg-white/[0.12]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setConfirmSignOut(false);
+                    onSignOut();
+                  }}
+                  className="h-9 rounded-xl bg-rose-600 text-[11.5px] font-semibold text-white transition-colors hover:bg-rose-500"
+                >
+                  Sign Out
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
 
       {/* Creator & social */}
       {!isBdAgent && (
-        <section className="rounded-3xl bg-[#111420] border border-white/[0.08] p-4 sm:p-5 space-y-3">
-          <h2 className="font-display text-sm font-semibold text-white px-1">
-            Creator &amp; Social
-          </h2>
-          <div className="grid grid-cols-4 gap-2.5">
+        <section className="space-y-2.5">
+          {renderSectionHeading('Creator & Social')}
+          <div className="grid grid-cols-4 gap-2">
             {CREATOR_TILES.filter(
               (t) => t.id !== 'host-rewards' || currentUser.gender === 'Female'
             ).map(renderTile)}
@@ -590,19 +692,17 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
       {/* Commerce */}
       {!isBdAgent && (
-        <section className="rounded-3xl bg-[#111420] border border-white/[0.08] p-4 sm:p-5 space-y-3">
-          <h2 className="font-display text-sm font-semibold text-white px-1">Wallet &amp; Store</h2>
-          <div className="grid grid-cols-4 gap-2.5">{COMMERCE_TILES.map(renderTile)}</div>
+        <section className="space-y-2.5">
+          {renderSectionHeading('Wallet & Store', 'from-amber-300 to-orange-500')}
+          <div className="grid grid-cols-4 gap-2">{COMMERCE_TILES.map(renderTile)}</div>
         </section>
       )}
 
       {/* Agent management */}
       {(isAgentUser || isAdminUser) && (
-        <section className="rounded-3xl bg-[#111420] border border-white/[0.08] p-4 sm:p-5 space-y-3">
-          <h2 className="font-display text-sm font-semibold text-white px-1">
-            Agent Management
-          </h2>
-          <div className="grid grid-cols-4 gap-2.5">
+        <section className="space-y-2.5">
+          {renderSectionHeading('Agent Management', 'from-fuchsia-400 to-violet-500')}
+          <div className="grid grid-cols-4 gap-2">
             {(isBdAgent
               ? BD_AGENT_TILES
               : currentUser.accountType === 'SUPER_AGENT'
@@ -618,85 +718,85 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         <button
           type="button"
           onClick={() => onOpenSection('admin-panel')}
-          className="w-full rounded-2xl bg-gradient-to-r from-violet-600/25 to-[#111420] border border-violet-500/35 hover:border-violet-400/60 p-4 flex items-center justify-between gap-3 transition-colors"
+          className="group flex w-full items-center gap-3 rounded-2xl border border-violet-500/30 bg-gradient-to-r from-violet-600/20 via-[#0B0E18] to-fuchsia-600/10 p-4 transition-colors hover:border-violet-400/60"
         >
-          <div className="flex items-center gap-3 min-w-0">
-            <span className="relative w-10 h-10 rounded-xl bg-gradient-to-br from-violet-400 via-purple-500 to-fuchsia-600 ring-1 ring-white/25 shadow-lg shadow-violet-500/40 flex items-center justify-center shrink-0">
-              <span
-                aria-hidden="true"
-                className="absolute inset-0 rounded-xl bg-gradient-to-b from-white/30 via-white/0 to-black/15"
-              />
-              <LayoutDashboard className="relative w-5 h-5 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]" />
-            </span>
-            <div className="text-left min-w-0">
-              <p className="text-sm font-semibold text-white">Admin Panel</p>
-              <p className="text-xs text-slate-400 truncate">
-                Users, live rooms, reports, wallets, games & broadcast
-              </p>
-            </div>
+          <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-400 via-purple-500 to-fuchsia-600 shadow-lg shadow-violet-500/40 ring-1 ring-white/25">
+            <span
+              aria-hidden="true"
+              className="absolute inset-0 rounded-xl bg-gradient-to-b from-white/30 via-white/0 to-black/15"
+            />
+            <LayoutDashboard className="relative h-5 w-5 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]" />
+          </span>
+          <div className="min-w-0 flex-1 text-left">
+            <p className="text-sm font-semibold text-white">Admin Panel</p>
+            <p className="truncate text-[11px] text-slate-400">
+              Users, live rooms, reports, wallets, games & broadcast
+            </p>
           </div>
-          <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
+          <ChevronRight className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-hover:translate-x-0.5" />
         </button>
       )}
 
       {/* Account */}
-      <section className="rounded-3xl bg-[#111420] border border-white/[0.08] divide-y divide-white/[0.06] overflow-hidden">
-        <h2 className="font-display text-sm font-semibold text-white px-4 sm:px-5 pt-4 pb-2">
-          Account
-        </h2>
-        <button
-          type="button"
-          onClick={() => onOpenSection('edit-profile')}
-          className="w-full px-4 sm:px-5 py-3 flex items-center justify-between gap-3 text-left hover:bg-white/[0.03] transition-colors"
-        >
-          <span className="flex items-center gap-2.5">
-            <Edit3 className="w-4 h-4 text-violet-300" />
-            <span>
-              <span className="block text-xs font-medium text-slate-200">Edit Profile</span>
-              <span className="block text-[11px] text-slate-500">
-                Name, username, bio, photos and language
+      <section className="space-y-2.5">
+        {renderSectionHeading('Account', 'from-sky-400 to-indigo-500')}
+        <div className="overflow-hidden rounded-[22px] border border-white/[0.07] bg-white/[0.02] divide-y divide-white/[0.05]">
+          <button
+            type="button"
+            onClick={() => onOpenSection('edit-profile')}
+            className="group flex w-full items-center justify-between gap-3 px-3.5 py-3 text-left transition-colors hover:bg-white/[0.03]"
+          >
+            <span className="flex min-w-0 items-center gap-2.5">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-violet-400/[0.12] ring-1 ring-violet-300/20">
+                <Edit3 className="h-4 w-4 text-violet-300" />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-xs font-semibold text-slate-200">Edit Profile</span>
+                <span className="block truncate text-[10px] text-slate-400">
+                  Name, username, bio, photos and language
+                </span>
               </span>
             </span>
-          </span>
-          <ChevronRight className="w-4 h-4 text-slate-500" />
-        </button>
-        <button
-          type="button"
-          onClick={() => onOpenSection('settings')}
-          className="w-full px-4 sm:px-5 py-3 flex items-center justify-between gap-3 text-left hover:bg-white/[0.03] transition-colors"
-        >
-          <span className="flex items-center gap-2.5">
-            <Settings className="w-4 h-4 text-sky-300" />
-            <span>
-              <span className="block text-xs font-medium text-slate-200">Settings</span>
-              <span className="block text-[11px] text-slate-500">
-                Privacy, notifications, security, help
+            <ChevronRight className="h-4 w-4 shrink-0 text-slate-500 transition-transform group-hover:translate-x-0.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => onOpenSection('settings')}
+            className="group flex w-full items-center justify-between gap-3 px-3.5 py-3 text-left transition-colors hover:bg-white/[0.03]"
+          >
+            <span className="flex min-w-0 items-center gap-2.5">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-sky-400/[0.12] ring-1 ring-sky-300/20">
+                <Settings className="h-4 w-4 text-sky-300" />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-xs font-semibold text-slate-200">Settings</span>
+                <span className="block truncate text-[10px] text-slate-400">
+                  Privacy, notifications, security, help
+                </span>
               </span>
             </span>
-          </span>
-          <ChevronRight className="w-4 h-4 text-slate-500" />
-        </button>
+            <ChevronRight className="h-4 w-4 shrink-0 text-slate-500 transition-transform group-hover:translate-x-0.5" />
+          </button>
+        </div>
       </section>
 
       {/* Blocked accounts */}
       {blockedUsers.length > 0 && (
-        <section className="rounded-3xl bg-[#111420] border border-white/[0.08] p-4 sm:p-5 space-y-3">
-          <h2 className="font-display text-sm font-semibold text-white px-1">
-            Blocked ({blockedUsers.length})
-          </h2>
-          <div className="space-y-2">
+        <section className="space-y-2.5">
+          {renderSectionHeading(`Blocked (${blockedUsers.length})`, 'from-rose-400 to-pink-500')}
+          <div className="overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.02] divide-y divide-white/[0.05]">
             {blockedUsers.map((user) => (
-              <div key={user.uid} className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2.5 min-w-0">
+              <div key={user.uid} className="flex items-center justify-between gap-3 px-3.5 py-2.5">
+                <div className="flex min-w-0 items-center gap-2.5">
                   <Avatar name={user.displayName} color={user.avatarColor} size="xs" />
-                  <span className="text-xs text-slate-200 truncate">
+                  <span className="truncate text-xs text-slate-200">
                     {user.displayName} (@{user.username})
                   </span>
                 </div>
                 <button
                   type="button"
                   onClick={() => onUnblockUser(user.uid)}
-                  className="px-2.5 py-1 rounded-lg bg-white/[0.08] hover:bg-white/[0.15] text-xs text-white inline-flex items-center gap-1 shrink-0"
+                  className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-white/[0.08] px-2.5 py-1 text-[11px] font-medium text-white hover:bg-white/[0.15]"
                 >
                   <UserX className="w-3 h-3" />
                   <span>Unblock</span>
@@ -718,15 +818,18 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             onClick={() => setStatsList(null)}
           >
             <div
-              className="w-full sm:max-w-md max-h-[80vh] flex flex-col rounded-t-3xl sm:rounded-3xl bg-[#111420] border border-white/[0.1] overflow-hidden"
+              className="flex w-full flex-col overflow-hidden rounded-t-[26px] border border-white/[0.1] bg-[#0B0E18] shadow-[0_-20px_60px_-20px_rgba(0,0,0,0.9)] sm:max-h-[80vh] sm:max-w-md sm:rounded-[26px]"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.08] shrink-0">
+              <div className="flex shrink-0 items-center justify-between border-b border-white/[0.07] px-5 py-4">
                 <div>
-                  <h2 id="stats-list-title" className="font-display text-base font-semibold text-white">
+                  <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.22em] text-cyan-300/80">
+                    Connections
+                  </p>
+                  <h2 id="stats-list-title" className="mt-0.5 font-display text-base font-semibold text-white">
                     {statsListTitle}
                   </h2>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
+                  <p className="mt-0.5 text-[11px] text-slate-400">
                     {statsListUsers.length} {statsListUsers.length === 1 ? 'person' : 'people'}
                   </p>
                 </div>
@@ -734,18 +837,20 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                   type="button"
                   onClick={() => setStatsList(null)}
                   aria-label={`Close ${statsListTitle}`}
-                  className="w-8 h-8 rounded-full bg-white/[0.08] hover:bg-white/[0.15] flex items-center justify-center text-white"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] text-slate-300 transition-colors hover:bg-white/[0.10] hover:text-white"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="h-4 w-4" />
                 </button>
               </div>
 
-              <div className="overflow-y-auto divide-y divide-white/[0.06]">
+              <div className="divide-y divide-white/[0.05] overflow-y-auto">
                 {statsListUsers.length === 0 ? (
-                  <div className="px-5 py-10 text-center space-y-1.5">
-                    <Users className="w-6 h-6 text-slate-500 mx-auto" aria-hidden="true" />
+                  <div className="space-y-2 px-5 py-12 text-center">
+                    <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl border border-white/[0.08] bg-white/[0.03]">
+                      <Users className="h-5 w-5 text-slate-500" aria-hidden="true" />
+                    </span>
                     <p className="text-sm font-medium text-slate-200">No {statsListTitle.toLowerCase()} yet</p>
-                    <p className="text-xs text-slate-500">
+                    <p className="mx-auto max-w-[240px] text-[11px] leading-relaxed text-slate-500">
                       {statsList === 'visitors'
                         ? 'Visitors appear here as people open your profile.'
                         : 'People will show up here as your community grows.'}
@@ -757,7 +862,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     return (
                       <div
                         key={user.uid}
-                        className="flex items-center gap-3 px-4 py-3 hover:bg-white/[0.04] transition-colors"
+                        className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-white/[0.03]"
                       >
                         <button
                           type="button"

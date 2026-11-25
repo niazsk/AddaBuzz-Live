@@ -321,7 +321,6 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
   const [chatInput, setChatInput] = useState('');
   const [boardTab, setBoardTab] = useState<'chat' | 'fruit' | 'golden'>('chat');
   const [showGamesModal, setShowGamesModal] = useState(false);
-  const [guestPanelOpen, setGuestPanelOpen] = useState(false);
   const [showGiftTray, setShowGiftTray] = useState(false);
   const [selectedGiftId, setSelectedGiftId] = useState<string>(gifts[0]?.giftId ?? '');
   const [giftTab, setGiftTab] = useState<'all' | GiftTier | 'lucky'>('all');
@@ -2104,23 +2103,6 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
               </button>
             )}
 
-            {!isSolo && (
-              <button
-                type="button"
-                onClick={() => setGuestPanelOpen(true)}
-                aria-label="Guests and seat requests"
-                title="Guests"
-                className="relative w-11 h-11 shrink-0 rounded-full backdrop-blur-md border border-white/15 bg-black/50 hover:bg-black/70 flex items-center justify-center text-white transition-colors active:scale-95"
-              >
-                <UserCheck className="w-4.5 h-4.5" />
-                {joinRequests.length > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-rose-500 text-[10px] font-bold flex items-center justify-center px-1">
-                    {joinRequests.length}
-                  </span>
-                )}
-              </button>
-            )}
-
             <button
               type="button"
               onClick={() => setSettingsOpen(true)}
@@ -2526,174 +2508,6 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
         </div>
       )}
 
-      {/* Guests & requests bottom sheet */}
-      {guestPanelOpen && (
-        <div className="absolute inset-x-0 bottom-0 z-30 rounded-t-3xl bg-[#121521]/95 backdrop-blur-xl border-t border-white/15 p-4 space-y-4 max-h-[60vh] overflow-y-auto">
-          <div className="flex items-center justify-between">
-            <h3 className="font-display text-sm font-semibold text-white">
-              Guests & Requests
-              {!isSolo && (
-                <span className="ml-2 rounded-full bg-white/[0.07] px-2 py-0.5 text-[10px] font-semibold text-slate-300">
-                  {occupiedCount}/{seats.length} seats
-                </span>
-              )}
-            </h3>
-            <button
-              type="button"
-              onClick={() => setGuestPanelOpen(false)}
-              aria-label="Close guest panel"
-              className="w-8 h-8 rounded-full bg-white/[0.07] hover:bg-white/[0.14] flex items-center justify-center text-slate-300"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          {!isSolo && (
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span
-                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                  allowGuestRequests
-                    ? 'bg-emerald-500/15 text-emerald-300'
-                    : 'bg-rose-500/15 text-rose-300'
-                }`}
-              >
-                {allowGuestRequests ? 'Seat requests open' : 'Seat requests closed'}
-              </span>
-              {allowGuestRequests && (
-                <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-semibold text-slate-300">
-                  {hostApprovalForGuests ? 'Host approval required' : 'Instant join'}
-                </span>
-              )}
-              {!allowViewerComments && (
-                <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-semibold text-slate-300">
-                  Viewer chat off
-                </span>
-              )}
-              {!allowGifts && (
-                <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-semibold text-slate-300">
-                  Gifts off
-                </span>
-              )}
-            </div>
-          )}
-
-          {isSolo && (
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => onShareRoom(room)}
-                className="flex-1 h-10 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-xs font-medium text-white inline-flex items-center justify-center gap-2 transition-colors"
-              >
-                <Share2 className="w-4 h-4" />
-                <span>Share Room</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => onOpenReportRoom(room)}
-                className="flex-1 h-10 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-xs font-medium text-amber-300 inline-flex items-center justify-center gap-2 transition-colors"
-              >
-                <ShieldAlert className="w-4 h-4" />
-                <span>Report</span>
-              </button>
-            </div>
-          )}
-
-          <div>
-            <h4 className="text-xs font-semibold text-slate-300 mb-2 flex items-center gap-1.5">
-              <UserCheck className="w-3.5 h-3.5 text-sky-400" />
-              <span>Pending Requests ({joinRequests.length})</span>
-            </h4>
-            {joinRequests.length === 0 ? (
-              <p className="text-xs text-slate-500">No pending seat requests.</p>
-            ) : (
-              <div className="space-y-2">
-                {joinRequests.map((req) => (
-                  <div
-                    key={req.requestId}
-                    className="rounded-xl bg-white/[0.04] border border-white/[0.07] p-3 flex items-center justify-between gap-2"
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <Avatar name={req.displayName} color={req.avatarColor} size="xs" />
-                      <div className="min-w-0">
-                        <p className="text-xs font-medium text-white truncate">
-                          {req.displayName}
-                        </p>
-                        <p className="text-[11px] text-slate-400">
-                          @{req.username} · Seat {req.preferredSeatNumber ?? 'Any'}
-                        </p>
-                      </div>
-                    </div>
-                    {canModerateSeats && (
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => onApproveJoinRequest(room.roomId, req)}
-                          aria-label={`Approve ${req.displayName}`}
-                          className="p-1.5 rounded-lg bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/35"
-                        >
-                          <Check className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => onRejectJoinRequest(room.roomId, req)}
-                          aria-label={`Reject ${req.displayName}`}
-                          className="p-1.5 rounded-lg bg-rose-600/20 text-rose-300 hover:bg-rose-600/35"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div>
-            <h4 className="text-xs font-semibold text-slate-300 mb-2 flex items-center gap-1.5">
-              <Users className="w-3.5 h-3.5 text-violet-400" />
-              <span>On Stage ({occupiedCount})</span>
-            </h4>
-            <div className="space-y-2">
-              {seats
-                .filter((s) => s.status === 'OCCUPIED')
-                .map((seat) => (
-                  <div
-                    key={seat.seatNumber}
-                    className="rounded-xl bg-white/[0.03] px-3 py-2.5 flex items-center justify-between gap-2"
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <Avatar
-                        name={seat.occupantName ?? 'Guest'}
-                        color={seat.occupantAvatarColor}
-                        size="xs"
-                      />
-                      <div className="min-w-0">
-                        <p className="text-xs font-medium text-white truncate">
-                          {seat.occupantName}
-                        </p>
-                        <p className="text-[11px] text-slate-400 font-mono">
-                          Seat {seat.seatNumber} · {seat.isMuted ? 'Muted' : 'Speaking'}
-                        </p>
-                      </div>
-                    </div>
-                    {canModerateSeats && (
-                      <button
-                        type="button"
-                        onClick={() => onRemoveGuest(room.roomId, seat.seatNumber)}
-                        aria-label={`Remove ${seat.occupantName}`}
-                        className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/15"
-                      >
-                        <UserMinus className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-                ))}
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Viewers bottom sheet (real connected viewers) */}
       {viewersOpen && (
         <div className="gfx-sheet absolute inset-x-0 bottom-0 z-40 rounded-t-3xl bg-[#0F111D]/95 backdrop-blur-2xl border-t border-white/15 px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+1rem)] max-h-[65vh] overflow-y-auto space-y-3">
@@ -2730,6 +2544,54 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
               HOST
             </span>
           </div>
+
+          {canModerateSeats && joinRequests.length > 0 && (
+            <div className="space-y-2">
+              <p className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                <span className="inline-flex items-center gap-1.5">
+                  <UserCheck className="w-3.5 h-3.5 text-sky-300" />
+                  Seat requests
+                </span>
+                <span className="rounded-full bg-white/[0.06] px-1.5 py-0.5 text-[9px] tabular-nums text-slate-300">
+                  {joinRequests.length}
+                </span>
+              </p>
+              {joinRequests.map((req) => (
+                <div
+                  key={req.requestId}
+                  className="rounded-xl bg-white/[0.03] border border-white/[0.06] px-3 py-2.5 flex items-center justify-between gap-2"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <Avatar name={req.displayName} color={req.avatarColor} size="xs" />
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-white truncate">{req.displayName}</p>
+                      <p className="text-[10px] text-slate-400 truncate">
+                        @{req.username} · Seat {req.preferredSeatNumber ?? 'Any'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => onApproveJoinRequest(room.roomId, req)}
+                      aria-label={`Approve ${req.displayName}`}
+                      className="p-1.5 rounded-lg bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/35"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onRejectJoinRequest(room.roomId, req)}
+                      aria-label={`Reject ${req.displayName}`}
+                      className="p-1.5 rounded-lg bg-rose-600/20 text-rose-300 hover:bg-rose-600/35"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
           {canModerateSeats && viewerProfiles.length > 0 && (
             <p className="text-[10px] text-slate-500">
