@@ -259,7 +259,7 @@ export const BingoView: React.FC<BingoViewProps> = ({
   completedLines.forEach((idx) => LINES[idx].forEach((t) => lineTiles.add(t)));
 
   return (
-    <div className="space-y-4 pb-10">
+    <div className="mx-auto w-full max-w-md space-y-3 pb-10">
       <div className="flex items-center gap-3">
         <button
           type="button"
@@ -270,15 +270,12 @@ export const BingoView: React.FC<BingoViewProps> = ({
           <ArrowLeft className="w-4 h-4" />
         </button>
         <div className="min-w-0 flex-1">
-          <h1 className="font-display text-2xl font-bold leading-tight inline-flex items-center gap-2">
+          <h1 className="font-display text-xl font-bold leading-tight inline-flex items-center gap-2">
             <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-fuchsia-300 via-pink-500 to-rose-600 ring-1 ring-white/25 shadow-lg shadow-fuchsia-500/40">
               <Grid3x3 className="w-[18px] h-[18px] text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]" />
             </span>
             <span>Bingo Bazaar</span>
           </h1>
-          <p className="text-xs text-slate-400 mt-1">
-            Buy a 3×3 card — {DRAW_COUNT} balls drop, every completed line pays.
-          </p>
         </div>
         <span className="flex shrink-0 items-center gap-1.5 rounded-full border border-amber-300/25 bg-amber-400/[0.08] px-2.5 py-1.5">
           <Coins className="h-3.5 w-3.5 text-amber-300" />
@@ -306,8 +303,8 @@ export const BingoView: React.FC<BingoViewProps> = ({
           </button>
         </div>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-[1.15fr_1fr] items-start">
-          <section className="relative overflow-hidden rounded-3xl border border-fuchsia-300/20 bg-[linear-gradient(160deg,rgba(58,10,42,0.95),rgba(20,8,18,0.98)_55%,rgba(30,10,26,0.98))] p-4 sm:p-6">
+        <div className="space-y-3">
+          <section className="relative overflow-hidden rounded-3xl border border-fuchsia-300/20 bg-[linear-gradient(160deg,rgba(58,10,42,0.95),rgba(20,8,18,0.98)_55%,rgba(30,10,26,0.98))] p-3.5">
             <div
               aria-hidden="true"
               className="pointer-events-none absolute -right-14 -top-14 h-48 w-48 rounded-full bg-[radial-gradient(closest-side,rgba(232,121,249,0.28),transparent)] blur-2xl"
@@ -331,7 +328,7 @@ export const BingoView: React.FC<BingoViewProps> = ({
               </span>
             </div>
 
-            <div className="relative mt-4 grid grid-cols-3 gap-2">
+            <div className="relative mt-3 grid grid-cols-3 gap-1.5">
               {(card.length ? card : Array.from({ length: PLAYER_NUMBERS }, () => 0)).map(
                 (num, idx) => {
                   const isMarked = num > 0 && markedSet.has(num);
@@ -339,7 +336,7 @@ export const BingoView: React.FC<BingoViewProps> = ({
                   return (
                     <div
                       key={`${num}-${idx}`}
-                      className={`grid h-16 sm:h-20 place-items-center rounded-2xl border font-mono text-xl font-black tabular-nums transition-all duration-300 ${
+                      className={`grid h-11 sm:h-12 place-items-center rounded-xl border font-mono text-lg font-black tabular-nums transition-all duration-300 ${
                         num === 0
                           ? 'border-white/[0.06] bg-white/[0.03] text-slate-700'
                           : onLine
@@ -365,7 +362,7 @@ export const BingoView: React.FC<BingoViewProps> = ({
               )}
             </div>
 
-            <div className="relative mt-4 rounded-2xl border border-white/10 bg-black/25 px-3 py-2.5">
+            <div className="relative mt-2.5 rounded-2xl border border-white/10 bg-black/25 px-3 py-2">
               <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none]">
                 {Array.from({ length: DRAW_COUNT }).map((_, i) => {
                   const ball = draws[i];
@@ -373,7 +370,7 @@ export const BingoView: React.FC<BingoViewProps> = ({
                   return (
                     <span
                       key={i}
-                      className={`grid h-8 w-8 shrink-0 place-items-center rounded-full border font-mono text-[11px] font-bold tabular-nums ${
+                      className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border font-mono text-[9px] font-bold tabular-nums ${
                         ball
                           ? isLast
                             ? 'bb-ball border-amber-300/60 bg-gradient-to-br from-amber-300 to-orange-500 text-amber-950 shadow-[0_0_16px_rgba(245,158,11,0.8)]'
@@ -415,7 +412,7 @@ export const BingoView: React.FC<BingoViewProps> = ({
               </div>
             )}
 
-            <div className="relative mt-4 space-y-3">
+            <div className="relative mt-3 space-y-2.5">
               {phase === 'idle' && (
                 <>
                   <div className="flex gap-2">
@@ -424,7 +421,7 @@ export const BingoView: React.FC<BingoViewProps> = ({
                         key={chip}
                         type="button"
                         onClick={() => setStake(chip)}
-                        className={`flex-1 h-11 rounded-xl border font-mono text-xs font-bold tabular-nums transition-all ${
+                        className={`flex-1 h-8 rounded-xl border font-mono text-xs font-bold tabular-nums transition-all ${
                           stake === chip
                             ? 'border-fuchsia-300/60 bg-gradient-to-b from-fuchsia-400/30 to-rose-600/15 text-fuchsia-100 shadow-[0_8px_22px_-10px_rgba(232,121,249,0.8)]'
                             : 'border-white/10 bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]'
@@ -438,7 +435,7 @@ export const BingoView: React.FC<BingoViewProps> = ({
                     type="button"
                     onClick={() => void buyCard()}
                     disabled={busy || isOffline}
-                    className="w-full h-12 rounded-2xl bg-gradient-to-r from-fuchsia-400 via-pink-500 to-rose-500 text-white text-sm font-bold inline-flex items-center justify-center gap-2 shadow-[0_16px_36px_-14px_rgba(232,121,249,0.9)] ring-1 ring-white/20 disabled:opacity-45 disabled:cursor-not-allowed active:scale-[0.99] transition-transform"
+                    className="w-full h-11 rounded-2xl bg-gradient-to-r from-fuchsia-400 via-pink-500 to-rose-500 text-white text-sm font-bold inline-flex items-center justify-center gap-2 shadow-[0_16px_36px_-14px_rgba(232,121,249,0.9)] ring-1 ring-white/20 disabled:opacity-45 disabled:cursor-not-allowed active:scale-[0.99] transition-transform"
                   >
                     <Ticket className="w-4 h-4" />
                     {busy ? 'Buying card…' : `Buy card · ${fmtCoins(stake)}`}
@@ -450,7 +447,7 @@ export const BingoView: React.FC<BingoViewProps> = ({
                 <button
                   type="button"
                   disabled
-                  className="w-full h-12 rounded-2xl border border-white/10 bg-white/[0.05] text-slate-300 text-sm font-semibold inline-flex items-center justify-center gap-2"
+                  className="w-full h-11 rounded-2xl border border-white/10 bg-white/[0.05] text-slate-300 text-sm font-semibold inline-flex items-center justify-center gap-2"
                 >
                   <Sparkles className="w-4 h-4 text-fuchsia-300 animate-pulse" />
                   Drawing balls… {Math.min(draws.length, DRAW_COUNT)}/{DRAW_COUNT}
@@ -461,7 +458,7 @@ export const BingoView: React.FC<BingoViewProps> = ({
                 <button
                   type="button"
                   onClick={reset}
-                  className="w-full h-12 rounded-2xl border border-white/10 bg-white/[0.06] hover:bg-white/[0.1] text-slate-200 text-sm font-semibold inline-flex items-center justify-center gap-2 transition-colors"
+                  className="w-full h-11 rounded-2xl border border-white/10 bg-white/[0.06] hover:bg-white/[0.1] text-slate-200 text-sm font-semibold inline-flex items-center justify-center gap-2 transition-colors"
                 >
                   <RotateCcw className="w-4 h-4" /> New card
                 </button>
@@ -475,69 +472,44 @@ export const BingoView: React.FC<BingoViewProps> = ({
             </div>
           </section>
 
-          <aside className="space-y-4">
-            <section className="rounded-3xl border border-white/[0.07] bg-[#111420] p-4 sm:p-5">
-              <h2 className="font-display text-sm font-semibold text-white inline-flex items-center gap-1.5">
-                <Sparkles className="w-4 h-4 text-fuchsia-300" /> Payouts
-              </h2>
-              <div className="mt-3 space-y-1.5 text-[11px]">
-                {[
-                  ['1 line', 'x2'],
-                  ['2 lines', 'x5'],
-                  ['3+ lines', 'x12'],
-                  ['Full house', 'x40'],
-                ].map(([label, mult]) => (
+          <section className="rounded-3xl border border-white/[0.07] bg-[#111420] p-3.5">
+            <div className="flex items-center justify-between">
+              <h2 className="font-display text-xs font-semibold text-white">Recent cards</h2>
+              <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-500">
+                Lines pay ×2 · ×5 · ×12 · full house ×40
+              </span>
+            </div>
+            {history.length === 0 ? (
+              <p className="mt-2 text-[11px] text-slate-500">
+                No cards yet — your bingo nights will show up here.
+              </p>
+            ) : (
+              <div className="mt-2 space-y-1.5">
+                {history.slice(0, 4).map((h) => (
                   <div
-                    key={label}
-                    className="flex items-center justify-between rounded-xl border border-white/[0.05] bg-white/[0.03] px-3 py-1.5"
+                    key={h.id + h.at}
+                    className="flex items-center justify-between rounded-lg border border-white/[0.05] bg-white/[0.03] px-2.5 py-1 text-[11px]"
                   >
-                    <span className="text-slate-400">{label}</span>
-                    <span className="font-mono font-bold tabular-nums text-fuchsia-300">
-                      {mult}
+                    <span className="inline-flex items-center gap-1.5 text-slate-400">
+                      <span
+                        className={`h-1.5 w-1.5 rounded-full ${
+                          h.payout > 0 ? 'bg-emerald-400' : 'bg-rose-400'
+                        }`}
+                      />
+                      {h.fullHouse ? 'Full house' : `${h.lines} line(s)`} · {fmtCoins(h.stake)}
+                    </span>
+                    <span
+                      className={`font-mono font-bold tabular-nums ${
+                        h.payout > 0 ? 'text-emerald-300' : 'text-rose-300'
+                      }`}
+                    >
+                      {h.payout > 0 ? `+${fmtCoins(h.payout)}` : `−${fmtCoins(h.stake)}`}
                     </span>
                   </div>
                 ))}
               </div>
-              <p className="mt-3 text-[10px] leading-relaxed text-slate-500">
-                Lines = rows, columns and diagonals. {DRAW_COUNT} balls are drawn from 1–{POOL_SIZE}
-                {' '}per round.
-              </p>
-            </section>
-
-            <section className="rounded-3xl border border-white/[0.07] bg-[#111420] p-4 sm:p-5">
-              <h2 className="font-display text-sm font-semibold text-white">Recent cards</h2>
-              {history.length === 0 ? (
-                <p className="mt-3 text-[11px] text-slate-500">
-                  No cards yet — your bingo nights will show up here.
-                </p>
-              ) : (
-                <div className="mt-3 space-y-1.5">
-                  {history.slice(0, 6).map((h) => (
-                    <div
-                      key={h.id + h.at}
-                      className="flex items-center justify-between rounded-xl border border-white/[0.05] bg-white/[0.03] px-3 py-1.5 text-[11px]"
-                    >
-                      <span className="inline-flex items-center gap-1.5 text-slate-400">
-                        <span
-                          className={`h-1.5 w-1.5 rounded-full ${
-                            h.payout > 0 ? 'bg-emerald-400' : 'bg-rose-400'
-                          }`}
-                        />
-                        {h.fullHouse ? 'Full house' : `${h.lines} line(s)`} · {fmtCoins(h.stake)}
-                      </span>
-                      <span
-                        className={`font-mono font-bold tabular-nums ${
-                          h.payout > 0 ? 'text-emerald-300' : 'text-rose-300'
-                        }`}
-                      >
-                        {h.payout > 0 ? `+${fmtCoins(h.payout)}` : `−${fmtCoins(h.stake)}`}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-          </aside>
+            )}
+          </section>
         </div>
       )}
     </div>

@@ -1,5 +1,4 @@
-import { supabase, isSupabaseConfigured, SupabaseGameRound, SupabaseGameBet } from '../../lib/supabaseClient';
-import { arcadeDebit, creditArcade } from './wallet';
+import { arcadeDebit, capPayout, creditArcade, newRoundId, randomUnit } from './wallet';
 
 export type RouletteBetKind = 'RED' | 'BLACK' | 'GREEN';
 export type RoulettePhase = 'OPEN' | 'SPINNING' | 'SETTLED';
@@ -28,8 +27,6 @@ export interface RouletteBoard {
   phaseEndsAt: number;
   winningNumber: number;
   recentResults: number[];
-  leaderUid: string;
-  leaderLeaseUntil: number;
 }
 
 export interface RouletteBet {
@@ -43,15 +40,13 @@ export interface RouletteBet {
   payout: number;
 }
 
-const OPEN_MS = 15000;
-const SPIN_MS = 5500;
+const OPEN_MS = 12000;
+const SPIN_MS = 6000;
 const SETTLED_MS = 4000;
-const LEASE_MS = 30000;
+const TICK_MS = 100;
 
 export function rollRouletteNumber(): number {
-  const buf = new Uint32Array(1);
-  crypto.getRandomValues(buf);
-  return WHEEL_ORDER[buf[0] % WHEEL_ORDER.length];
+  return WHEEL_ORDER[Math.floor(randomUnit() * WHEEL_ORDER.length)];
 }
 
 export class SharedRouletteEngine {
@@ -59,308 +54,112 @@ export class SharedRouletteEngine {
   private username: string;
   private board: RouletteBoard | null = null;
   private bets: RouletteBet[] = [];
-  private unsubBoard: (() => void) | null = null;
-  private unsubBets: (() => void) | null = null;
+  private history: number[] = [];
+  private seq = 0;
   private timer: number | null = null;
   private listeners = new Set<() => void>();
-  private leaderBusy = false;
-  private settleBusy = false;
-  private lastAttempt = 0;
 
   constructor(uid: string, username: string) {
     this.uid = uid;
     this.username = username;
-    this.init();
+    this.startRound();
+    this.timer = window.setInterval(() => this.tick(), TICK_MS);
   }
 
-  private init() {
-    if (!supabase || !isSupabaseConfigured) return;
-
-    supabase
-      .from('game_rounds')
-      .select('*')
-      .eq('game_type', 'roulette')
-      .order('seq', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data) {
-          this.handleBoardUpdate(data as SupabaseGameRound);
-        }
-      });
-
-    const channel = supabase
-      .channel('public:game_rounds:roulette')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'game_rounds',
-          filter: 'game_type=eq.roulette',
-        },
-        (payload) => {
-          if (payload.new) {
-            this.handleBoardUpdate(payload.new as SupabaseGameRound);
-          }
-        }
-      )
-      .subscribe();
-
-    this.unsubBoard = () => {
-      supabase.removeChannel(channel);
-    };
-
-    this.timer = window.setInterval(() => this.tick(), 300);
-  }
-
-  private handleBoardUpdate(r: SupabaseGameRound) {
-    const res = r.result_data || {};
-    const prev = this.board;
-    const startsAt = r.started_at ? new Date(r.started_at).getTime() : Date.now();
-    const endsAt = r.ends_at ? new Date(r.ends_at).getTime() : Date.now() + 15000;
-    const winningNumber = Number(res.winningNumber) || 0;
-    const recent = Array.isArray(res.recentResults) ? res.recentResults : [17, 32, 0];
-
-    this.board = {
-      roundId: r.id,
-      seq: r.seq,
-      phase: r.phase as RoulettePhase,
-      phaseStartsAt: startsAt,
-      phaseEndsAt: endsAt,
-      winningNumber,
-      recentResults: recent,
-      leaderUid: r.leader_id || 'system',
-      leaderLeaseUntil: r.leader_leased_until ? new Date(r.leader_leased_until).getTime() : Date.now() + 30000,
-    };
-
-    if (prev?.roundId !== r.id) {
-      this.watchBets(r.id);
-    }
-    this.emit();
-  }
-
-  private watchBets(roundId: string) {
-    this.unsubBets?.();
-    this.bets = [];
-
-    supabase
-      .from('game_bets')
-      .select('*')
-      .eq('round_id', roundId)
-      .then(({ data }) => {
-        if (data) {
-          this.bets = data.map((b) => ({
-            betId: b.id,
-            roundId: b.round_id,
-            uid: b.user_id,
-            username: b.username,
-            betKind: b.bet_data?.betKind || 'RED',
-            stake: b.stake,
-            status: b.status as any,
-            payout: b.payout,
-          }));
-          this.emit();
-        }
-      });
-
-    const channel = supabase
-      .channel(`public:game_bets:${roundId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'game_bets',
-          filter: `round_id=eq.${roundId}`,
-        },
-        (payload) => {
-          if (payload.new) {
-            const b = payload.new as any;
-            const mapped: RouletteBet = {
-              betId: b.id,
-              roundId: b.round_id,
-              uid: b.user_id,
-              username: b.username,
-              betKind: b.bet_data?.betKind || 'RED',
-              stake: b.stake,
-              status: b.status,
-              payout: b.payout,
-            };
-            this.bets = [...this.bets.filter((item) => item.betId !== mapped.betId), mapped];
-            this.emit();
-          }
-        }
-      )
-      .subscribe();
-
-    this.unsubBets = () => {
-      supabase.removeChannel(channel);
-    };
-  }
-
-  private async tick() {
+  private startRound() {
     const now = Date.now();
+    this.seq += 1;
+    this.board = {
+      roundId: newRoundId('RL'),
+      seq: this.seq,
+      phase: 'OPEN',
+      phaseStartsAt: now,
+      phaseEndsAt: now + OPEN_MS,
+      winningNumber: rollRouletteNumber(),
+      recentResults: this.history,
+    };
+  }
+
+  private tick() {
+    const board = this.board;
+    if (!board) return;
+    const now = Date.now();
+    if (now < board.phaseEndsAt) return;
+
+    if (board.phase === 'OPEN') {
+      board.phase = 'SPINNING';
+      board.phaseStartsAt = now;
+      board.phaseEndsAt = now + SPIN_MS;
+    } else if (board.phase === 'SPINNING') {
+      board.phase = 'SETTLED';
+      board.phaseStartsAt = now;
+      board.phaseEndsAt = now + SETTLED_MS;
+      this.history = [board.winningNumber, ...this.history].slice(0, 10);
+      this.settleBets();
+    } else {
+      this.startRound();
+    }
     this.emit();
+  }
 
-    if (!this.board) {
-      if (now - this.lastAttempt > 2000) {
-        this.lastAttempt = now;
-        void this.claimLeadership(1);
+  private settleBets() {
+    const board = this.board;
+    if (!board) return;
+    const winNumber = board.winningNumber;
+    const winColor = numberColor(winNumber).toUpperCase();
+
+    for (const bet of this.bets) {
+      if (bet.status !== 'ACCEPTED' || bet.roundId !== board.roundId) continue;
+      const isWin = bet.betKind === 'GREEN' ? winNumber === 0 : bet.betKind === winColor;
+      if (isWin) {
+        const multiplier = BET_MULTIPLIER[bet.betKind];
+        const payout = capPayout(bet.stake * multiplier);
+        bet.status = 'WON';
+        bet.payout = payout;
+        creditArcade(
+          this.uid,
+          payout,
+          `Roulette win #${winNumber} (${winColor})`,
+          `rl-${bet.betId}-w`,
+          { gameName: 'Roulette', stake: bet.stake, multiplier, outcome: 'WIN' }
+        );
+      } else {
+        bet.status = 'LOST';
+        bet.payout = 0;
       }
-      return;
-    }
-
-    if (this.board.phase === 'SETTLED' && !this.settleBusy) {
-      void this.settleMyBets();
-    }
-
-    const isLeader = this.board.leaderUid === this.uid || this.board.leaderLeaseUntil <= now;
-    if (!isLeader) return;
-
-    if (now >= this.board.phaseEndsAt) {
-      void this.advancePhase();
     }
   }
 
-  private async claimLeadership(seq: number) {
-    if (this.leaderBusy) return;
-    this.leaderBusy = true;
+  async placeBet(
+    betKind: RouletteBetKind,
+    stake: number
+  ): Promise<{ ok: boolean; reason?: string }> {
+    const board = this.board;
+    if (!board || board.phase !== 'OPEN') {
+      return { ok: false, reason: 'Betting is closed — wait for the next spin.' };
+    }
+    if (this.bets.some((b) => b.roundId === board.roundId)) {
+      return { ok: false, reason: 'You already placed a bet this round.' };
+    }
+    const betId = newRoundId('RLB');
     try {
-      const now = Date.now();
-      const num = rollRouletteNumber();
-      await supabase.from('game_rounds').upsert({
-        id: `RL-${seq}`,
-        game_type: 'roulette',
-        seq,
-        phase: 'OPEN',
-        started_at: new Date(now).toISOString(),
-        ends_at: new Date(now + OPEN_MS).toISOString(),
-        leader_id: this.uid,
-        leader_leased_until: new Date(now + LEASE_MS).toISOString(),
-        result_data: { winningNumber: num, recentResults: this.board?.recentResults || [17, 32, 0] },
-      });
-    } finally {
-      this.leaderBusy = false;
+      await arcadeDebit(this.uid, stake, `Roulette bet ${board.roundId} · ${betKind}`, `rl-${betId}-s`);
+    } catch (err) {
+      return { ok: false, reason: err instanceof Error ? err.message : 'Debit failed' };
     }
-  }
-
-  private async advancePhase() {
-    if (this.leaderBusy || !this.board) return;
-    this.leaderBusy = true;
-    try {
-      const now = Date.now();
-      const { phase, seq, winningNumber, recentResults } = this.board;
-
-      if (phase === 'OPEN') {
-        // Spin the wheel
-        await supabase.from('game_rounds').upsert({
-          id: this.board.roundId,
-          game_type: 'roulette',
-          seq,
-          phase: 'SPINNING',
-          started_at: new Date(now).toISOString(),
-          ends_at: new Date(now + SPIN_MS).toISOString(),
-          leader_id: this.uid,
-          leader_leased_until: new Date(now + LEASE_MS).toISOString(),
-          result_data: { winningNumber, recentResults },
-        });
-      } else if (phase === 'SPINNING') {
-        // Settled
-        const nextRecent = [winningNumber, ...(recentResults || [])].slice(0, 10);
-        await supabase.from('game_rounds').upsert({
-          id: this.board.roundId,
-          game_type: 'roulette',
-          seq,
-          phase: 'SETTLED',
-          started_at: new Date(now).toISOString(),
-          ends_at: new Date(now + SETTLED_MS).toISOString(),
-          leader_id: this.uid,
-          leader_leased_until: new Date(now + LEASE_MS).toISOString(),
-          result_data: { winningNumber, recentResults: nextRecent },
-        });
-      } else if (phase === 'SETTLED') {
-        // Next round
-        const nextSeq = seq + 1;
-        const nextNum = rollRouletteNumber();
-        await supabase.from('game_rounds').upsert({
-          id: `RL-${nextSeq}`,
-          game_type: 'roulette',
-          seq: nextSeq,
-          phase: 'OPEN',
-          started_at: new Date(now).toISOString(),
-          ends_at: new Date(now + OPEN_MS).toISOString(),
-          leader_id: this.uid,
-          leader_leased_until: new Date(now + LEASE_MS).toISOString(),
-          result_data: { winningNumber: nextNum, recentResults },
-        });
-      }
-    } finally {
-      this.leaderBusy = false;
-    }
-  }
-
-  private async settleMyBets() {
-    if (!this.board || this.board.phase !== 'SETTLED' || this.settleBusy) return;
-    const myAccepted = this.bets.filter((b) => b.uid === this.uid && b.status === 'ACCEPTED');
-    if (!myAccepted.length) return;
-
-    this.settleBusy = true;
-    try {
-      const winNum = this.board.winningNumber;
-      const winColor = numberColor(winNum).toUpperCase();
-
-      for (const bet of myAccepted) {
-        let isWin = false;
-        if (bet.betKind === 'GREEN' && winNum === 0) isWin = true;
-        else if (bet.betKind === winColor) isWin = true;
-
-        const multiplier = isWin ? BET_MULTIPLIER[bet.betKind] : 0;
-        const payout = isWin ? bet.stake * multiplier : 0;
-        const status = isWin ? 'WON' : 'LOST';
-
-        await supabase
-          .from('game_bets')
-          .update({ status, payout })
-          .eq('id', bet.betId);
-
-        if (isWin) {
-          creditArcade(this.uid, payout, `Roulette win #${winNum} (${winColor})`, `rl-w-${bet.betId}`, {
-            gameName: 'Roulette',
-            stake: bet.stake,
-            multiplier,
-            outcome: 'WIN',
-          });
-        }
-      }
-    } finally {
-      this.settleBusy = false;
-    }
-  }
-
-  async placeBet(betKind: RouletteBetKind, stake: number): Promise<{ ok: boolean; reason?: string }> {
-    if (!this.board || this.board.phase !== 'OPEN') {
-      return { ok: false, reason: 'Betting closed for this round!' };
-    }
-    const betId = `RL-B-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
-    try {
-      await arcadeDebit(this.uid, stake, `Roulette bet ${this.board.roundId} · ${betKind}`, betId);
-      await supabase.from('game_bets').insert({
-        id: betId,
-        round_id: this.board.roundId,
-        game_type: 'roulette',
-        user_id: this.uid,
-        username: this.username,
-        stake,
-        bet_data: { betKind },
-        status: 'ACCEPTED',
-        payout: 0,
-        created_at: new Date().toISOString(),
-      });
-      return { ok: true };
-    } catch (err: any) {
-      return { ok: false, reason: err?.message || 'Debit failed' };
-    }
+    const bet: RouletteBet = {
+      betId,
+      roundId: board.roundId,
+      uid: this.uid,
+      username: this.username,
+      betKind,
+      stake,
+      status: 'ACCEPTED',
+      payout: 0,
+    };
+    this.bets = [bet, ...this.bets].slice(0, 40);
+    this.emit();
+    return { ok: true };
   }
 
   subscribe(cb: () => void): () => void {
@@ -375,12 +174,7 @@ export class SharedRouletteEngine {
   getSnapshot() {
     const board = this.board;
     const now = Date.now();
-    let countdownLeft = 0;
-
-    if (board) {
-      countdownLeft = Math.max(0, Math.ceil((board.phaseEndsAt - now) / 1000));
-    }
-
+    const countdownLeft = board ? Math.max(0, Math.ceil((board.phaseEndsAt - now) / 1000)) : 0;
     const myBets = this.bets.filter((b) => b.uid === this.uid);
 
     return {
@@ -395,9 +189,16 @@ export class SharedRouletteEngine {
   }
 
   destroy() {
-    if (this.timer) clearInterval(this.timer);
-    this.unsubBoard?.();
-    this.unsubBets?.();
+    if (this.timer !== null) window.clearInterval(this.timer);
+    this.timer = null;
+    const board = this.board;
+    const pending = this.bets.filter(
+      (b) => b.status === 'ACCEPTED' && b.roundId === board?.roundId
+    );
+    if (pending.length) {
+      // The winning number is already locked for this round, so settle rather than drop the stake.
+      this.settleBets();
+    }
     this.listeners.clear();
   }
 }

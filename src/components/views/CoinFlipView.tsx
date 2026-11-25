@@ -175,7 +175,7 @@ export const CoinFlipView: React.FC<CoinFlipViewProps> = ({
   };
 
   return (
-    <div className="space-y-4 pb-10">
+    <div className="mx-auto w-full max-w-md space-y-3 pb-10">
       <div className="flex items-center gap-3">
         <button
           type="button"
@@ -186,15 +186,12 @@ export const CoinFlipView: React.FC<CoinFlipViewProps> = ({
           <ArrowLeft className="w-4 h-4" />
         </button>
         <div className="min-w-0 flex-1">
-          <h1 className="font-display text-2xl font-bold leading-tight inline-flex items-center gap-2">
+          <h1 className="font-display text-xl font-bold leading-tight inline-flex items-center gap-2">
             <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-yellow-200 via-amber-400 to-orange-500 ring-1 ring-white/25 shadow-lg shadow-amber-400/40">
               <Swords className="w-[18px] h-[18px] text-amber-950" />
             </span>
             <span>Coin Flip Arena</span>
           </h1>
-          <p className="text-xs text-slate-400 mt-1">
-            Call the coin — win pays ×{WIN_MULTIPLIER}. Build a streak.
-          </p>
         </div>
         <span className="flex shrink-0 items-center gap-1.5 rounded-full border border-amber-300/25 bg-amber-400/[0.08] px-2.5 py-1.5">
           <Coins className="h-3.5 w-3.5 text-amber-300" />
@@ -222,8 +219,8 @@ export const CoinFlipView: React.FC<CoinFlipViewProps> = ({
           </button>
         </div>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-[1.15fr_1fr] items-start">
-          <section className="relative overflow-hidden rounded-3xl border border-amber-300/20 bg-[linear-gradient(160deg,rgba(46,32,8,0.95),rgba(18,13,7,0.98)_55%,rgba(24,16,10,0.98))] p-5 sm:p-7">
+        <div className="space-y-3">
+          <section className="relative overflow-hidden rounded-3xl border border-amber-300/20 bg-[linear-gradient(160deg,rgba(46,32,8,0.95),rgba(18,13,7,0.98)_55%,rgba(24,16,10,0.98))] p-3.5 sm:p-4">
             <div
               aria-hidden="true"
               className="pointer-events-none absolute -right-16 -top-16 h-52 w-52 rounded-full bg-[radial-gradient(closest-side,rgba(245,158,11,0.3),transparent)] blur-2xl"
@@ -243,9 +240,9 @@ export const CoinFlipView: React.FC<CoinFlipViewProps> = ({
               </span>
             </div>
 
-            <div className="relative mt-6 flex flex-col items-center">
+            <div className="relative mt-3 flex flex-col items-center">
               <div
-                className={`relative grid h-40 w-40 place-items-center rounded-full bg-gradient-to-br from-yellow-200 via-amber-400 to-orange-500 shadow-[0_24px_60px_-18px_rgba(245,158,11,0.75)] ring-4 ring-amber-200/30 ${
+                className={`relative grid h-28 w-28 place-items-center rounded-full bg-gradient-to-br from-yellow-200 via-amber-400 to-orange-500 shadow-[0_24px_60px_-18px_rgba(245,158,11,0.75)] ring-4 ring-amber-200/30 ${
                   phase === 'flipping' ? 'cf-coin-flip' : ''
                 }`}
               >
@@ -261,12 +258,12 @@ export const CoinFlipView: React.FC<CoinFlipViewProps> = ({
                     </p>
                   </div>
                 ) : (
-                  <Crown className="relative w-12 h-12 text-amber-950/90 drop-shadow" />
+                  <Crown className="relative w-10 h-10 text-amber-950/90 drop-shadow" />
                 )}
               </div>
 
               <p
-                className={`mt-5 font-display text-lg font-bold ${
+                className={`mt-3 font-display text-base font-bold ${
                   phase === 'result'
                     ? result?.win
                       ? 'text-emerald-300'
@@ -298,13 +295,13 @@ export const CoinFlipView: React.FC<CoinFlipViewProps> = ({
               </p>
             )}
 
-            <div className="relative mt-5 space-y-3">
+            <div className="relative mt-3 space-y-2">
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => setSide('HEADS')}
                   disabled={phase === 'flipping'}
-                  className={`h-12 rounded-2xl border text-sm font-bold inline-flex items-center justify-center gap-2 transition-all disabled:opacity-50 ${
+                  className={`h-10 rounded-2xl border text-sm font-bold inline-flex items-center justify-center gap-2 transition-all disabled:opacity-50 ${
                     side === 'HEADS'
                       ? 'border-amber-300/60 bg-gradient-to-b from-amber-400/35 to-amber-600/20 text-amber-100 shadow-[0_10px_26px_-12px_rgba(245,158,11,0.9)]'
                       : 'border-white/10 bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]'
@@ -316,7 +313,7 @@ export const CoinFlipView: React.FC<CoinFlipViewProps> = ({
                   type="button"
                   onClick={() => setSide('TAILS')}
                   disabled={phase === 'flipping'}
-                  className={`h-12 rounded-2xl border text-sm font-bold inline-flex items-center justify-center gap-2 transition-all disabled:opacity-50 ${
+                  className={`h-10 rounded-2xl border text-sm font-bold inline-flex items-center justify-center gap-2 transition-all disabled:opacity-50 ${
                     side === 'TAILS'
                       ? 'border-sky-300/60 bg-gradient-to-b from-sky-400/35 to-blue-600/20 text-sky-100 shadow-[0_10px_26px_-12px_rgba(56,189,248,0.9)]'
                       : 'border-white/10 bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]'
@@ -335,7 +332,7 @@ export const CoinFlipView: React.FC<CoinFlipViewProps> = ({
                         type="button"
                         onClick={() => setStake(chip)}
                         disabled={phase === 'flipping'}
-                        className={`flex-1 h-10 rounded-xl border font-mono text-xs font-bold tabular-nums transition-all disabled:opacity-50 ${
+                        className={`flex-1 h-8 rounded-xl border font-mono text-xs font-bold tabular-nums transition-all disabled:opacity-50 ${
                           stake === chip
                             ? 'border-amber-300/60 bg-gradient-to-b from-amber-400/30 to-amber-600/20 text-amber-100'
                             : 'border-white/10 bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]'
@@ -349,7 +346,7 @@ export const CoinFlipView: React.FC<CoinFlipViewProps> = ({
                     type="button"
                     onClick={() => void flip()}
                     disabled={busy || phase === 'flipping' || isOffline}
-                    className="w-full h-12 rounded-2xl bg-gradient-to-r from-yellow-300 via-amber-400 to-orange-500 text-amber-950 text-sm font-bold inline-flex items-center justify-center gap-2 shadow-[0_16px_36px_-14px_rgba(245,158,11,0.95)] ring-1 ring-white/25 disabled:opacity-45 disabled:cursor-not-allowed active:scale-[0.99] transition-transform"
+                    className="w-full h-11 rounded-2xl bg-gradient-to-r from-yellow-300 via-amber-400 to-orange-500 text-amber-950 text-sm font-bold inline-flex items-center justify-center gap-2 shadow-[0_16px_36px_-14px_rgba(245,158,11,0.95)] ring-1 ring-white/25 disabled:opacity-45 disabled:cursor-not-allowed active:scale-[0.99] transition-transform"
                   >
                     <Coins className="w-4 h-4" />
                     {phase === 'flipping' ? 'Flipping…' : `Flip for ${fmtCoins(stake)}`}
@@ -359,7 +356,7 @@ export const CoinFlipView: React.FC<CoinFlipViewProps> = ({
                 <button
                   type="button"
                   onClick={reset}
-                  className="w-full h-12 rounded-2xl border border-white/10 bg-white/[0.06] hover:bg-white/[0.1] text-slate-200 text-sm font-semibold inline-flex items-center justify-center gap-2 transition-colors"
+                  className="w-full h-11 rounded-2xl border border-white/10 bg-white/[0.06] hover:bg-white/[0.1] text-slate-200 text-sm font-semibold inline-flex items-center justify-center gap-2 transition-colors"
                 >
                   <RotateCcw className="w-4 h-4" /> Flip again
                 </button>
@@ -373,76 +370,34 @@ export const CoinFlipView: React.FC<CoinFlipViewProps> = ({
             </div>
           </section>
 
-          <aside className="space-y-4">
-            <section className="rounded-3xl border border-white/[0.07] bg-[#111420] p-4 sm:p-5">
-              <h2 className="font-display text-sm font-semibold text-white inline-flex items-center gap-1.5">
-                <Sparkles className="w-4 h-4 text-amber-300" /> How it works
-              </h2>
-              <ul className="mt-3 space-y-2 text-[11px] leading-relaxed text-slate-400">
-                <li className="flex gap-2">
-                  <span className="text-amber-300">1.</span> Pick Heads or Tails and choose a stake.
-                </li>
-                <li className="flex gap-2">
-                  <span className="text-amber-300">2.</span> Flip — a correct call pays ×
-                  {WIN_MULTIPLIER}.
-                </li>
-                <li className="flex gap-2">
-                  <span className="text-amber-300">3.</span> Chain wins to build your streak on the
-                  board.
-                </li>
-              </ul>
-            </section>
-
-            <section className="rounded-3xl border border-white/[0.07] bg-[#111420] p-4 sm:p-5">
-              <h2 className="font-display text-sm font-semibold text-white">Recent flips</h2>
-              {history.length === 0 ? (
-                <p className="mt-3 text-[11px] text-slate-500">
-                  No flips yet — your calls will show up here.
-                </p>
-              ) : (
-                <>
-                  <div className="mt-3 flex flex-wrap gap-1.5">
-                    {history.slice(0, 12).map((h) => (
-                      <span
-                        key={h.id + h.at}
-                        className={`grid h-7 w-7 place-items-center rounded-full border text-[10px] font-black ${
-                          h.win
-                            ? 'border-emerald-300/40 bg-emerald-400/15 text-emerald-300'
-                            : 'border-rose-300/40 bg-rose-500/15 text-rose-300'
-                        }`}
-                      >
-                        {h.result === 'HEADS' ? 'H' : 'T'}
-                      </span>
-                    ))}
-                  </div>
-                  <div className="mt-3 space-y-1.5">
-                    {history.slice(0, 4).map((h) => (
-                      <div
-                        key={`row-${h.id}`}
-                        className="flex items-center justify-between rounded-xl border border-white/[0.05] bg-white/[0.03] px-3 py-1.5 text-[11px]"
-                      >
-                        <span className="inline-flex items-center gap-1.5 text-slate-400">
-                          <span
-                            className={`h-1.5 w-1.5 rounded-full ${
-                              h.win ? 'bg-emerald-400' : 'bg-rose-400'
-                            }`}
-                          />
-                          {h.side} · {fmtCoins(h.stake)}
-                        </span>
-                        <span
-                          className={`font-mono font-bold tabular-nums ${
-                            h.win ? 'text-emerald-300' : 'text-rose-300'
-                          }`}
-                        >
-                          {h.win ? `+${fmtCoins(h.payout)}` : `−${fmtCoins(h.stake)}`}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </>
+          <section className="rounded-3xl border border-white/[0.07] bg-[#111420] p-3.5">
+            <div className="flex items-center justify-between">
+              <h2 className="font-display text-xs font-semibold text-white">Recent flips</h2>
+              {streak > 0 && (
+                <span className="text-[10px] font-bold text-amber-300">Streak {streak}</span>
               )}
-            </section>
-          </aside>
+            </div>
+            {history.length === 0 ? (
+              <p className="mt-2 text-[11px] text-slate-500">
+                No flips yet — your calls will show up here.
+              </p>
+            ) : (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {history.slice(0, 12).map((h) => (
+                  <span
+                    key={h.id + h.at}
+                    className={`grid h-6 w-6 place-items-center rounded-full border text-[9px] font-black ${
+                      h.win
+                        ? 'border-emerald-300/40 bg-emerald-400/15 text-emerald-300'
+                        : 'border-rose-300/40 bg-rose-500/15 text-rose-300'
+                    }`}
+                  >
+                    {h.result === 'HEADS' ? 'H' : 'T'}
+                  </span>
+                ))}
+              </div>
+            )}
+          </section>
         </div>
       )}
     </div>

@@ -75,7 +75,7 @@ const CardFace: React.FC<{ card: PlayingCard; dealKey: number; dim?: boolean }> 
   return (
     <div
       key={dealKey}
-      className={`hl-card relative grid h-36 w-24 place-items-center rounded-2xl border shadow-xl ${
+      className={`hl-card relative grid h-32 w-[88px] place-items-center rounded-2xl border shadow-xl ${
         dim
           ? 'border-white/10 bg-white/[0.05] opacity-60'
           : 'border-white/25 bg-gradient-to-br from-white to-slate-200 shadow-slate-900/50'
@@ -266,7 +266,7 @@ export const HiLoView: React.FC<Props> = ({
   const livePayout = capPayout(Math.round(stake * liveMultiplier));
 
   return (
-    <div className="space-y-4 pb-10">
+    <div className="mx-auto w-full max-w-md space-y-3 pb-10">
       <div className="flex items-center gap-3">
         <button
           type="button"
@@ -277,15 +277,12 @@ export const HiLoView: React.FC<Props> = ({
           <ArrowLeft className="w-4 h-4" />
         </button>
         <div className="min-w-0 flex-1">
-          <h1 className="font-display text-2xl font-bold leading-tight inline-flex items-center gap-2">
+          <h1 className="font-display text-xl font-bold leading-tight inline-flex items-center gap-2">
             <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-violet-300 via-purple-500 to-indigo-600 ring-1 ring-white/25 shadow-lg shadow-violet-500/40">
               <Layers className="w-[18px] h-[18px] text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]" />
             </span>
             <span>Hi-Lo Cards</span>
           </h1>
-          <p className="text-xs text-slate-400 mt-1">
-            Call the next card higher or lower — every correct call multiplies ×1.9.
-          </p>
         </div>
         <span className="flex shrink-0 items-center gap-1.5 rounded-full border border-amber-300/25 bg-amber-400/[0.08] px-2.5 py-1.5">
           <Coins className="h-3.5 w-3.5 text-amber-300" />
@@ -313,8 +310,8 @@ export const HiLoView: React.FC<Props> = ({
           </button>
         </div>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-[1.2fr_1fr] items-start">
-          <section className="relative overflow-hidden rounded-3xl border border-violet-300/20 bg-[linear-gradient(160deg,rgba(30,16,58,0.95),rgba(10,10,22,0.98)_55%,rgba(22,14,44,0.98))] p-4 sm:p-5">
+        <div className="space-y-3">
+          <section className="relative overflow-hidden rounded-3xl border border-violet-300/20 bg-[linear-gradient(160deg,rgba(30,16,58,0.95),rgba(10,10,22,0.98)_55%,rgba(22,14,44,0.98))] p-4">
             <div
               aria-hidden="true"
               className="pointer-events-none absolute -right-16 -top-16 h-52 w-52 rounded-full bg-[radial-gradient(closest-side,rgba(139,92,246,0.3),transparent)] blur-2xl"
@@ -338,13 +335,13 @@ export const HiLoView: React.FC<Props> = ({
               )}
             </div>
 
-            <div className="relative mt-4 flex min-h-[11rem] items-center justify-center gap-4">
+            <div className="relative mt-3 flex min-h-[9rem] items-center justify-center gap-4">
               <CardFace card={card} dealKey={dealKey} dim={phase === 'idle'} />
               <span className="font-display text-2xl font-black text-slate-600">→</span>
               {nextCard ? (
                 <CardFace card={nextCard} dealKey={dealKey + 1000} />
               ) : (
-                <div className="grid h-36 w-24 place-items-center rounded-2xl border-2 border-dashed border-white/15 bg-white/[0.03]">
+                <div className="grid h-32 w-[88px] place-items-center rounded-2xl border-2 border-dashed border-white/15 bg-white/[0.03]">
                   <Sparkles className="h-6 w-6 text-slate-600" />
                 </div>
               )}
@@ -356,7 +353,7 @@ export const HiLoView: React.FC<Props> = ({
               </p>
             )}
 
-            <div className="relative mt-4 space-y-3">
+            <div className="relative mt-3 space-y-2.5">
               {phase !== 'running' && (
                 <div className="flex gap-2">
                   {ARCADE_CHIPS.map((chip) => (
@@ -447,65 +444,39 @@ export const HiLoView: React.FC<Props> = ({
             </div>
           </section>
 
-          <aside className="space-y-4">
-            <section className="rounded-3xl border border-white/[0.07] bg-[#111420] p-4 sm:p-5">
-              <h2 className="font-display text-sm font-semibold text-white">Streak payouts</h2>
-              <div className="mt-3 grid grid-cols-3 gap-1.5 text-center">
-                {[1, 2, 3, 4, 5].map((n) => (
+          <section className="rounded-3xl border border-white/[0.07] bg-[#111420] p-3.5">
+            <h2 className="font-display text-xs font-semibold text-white">Recent rounds</h2>
+            {history.length === 0 ? (
+              <p className="mt-2 text-[11px] text-slate-500">
+                No rounds yet — your calls will show up here.
+              </p>
+            ) : (
+              <div className="mt-2 space-y-1.5">
+                {history.slice(0, 4).map((h) => (
                   <div
-                    key={n}
-                    className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-1.5 py-1.5"
+                    key={h.id + h.at}
+                    className="flex items-center justify-between rounded-lg border border-white/[0.05] bg-white/[0.03] px-2.5 py-1 text-[11px]"
                   >
-                    <p className="text-[9px] text-slate-400">{n} in a row</p>
-                    <p className="font-mono text-[11px] font-bold text-violet-300">
-                      ×{Math.pow(STEP_MULTIPLIER, n).toFixed(2)}
-                    </p>
+                    <span className="inline-flex items-center gap-1.5 text-slate-400">
+                      <span
+                        className={`h-1.5 w-1.5 rounded-full ${
+                          h.payout > 0 ? 'bg-emerald-400' : 'bg-rose-400'
+                        }`}
+                      />
+                      {h.streak} correct · {fmtCoins(h.stake)}
+                    </span>
+                    <span
+                      className={`font-mono font-bold tabular-nums ${
+                        h.payout > 0 ? 'text-emerald-300' : 'text-rose-300'
+                      }`}
+                    >
+                      {h.payout > 0 ? `+${fmtCoins(h.payout)}` : '0'}
+                    </span>
                   </div>
                 ))}
-                <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-1.5 py-1.5">
-                  <p className="text-[9px] text-slate-400">Tie</p>
-                  <p className="font-mono text-[11px] font-bold text-rose-300">loses</p>
-                </div>
               </div>
-              <p className="mt-3 text-[10px] leading-relaxed text-slate-500">
-                Aces play high. Equal ranks count as a wrong call — bank before you feel lucky.
-              </p>
-            </section>
-
-            <section className="rounded-3xl border border-white/[0.07] bg-[#111420] p-4 sm:p-5">
-              <h2 className="font-display text-sm font-semibold text-white">Recent rounds</h2>
-              {history.length === 0 ? (
-                <p className="mt-3 text-[11px] text-slate-500">
-                  No rounds yet — your calls will show up here.
-                </p>
-              ) : (
-                <div className="mt-3 space-y-1.5">
-                  {history.slice(0, 6).map((h) => (
-                    <div
-                      key={h.id + h.at}
-                      className="flex items-center justify-between rounded-xl border border-white/[0.05] bg-white/[0.03] px-3 py-1.5 text-[11px]"
-                    >
-                      <span className="inline-flex items-center gap-1.5 text-slate-400">
-                        <span
-                          className={`h-1.5 w-1.5 rounded-full ${
-                            h.payout > 0 ? 'bg-emerald-400' : 'bg-rose-400'
-                          }`}
-                        />
-                        {h.streak} correct · {fmtCoins(h.stake)}
-                      </span>
-                      <span
-                        className={`font-mono font-bold tabular-nums ${
-                          h.payout > 0 ? 'text-emerald-300' : 'text-rose-300'
-                        }`}
-                      >
-                        {h.payout > 0 ? `+${fmtCoins(h.payout)}` : '0'}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-          </aside>
+            )}
+          </section>
         </div>
       )}
     </div>
