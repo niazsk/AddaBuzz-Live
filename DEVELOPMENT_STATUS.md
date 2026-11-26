@@ -31,9 +31,6 @@
 - Added real browser `getUserMedia` camera/microphone stage preview, front/rear camera switching, live Web Audio API speaking meter, and track mute/unmute for hosts and seated guests.
 - Configured installable PWA (`vite-plugin-pwa`) with Workbox service worker, complete Web App Manifest, 192px/512px/maskable/Apple touch PNG icons, and in-app `PWAInstallButton` (Chromium prompt + iOS Safari guide).
 
-### Phase 9 — Native Android Project (`android/`)
-- Scaffolded Kotlin + Jetpack Compose + Material 3 Android application (`com.addabuzz.live`) connected to Firebase project `addabuzzlive` and the Firestore database (`(default)`), covering Discover, 8-seat Live Room + gift debit transactions (no top-up), Wallet, Roles/Promotions, and Email/Password Sign-In + Onboarding. Requires `google-services.json` from Firebase Console and Android Studio / Gradle to compile the `.apk`.
-
 ---
 
 ## Remaining External / Native Scope
@@ -42,5 +39,4 @@
 | --- | --- | --- |
 | **Phase 6 (SFU)** | Live multi-party OpenVidu 3.x SFU connection (requires `OPENVIDU_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`) | Ready for SFU credentials |
 | **Phase 7** | Firebase Cloud Messaging (FCM) push notifications & RTDB presence signals | Pending |
-| **Phase 9 (APK Build)** | Add `google-services.json` in `android/app/` and build `.apk` via Android Studio | Scaffolded (requires Android Studio/JDK) |
 | **Phase 10** | Load testing, budget alerts, and production launch hardening | Pending |

@@ -147,8 +147,7 @@ export class SharedCrashEngine {
       this.uid,
       payout,
       `Crash Rocket cashout ×${multiplier.toFixed(2)}`,
-      `cr-${bet.betId}-w`,
-      { gameName: 'Crash Rocket', stake: bet.stake, multiplier, outcome: 'WIN' }
+      `cr-${bet.betId}-w`
     );
     this.emit();
     return { ok: true, payout, multiplier };

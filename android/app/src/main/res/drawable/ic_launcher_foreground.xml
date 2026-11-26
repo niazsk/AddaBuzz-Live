@@ -4,23 +4,12 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Glow Badge Ring -->
     <path
-        android:fillColor="#7C3AED"
-        android:pathData="M54,20a34,34 0 1,0 0,68a34,34 0 1,0 0,-68z" />
-    <!-- Inner Dark Core -->
+        android:fillColor="#FFFFFF"
+        android:pathData="M45,34 L45,74 L76,54 Z" />
     <path
-        android:fillColor="#0B0D14"
-        android:pathData="M54,26a28,28 0 1,0 0,56a28,28 0 1,0 0,-56z" />
-    <!-- Microphone Capsule -->
-    <path
-        android:fillColor="#38BDF8"
-        android:pathData="M54,35c3.87,0 7,3.13 7,7v13c0,3.87 -3.13,7 -7,7s-7,-3.13 -7,-7V42c0,-3.87 3.13,-7 7,-7z" />
-    <!-- Microphone Arc & Stand -->
-    <path
-        android:fillColor="#00000000"
-        android:strokeColor="#F4F6FB"
-        android:strokeWidth="3.5"
-        android:strokeLineCap="round"
-        android:pathData="M41,53c0,7.18 5.82,13 13,13s13,-5.82 13,-13M54,66v7M47,73h14" />
+        android:pathData="M38,41 A16,16 0 0 1 38,67"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="4"
+        android:strokeLineCap="round" />
 </vector>

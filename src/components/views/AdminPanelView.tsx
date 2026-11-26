@@ -90,7 +90,7 @@ interface ConfirmState {
   title: string;
   body: string;
   confirmLabel: string;
-  run: () => Promise<void>;
+  run: () => Promise<unknown>;
 }
 
 const roleLabel = (u: UserProfile): string =>

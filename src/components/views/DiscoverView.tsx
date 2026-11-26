@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bell, Download, Eye, Radio, Search, Users, Play, X } from 'lucide-react';
+import { Bell, Eye, Radio, Search, Users, Play, X } from 'lucide-react';
 import { LiveRoom, RoomCategory, RoomMode, UserProfile } from '../../types/app';
 import { ROOM_CATEGORIES } from '../../data/previewData';
 import { RoomCard } from '../cards/RoomCard';
@@ -137,14 +137,6 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
         </div>
 
         <div className="hidden lg:flex items-center gap-3 shrink-0">
-          <a
-            href="/downloads/AddaBuzzLive.apk"
-            download="AddaBuzzLive.apk"
-            className="h-10 px-3.5 rounded-xl bg-emerald-500/12 border border-emerald-400/30 hover:bg-emerald-500/20 text-emerald-300 inline-flex items-center gap-2 text-xs font-medium transition-colors whitespace-nowrap shrink-0"
-          >
-            <Download className="w-4 h-4" />
-            <span>Get App</span>
-          </a>
           <button
             type="button"
             onClick={onOpenNotifications}

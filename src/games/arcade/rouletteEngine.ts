@@ -120,8 +120,7 @@ export class SharedRouletteEngine {
           this.uid,
           payout,
           `Roulette win #${winNumber} (${winColor})`,
-          `rl-${bet.betId}-w`,
-          { gameName: 'Roulette', stake: bet.stake, multiplier, outcome: 'WIN' }
+          `rl-${bet.betId}-w`
         );
       } else {
         bet.status = 'LOST';
