@@ -1,7 +1,7 @@
 {
   "hosting": {
     "public": "dist",
-    "ignore": ["firebase.json", "**/.*", "**/node_modules/**", "assets/aistudio/**"],
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**", "assets/aistudio/**", "**/*.apk", "**/*.exe"],
     "rewrites": [
       {
         "source": "**",
