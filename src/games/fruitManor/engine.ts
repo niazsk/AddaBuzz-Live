@@ -695,8 +695,7 @@ export class FruitManorEngine {
     fruitId: FruitId,
     stake: number,
     availableBalance: number,
-    idempotencyKey: string,
-    allowUnlimited = false
+    idempotencyKey: string
   ): Promise<PlaceBetsResult> {
     const cached = this.idempotency.get(idempotencyKey);
     if (cached) return cached;
@@ -718,7 +717,7 @@ export class FruitManorEngine {
     if (!Number.isInteger(stake) || stake < CFG.minStake) {
       return fail(`Minimum stake is ${CFG.minStake} coins.`);
     }
-    if (!allowUnlimited && stake > CFG.maxStakePerBet) {
+    if (stake > CFG.maxStakePerBet) {
       return fail(`Maximum ${CFG.maxStakePerBet.toLocaleString('en-US')} coins per bet.`);
     }
     if (stake > availableBalance) return fail('Not enough Coins for this bet.');

@@ -54,15 +54,12 @@ const PHASE_META: Record<RoundPhase, { label: string; cls: string }> = {
   VOIDED: { label: 'Voided — refunded', cls: 'bg-rose-400/15 text-rose-300 border-rose-400/40' },
 };
 
-const UNLIMITED_CHIP = Infinity;
-
 const CHIP_STYLES: Record<number, { ring: string; face: string; text: string }> = {
   10: { ring: '#94A3B8', face: '#334155', text: '#E2E8F0' },
   100: { ring: '#38BDF8', face: '#0C4A6E', text: '#BAE6FD' },
   1000: { ring: '#A855F7', face: '#4C1D95', text: '#E9D5FF' },
   5000: { ring: '#F5B93F', face: '#78350F', text: '#FDE68A' },
   50000: { ring: '#FB7185', face: '#881337', text: '#FECDD3' },
-  [UNLIMITED_CHIP]: { ring: '#22D3EE', face: '#082F49', text: '#A5F3FC' },
 };
 
 function readPref(key: string, fallback: boolean): boolean {
@@ -214,8 +211,7 @@ export const FruitManorView: React.FC<FruitManorViewProps> = ({
   const tapFruit = async (fruitId: FruitId) => {
     unlockAudio();
     if (!canBet || placing[fruitId]) return;
-    const stake = selectedChip === UNLIMITED_CHIP ? coinBalance : selectedChip;
-    if (stake > coinBalance) {
+    if (selectedChip > coinBalance) {
       setBetError(`Not enough Coins — you have ${formatCoins(coinBalance)}.`);
       fmAudio.reject();
       return;
@@ -224,7 +220,7 @@ export const FruitManorView: React.FC<FruitManorViewProps> = ({
     setBetError(null);
     setPlacing((p) => ({ ...p, [fruitId]: true }));
     const key = `fm-d-${round?.roundId}-${fruitId}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
-    const res = await engineRef.current?.placeBet(fruitId, stake, coinBalance, key, selectedChip === UNLIMITED_CHIP);
+    const res = await engineRef.current?.placeBet(fruitId, selectedChip, coinBalance, key);
     setPlacing((p) => {
       const next = { ...p };
       delete next[fruitId];
@@ -518,10 +514,10 @@ export const FruitManorView: React.FC<FruitManorViewProps> = ({
           {/* Chips + round stake + cancel */}
           <div className="[grid-area:chips] rounded-2xl border border-white/[0.08] bg-[#0B1F16]/85 px-2.5 py-1.5 lg:self-start">
             <div className="flex items-center justify-between gap-1.5 sm:justify-start sm:gap-2.5">
-              {[...CFG.chips, UNLIMITED_CHIP].map((c) => {
+              {CFG.chips.map((c) => {
                 const st = CHIP_STYLES[c];
                 const selected = selectedChip === c;
-                const affordable = c === UNLIMITED_CHIP ? true : coinBalance >= c;
+                const affordable = coinBalance >= c;
                 return (
                   <button
                     key={c}
@@ -531,7 +527,7 @@ export const FruitManorView: React.FC<FruitManorViewProps> = ({
                       fmAudio.chip();
                       setSelectedChip(c);
                     }}
-                    aria-label={`Select ${chipLabel(c)} chip (${c === UNLIMITED_CHIP ? 'all your Coins' : `${formatCoins(c)} coins`})`}
+                    aria-label={`Select ${formatCoins(c)} coin chip`}
                     aria-pressed={selected}
                     className={`fm-chip relative grid h-9 w-9 shrink-0 place-items-center rounded-full transition-all duration-150 sm:h-11 sm:w-11 ${
                       selected ? '-translate-y-1' : 'hover:-translate-y-0.5'

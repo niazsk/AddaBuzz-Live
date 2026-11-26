@@ -26,6 +26,8 @@ import {
   startLocalMediaCapture,
 } from '../../lib/mediaProvider';
 
+const DEFAULT_ROOM_TITLE = '🌟 Welcome to AddaBuzz Live — Adda, Chat & Fun! 🎉';
+
 interface GoLiveModalProps {
   open: boolean;
   onClose: () => void;
@@ -80,9 +82,6 @@ const ToggleRow: React.FC<ToggleRowProps> = ({
   </button>
 );
 
-const CONSENT_ERROR =
-  'Please accept the community guidelines and media consent before going live.';
-
 const SectionHeading: React.FC<{ step: string; title: string; trailing?: React.ReactNode }> = ({
   step,
   title,
@@ -112,15 +111,13 @@ export const GoLiveModal: React.FC<GoLiveModalProps> = ({
   const [board, setBoard] = useState<'VIDEO' | 'AUDIO'>('VIDEO');
   const [category, setCategory] = useState<Exclude<RoomCategory, 'All'>>('Music');
   const [seatCount, setSeatCount] = useState<number>(8);
-  const [title, setTitle] = useState('');
+  const [title, setTitle] = useState(DEFAULT_ROOM_TITLE);
   const [description, setDescription] = useState('');
   const [privacy, setPrivacy] = useState<'public' | 'followers'>('public');
   const [allowGuestRequests, setAllowGuestRequests] = useState(true);
   const [allowViewerComments, setAllowViewerComments] = useState(true);
   const [allowGifts, setAllowGifts] = useState(true);
   const [hostApproval, setHostApproval] = useState(true);
-  const [consent, setConsent] = useState(false);
-  const [consentAttention, setConsentAttention] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -144,8 +141,6 @@ export const GoLiveModal: React.FC<GoLiveModalProps> = ({
   const openRef = useRef(open);
   openRef.current = open;
   const startedModeRef = useRef<RoomMode | null>(null);
-  const consentRowRef = useRef<HTMLLabelElement | null>(null);
-  const consentInputRef = useRef<HTMLInputElement | null>(null);
 
   const effectiveMode: RoomMode =
     mode === 'VIDEO' ? 'VIDEO' : board === 'AUDIO' ? 'AUDIO' : 'MULTI_GUEST';
@@ -253,15 +248,13 @@ export const GoLiveModal: React.FC<GoLiveModalProps> = ({
     setBoard('VIDEO');
     setCategory('Music');
     setSeatCount(8);
-    setTitle('');
+    setTitle(DEFAULT_ROOM_TITLE);
     setDescription('');
     setPrivacy('public');
     setAllowGuestRequests(true);
     setAllowViewerComments(true);
     setAllowGifts(true);
     setHostApproval(true);
-    setConsent(false);
-    setConsentAttention(false);
     setFormError(null);
     setSubmitting(false);
     setDeviceNote(null);
@@ -379,23 +372,9 @@ export const GoLiveModal: React.FC<GoLiveModalProps> = ({
     void startPreview({ facing: nextFacing, cameraId: '' });
   };
 
-  const highlightConsent = () => {
-    // The error banner grows the sticky footer, so scroll after layout settles.
-    const scrollConsentIntoView = () =>
-      consentRowRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-    window.requestAnimationFrame(() => {
-      scrollConsentIntoView();
-      window.setTimeout(scrollConsentIntoView, 180);
-    });
-    consentInputRef.current?.focus({ preventScroll: true });
-    setConsentAttention(true);
-  };
-
   const validate = (): string | null => {
-    if (title.trim().length < 3) return 'Room title must be at least 3 characters.';
-    if (!consent) {
-      return CONSENT_ERROR;
-    }
+    const effectiveTitle = title.trim() || DEFAULT_ROOM_TITLE;
+    if (effectiveTitle.length < 3) return 'Room title must be at least 3 characters.';
     if (previewState === 'starting') {
       return 'Camera and microphone are still starting — wait a moment.';
     }
@@ -416,14 +395,14 @@ export const GoLiveModal: React.FC<GoLiveModalProps> = ({
     const error = validate();
     if (error) {
       setFormError(error);
-      if (error === CONSENT_ERROR) highlightConsent();
       return;
     }
     setFormError(null);
     setSubmitting(true);
+    const effectiveTitle = title.trim() || DEFAULT_ROOM_TITLE;
     const capacity = mode === 'MULTI_GUEST' ? seatCount : 8;
     const payload: CreateLiveRoomPayload = {
-      title: title.trim(),
+      title: effectiveTitle,
       description:
         description.trim() ||
         (effectiveMode === 'AUDIO'
@@ -934,30 +913,6 @@ export const GoLiveModal: React.FC<GoLiveModalProps> = ({
                       className="mt-1.5 w-full min-h-[64px] resize-none px-3.5 py-2.5 rounded-xl bg-black/35 border border-white/[0.09] text-sm text-white placeholder:text-slate-500 transition-colors focus:border-cyan-400/60 focus:ring-2 focus:ring-cyan-400/15 focus:outline-none"
                     />
                   </label>
-
-                  <div className="space-y-1.5">
-                    <span className="text-[11px] font-medium text-slate-300">Category</span>
-                    <div className="-mx-1 flex flex-wrap gap-1.5 px-1">
-                      {selectableCategories.map((cat) => {
-                        const active = category === cat;
-                        return (
-                          <button
-                            key={cat}
-                            type="button"
-                            onClick={() => setCategory(cat)}
-                            aria-pressed={active}
-                            className={`h-8 px-3 rounded-full border text-[11px] whitespace-nowrap transition-all duration-200 ${
-                              active
-                                ? 'bg-white text-[#08090E] border-white font-semibold shadow-[0_8px_20px_-14px_rgba(255,255,255,0.7)]'
-                                : 'bg-white/[0.02] border-white/[0.08] text-slate-300 hover:text-white hover:border-white/25'
-                            }`}
-                          >
-                            {cat}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
                 </div>
 
                 {mode === 'MULTI_GUEST' && (
@@ -1101,48 +1056,6 @@ export const GoLiveModal: React.FC<GoLiveModalProps> = ({
                   </div>
                 </div>
 
-                <label
-                  ref={consentRowRef}
-                  className={`flex items-start gap-3 rounded-xl border px-3.5 py-3 cursor-pointer transition-colors ${
-                    consent
-                      ? 'border-emerald-400/30 bg-emerald-500/[0.06]'
-                      : consentAttention
-                      ? 'border-rose-400/60 bg-rose-500/[0.07] ring-2 ring-rose-400/40'
-                      : 'border-white/[0.08] bg-white/[0.02] hover:border-white/15'
-                  }`}
-                >
-                  <input
-                    ref={consentInputRef}
-                    type="checkbox"
-                    checked={consent}
-                    onChange={(e) => {
-                      const next = e.target.checked;
-                      setConsent(next);
-                      setConsentAttention(false);
-                      if (next) setFormError(null);
-                    }}
-                    className="peer sr-only"
-                  />
-                  <span
-                    aria-hidden="true"
-                    className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-emerald-400/50 ${
-                      consent
-                        ? 'bg-gradient-to-br from-emerald-400 to-emerald-600 border-emerald-300 text-white'
-                        : 'border-white/25 text-transparent'
-                    }`}
-                  >
-                    <Check className="w-3.5 h-3.5" />
-                  </span>
-                  <span className="flex-1 text-[11px] text-slate-300 leading-relaxed">
-                    I grant microphone{wantsVideo ? ' and camera' : ''} permission for live streaming
-                    and agree to AddaBuzz Live community safety guidelines.
-                  </span>
-                  {!consent && (
-                    <span className="mt-0.5 shrink-0 rounded-full border border-rose-400/25 bg-rose-500/10 px-1.5 py-0.5 text-[8.5px] font-bold uppercase tracking-[0.12em] text-rose-300">
-                      Required
-                    </span>
-                  )}
-                </label>
               </div>
             </div>
           </div>

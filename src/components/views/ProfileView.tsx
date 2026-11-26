@@ -111,7 +111,6 @@ const COMMERCE_TILES: Tile[] = [
   { id: 'wallet', label: 'Wallet', icon: Wallet, tone: 'amber', section: 'wallet' },
   { id: 'store', label: 'Store', icon: ShoppingBag, tone: 'sky', section: 'store' },
   { id: 'deposit', label: 'Deposit', icon: CreditCard, tone: 'cyan', section: 'deposit' },
-  { id: 'salary', label: 'Salary', icon: Gem, tone: 'fuchsia', section: 'salary' },
 ];
 
 const AGENT_TILES: Tile[] = [
@@ -694,7 +693,32 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       {!isBdAgent && (
         <section className="space-y-2.5">
           {renderSectionHeading('Wallet & Store', 'from-amber-300 to-orange-500')}
-          <div className="grid grid-cols-4 gap-2">{COMMERCE_TILES.map(renderTile)}</div>
+          <div className="grid grid-cols-4 gap-2">
+            {COMMERCE_TILES.map(renderTile)}
+            {currentUser.accountType === 'USER' && (
+              <button
+                key="my-agent"
+                type="button"
+                onClick={() => onOpenSection('my-agent')}
+                className="group flex flex-col items-center gap-2 rounded-2xl border border-white/[0.055] bg-white/[0.018] px-1 py-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-white/[0.14] hover:bg-white/[0.05] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60"
+              >
+                <span
+                  className="relative flex h-10 w-10 items-center justify-center rounded-[13px] bg-gradient-to-br from-fuchsia-300 via-pink-500 to-rose-600 ring-1 ring-white/25 shadow-lg shadow-fuchsia-500/40 transition-transform duration-200 group-hover:scale-110"
+                >
+                  <span
+                    aria-hidden="true"
+                    className="absolute inset-0 rounded-[13px] bg-gradient-to-b from-white/35 via-white/0 to-black/15"
+                  />
+                  <Users
+                    className="relative h-[18px] w-[18px] text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]"
+                  />
+                </span>
+                <span className="text-center text-[10.5px] font-medium leading-tight text-slate-300 transition-colors group-hover:text-white">
+                  My Agent
+                </span>
+              </button>
+            )}
+          </div>
         </section>
       )}
 

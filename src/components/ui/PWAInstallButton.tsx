@@ -12,44 +12,71 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
   const { isInstallable, isInstalled, isIOS, install } = usePWAInstall();
   const [showIOSGuide, setShowIOSGuide] = useState(false);
 
+  // Direct APK download button for Android / Web users
+  const apkDownloadButton = (
+    <a
+      href="/addabuzz-live.apk"
+      download="AddaBuzzLive.apk"
+      className={
+        compact
+          ? 'inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-600/30 to-teal-600/30 border border-emerald-400/40 px-2.5 py-1.5 text-xs font-semibold text-emerald-300 hover:from-emerald-600/40 hover:to-teal-600/40 transition-all shadow-sm'
+          : 'w-full h-10 px-3 rounded-xl bg-gradient-to-r from-emerald-600/20 to-teal-600/20 border border-emerald-400/35 hover:from-emerald-600/30 hover:to-teal-600/30 text-emerald-200 text-xs font-semibold inline-flex items-center justify-center gap-2 transition-all shadow-sm'
+      }
+      title="Download Android APK (AddaBuzz Live)"
+    >
+      <Download className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
+      <span>{compact ? 'Download APK' : 'Download Android APK'}</span>
+    </a>
+  );
+
   if (isInstalled) {
-    return null;
+    return (
+      <div className={compact ? 'inline-block' : 'w-full'}>
+        {apkDownloadButton}
+      </div>
+    );
   }
 
   if (isInstallable) {
     return (
-      <button
-        type="button"
-        onClick={() => {
-          void install();
-        }}
-        className={
-          compact
-            ? 'inline-flex items-center gap-1.5 rounded-xl bg-sky-500/15 border border-sky-400/30 px-2.5 py-1.5 text-xs font-medium text-sky-300 hover:bg-sky-500/25 transition-colors'
-            : 'w-full h-10 px-3 rounded-xl bg-sky-500/12 border border-sky-400/25 hover:bg-sky-500/20 text-sky-200 text-xs font-medium inline-flex items-center justify-center gap-2 transition-colors'
-        }
-      >
-        <Download className="w-3.5 h-3.5 shrink-0" />
-        <span>{compact ? 'Install' : 'Install AddaBuzz App'}</span>
-      </button>
+      <div className={compact ? 'flex items-center gap-1.5' : 'space-y-2 w-full'}>
+        <button
+          type="button"
+          onClick={() => {
+            void install();
+          }}
+          className={
+            compact
+              ? 'inline-flex items-center gap-1.5 rounded-xl bg-sky-500/15 border border-sky-400/30 px-2.5 py-1.5 text-xs font-medium text-sky-300 hover:bg-sky-500/25 transition-colors'
+              : 'w-full h-10 px-3 rounded-xl bg-sky-500/12 border border-sky-400/25 hover:bg-sky-500/20 text-sky-200 text-xs font-medium inline-flex items-center justify-center gap-2 transition-colors'
+          }
+        >
+          <Download className="w-3.5 h-3.5 shrink-0" />
+          <span>{compact ? 'Install' : 'Install AddaBuzz App'}</span>
+        </button>
+        {apkDownloadButton}
+      </div>
     );
   }
 
   if (isIOS) {
     return (
       <>
-        <button
-          type="button"
-          onClick={() => setShowIOSGuide(true)}
-          className={
-            compact
-              ? 'inline-flex items-center gap-1.5 rounded-xl bg-white/[0.06] border border-white/10 px-2.5 py-1.5 text-xs font-medium text-slate-200 hover:bg-white/[0.12] transition-colors'
-              : 'w-full h-10 px-3 rounded-xl bg-white/[0.05] border border-white/[0.09] hover:bg-white/[0.1] text-slate-200 text-xs font-medium inline-flex items-center justify-center gap-2 transition-colors'
-          }
-        >
-          <Smartphone className="w-3.5 h-3.5 shrink-0 text-sky-400" />
-          <span>{compact ? 'Install' : 'Add to Home Screen'}</span>
-        </button>
+        <div className={compact ? 'flex items-center gap-1.5' : 'space-y-2 w-full'}>
+          <button
+            type="button"
+            onClick={() => setShowIOSGuide(true)}
+            className={
+              compact
+                ? 'inline-flex items-center gap-1.5 rounded-xl bg-white/[0.06] border border-white/10 px-2.5 py-1.5 text-xs font-medium text-slate-200 hover:bg-white/[0.12] transition-colors'
+                : 'w-full h-10 px-3 rounded-xl bg-white/[0.05] border border-white/[0.09] hover:bg-white/[0.1] text-slate-200 text-xs font-medium inline-flex items-center justify-center gap-2 transition-colors'
+            }
+          >
+            <Smartphone className="w-3.5 h-3.5 shrink-0 text-sky-400" />
+            <span>{compact ? 'Install' : 'Add to Home Screen'}</span>
+          </button>
+          {apkDownloadButton}
+        </div>
 
         {showIOSGuide && (
           <div
@@ -103,5 +130,9 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
     );
   }
 
-  return null;
+  return (
+    <div className={compact ? 'inline-block' : 'w-full'}>
+      {apkDownloadButton}
+    </div>
+  );
 };

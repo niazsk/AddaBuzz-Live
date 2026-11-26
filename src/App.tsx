@@ -143,6 +143,7 @@ import { InviteAgentView } from './components/views/InviteAgentView';
 import { StoreView } from './components/views/StoreView';
 import { DepositView } from './components/views/DepositView';
 import { CoinsConvertView } from './components/views/CoinsConvertView';
+import { MyAgentView } from './components/views/MyAgentView';
 import { SalaryView } from './components/views/SalaryView';
 import { RewardView } from './components/views/RewardView';
 import { HostRewardView } from './components/views/HostRewardView';
@@ -1924,6 +1925,23 @@ export default function App() {
         </div>
       )}
 
+      {activeSection === 'admin-panel' && isAdminUser ? (
+        <AdminPanelView
+          currentUser={currentUser}
+          rooms={rooms}
+          reports={reports}
+          promotions={promotions}
+          onOpenUserProfile={(u) => setInspectedUser(u)}
+          onWatchRoom={(roomId) => setActiveRoomId(roomId)}
+          onResolveReport={async (reportId) => {
+            await resolveReportDoc(reportId);
+          }}
+          onToast={pushToast}
+          onClose={handleCloseAdmin}
+          isOffline={isOffline}
+        />
+      ) : (
+      <>
       <MobileTopBar
         activeSection={activeSection}
         onSelectSection={setActiveSection}
@@ -2224,7 +2242,16 @@ export default function App() {
             />
           )}
 
-          {activeSection === 'my-agent' && (
+          {activeSection === 'my-agent' && currentUser && currentUser.accountType === 'USER' && (
+            <MyAgentView
+              currentUser={currentUser}
+              users={users}
+              onBack={() => setActiveSection('profile')}
+              onToast={pushToast}
+            />
+          )}
+
+          {activeSection === 'my-agent' && currentUser && currentUser.accountType !== 'USER' && (
             <SuperAgencyManagementView
               type="AGENT"
               currentUser={currentUser}
@@ -2328,7 +2355,7 @@ export default function App() {
             />
           )}
 
-          {(activeSection === 'salary' || activeSection === 'withdraw') && (
+          {activeSection === 'withdraw' && (
             <SalaryView
               currentUser={currentUser}
               diamondBalance={diamondBalance}
@@ -2495,6 +2522,8 @@ export default function App() {
         unreadMessagesCount={unreadMessagesCount}
         isOfflineSimulated={isOffline}
       />
+      </>
+      )}
 
       {/* Modals & Drawers */}
       <GoLiveModal

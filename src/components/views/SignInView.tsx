@@ -157,16 +157,44 @@ export const SignInView: React.FC<SignInViewProps> = ({
     e.preventDefault();
     setError(null);
     setInfoMsg(null);
-    if (!email.trim() || !password) {
+    const cleanEmail = email.trim();
+    if (!cleanEmail || !password) {
       setError('Please enter both your email address and password.');
       return;
     }
     setBusy(true);
     try {
       if (authTab === 'signin') {
-        await onEmailSignIn(email, password);
+        try {
+          await onEmailSignIn(cleanEmail, password);
+        } catch (signInErr) {
+          const errString = String(signInErr);
+          // If the account does not exist in Firebase Auth yet, offer seamless auto-registration
+          if (
+            errString.includes('auth/user-not-found') ||
+            errString.includes('auth/invalid-credential')
+          ) {
+            // Check if password meets minimal length for registration
+            if (password.length >= 6) {
+              try {
+                await onEmailRegister(cleanEmail, password, registerName || cleanEmail.split('@')[0]);
+                setInfoMsg(
+                  'Account created! A verification email was sent to your inbox. Click the link in that email, then click Refresh Status.'
+                );
+                return;
+              } catch (regErr) {
+                // If it already existed or had another issue, throw the original sign-in error
+                const regStr = String(regErr);
+                if (!regStr.includes('auth/email-already-in-use')) {
+                  throw regErr;
+                }
+              }
+            }
+          }
+          throw signInErr;
+        }
       } else {
-        await onEmailRegister(email, password, registerName);
+        await onEmailRegister(cleanEmail, password, registerName);
         setInfoMsg(
           'Account created! A verification email was sent to your inbox. Click the link in that email, then click Refresh Status.'
         );
@@ -294,22 +322,21 @@ export const SignInView: React.FC<SignInViewProps> = ({
 
           <div className="p-6 sm:p-7 space-y-5">
             {error && (
-              <div className="rounded-xl bg-rose-500/15 border border-rose-500/30 px-4 py-3 text-xs text-rose-200 leading-relaxed space-y-2">
-                <p>{error}</p>
-                {authTab === 'signin' &&
-                  error.includes('Invalid email or password') && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAuthTab('register');
-                        setError(null);
-                      }}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white font-semibold transition-colors"
-                    >
-                      <UserPlus className="w-3.5 h-3.5" />
-                      <span>Create account with {email || 'this email'} →</span>
-                    </button>
-                  )}
+              <div className="rounded-2xl bg-rose-500/15 border border-rose-500/35 p-4 text-xs text-rose-200 leading-relaxed space-y-3 shadow-lg shadow-rose-950/30">
+                <p className="font-medium text-rose-100">{error}</p>
+                {authTab === 'signin' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthTab('register');
+                      setError(null);
+                    }}
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-bold text-xs shadow-md shadow-violet-900/30 transition-all active:scale-[0.98]"
+                  >
+                    <UserPlus className="w-4 h-4 text-violet-200" />
+                    <span>Create account with {email ? email.trim() : 'this email'} now →</span>
+                  </button>
+                )}
               </div>
             )}
             {infoMsg && (
