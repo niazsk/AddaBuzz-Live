@@ -252,10 +252,6 @@ export const SignInView: React.FC<SignInViewProps> = ({
 
             <div className="relative flex items-center justify-between">
               <BrandLogo />
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-500/12 border border-rose-500/25 px-2.5 py-1 text-[10px] font-bold tracking-wider text-rose-200">
-                <span className="w-1.5 h-1.5 rounded-full bg-rose-400 live-dot" />
-                LIVE NOW
-              </span>
             </div>
 
             <div className="relative space-y-5">
@@ -292,12 +288,8 @@ export const SignInView: React.FC<SignInViewProps> = ({
           </aside>
 
           <div className="relative bg-[#0B0E16]/80 backdrop-blur-sm">
-            <div className="px-6 py-5 border-b border-white/[0.08] flex items-center justify-between lg:hidden">
+            <div className="px-6 py-5 border-b border-white/[0.08] flex items-center lg:hidden">
               <BrandLogo />
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-500/12 border border-rose-500/25 px-2 py-0.5 text-[10px] font-bold tracking-wider text-rose-200">
-                <span className="w-1.5 h-1.5 rounded-full bg-rose-400 live-dot" />
-                LIVE
-              </span>
             </div>
 
           <div className="p-6 sm:p-7 space-y-5">
@@ -570,14 +562,14 @@ export const SignInView: React.FC<SignInViewProps> = ({
             ) : (
               <>
                 <div className="space-y-1.5">
-                  <h1 className="font-display text-xl font-bold text-gradient">
+                  <h1 className="font-display text-2xl font-bold leading-tight text-gradient">
                     {authTab === 'signin'
-                      ? 'Sign in to AddaBuzz Live'
+                      ? 'Welcome back to AddaBuzz'
                       : 'Create your AddaBuzz account'}
                   </h1>
                   <p className="text-xs text-slate-400">
                     {authTab === 'signin'
-                      ? 'Welcome back — sign in to enter the live feed.'
+                      ? 'Sign in to keep streaming, chatting and earning.'
                       : 'Join the community and start earning today.'}
                   </p>
                 </div>
@@ -744,6 +736,11 @@ export const SignInView: React.FC<SignInViewProps> = ({
                   <LogIn className="w-4 h-4" />
                   <span>Continue with Google</span>
                 </button>
+
+                <p className="flex items-center justify-center gap-1.5 pt-0.5 text-[11px] text-slate-500">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400/80" />
+                  <span>Secure sign-in · Your data stays private</span>
+                </p>
               </>
             )}
           </div>

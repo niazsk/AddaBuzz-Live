@@ -11,6 +11,9 @@ export default defineConfig(() => {
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
+        // Registered manually in main.tsx so the bundled APK (appassets
+        // origin) can skip SW registration it cannot support.
+        injectRegister: false,
         includeAssets: [
           'icon.svg',
           'apple-touch-icon.png',

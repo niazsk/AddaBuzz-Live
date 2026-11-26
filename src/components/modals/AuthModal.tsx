@@ -417,10 +417,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <div className="space-y-4">
               <div>
                 <h2 id="auth-modal-title" className="font-display text-lg font-bold text-white">
-                  Sign in to AddaBuzz Live
+                  Welcome back to AddaBuzz
                 </h2>
                 <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                  Sign in with Email & Password or Google to host live rooms, claim seats, chat, and manage roles.
+                  Sign in with Email & Password or Google to host rooms, claim seats, chat, and manage roles.
                 </p>
               </div>
 
