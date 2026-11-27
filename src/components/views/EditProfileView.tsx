@@ -225,12 +225,20 @@ export const EditProfileView: React.FC<EditProfileViewProps> = ({
           <h1 className="font-display text-xl font-bold text-white">Edit Profile</h1>
           <p className="text-[11px] text-slate-400">Photo, identity and preferences</p>
         </div>
+        <button
+          type="submit"
+          disabled={saving || isOffline || photoBusy !== null}
+          className="ml-auto h-9 px-3.5 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-xs font-semibold text-white inline-flex items-center justify-center gap-1.5 shrink-0 transition-colors"
+        >
+          {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+          <span>{saving ? 'Updating…' : 'Update'}</span>
+        </button>
       </div>
 
       {/* Photos */}
       <section className="overflow-hidden rounded-3xl bg-[#111420] border border-white/[0.08]">
         <div
-          className="relative h-36 w-full"
+          className="theme-dark-stage relative h-36 w-full"
           style={{
             background: coverSrc
               ? `center / cover no-repeat url(${coverSrc})`
@@ -276,8 +284,8 @@ export const EditProfileView: React.FC<EditProfileViewProps> = ({
               )}
             </button>
           </div>
-          <p className="text-[10px] text-slate-500 text-right pb-1 max-w-[46%] leading-relaxed">
-            Photos are compressed on this device and saved instantly on Save Changes.
+          <p className="self-start pt-10 text-[10px] text-slate-500 text-right max-w-[46%] leading-relaxed">
+            Photos are compressed on this device and uploaded when you tap Update.
           </p>
         </div>
       </section>
@@ -463,7 +471,7 @@ export const EditProfileView: React.FC<EditProfileViewProps> = ({
           className="flex-[2] h-11 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-sm font-semibold text-white inline-flex items-center justify-center gap-2"
         >
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-          <span>{saving ? 'Saving…' : 'Save Changes'}</span>
+          <span>{saving ? 'Updating…' : 'Update Profile'}</span>
         </button>
       </div>
     </form>

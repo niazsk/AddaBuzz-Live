@@ -561,7 +561,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     {(currentUser.visitorsCount ?? 0).toLocaleString()}
                   </p>
                   <p className="mt-0.5 text-[9px] font-medium uppercase tracking-[0.16em] text-slate-400">
-                    Visitor
+                    Visitors
                   </p>
                 </button>
               </div>

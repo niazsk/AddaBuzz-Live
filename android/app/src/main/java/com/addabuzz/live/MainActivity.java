@@ -2,13 +2,17 @@ package com.addabuzz.live;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
+import android.content.ActivityNotFoundException;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.Window;
 import android.webkit.PermissionRequest;
+import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
@@ -22,8 +26,10 @@ public class MainActivity extends android.app.Activity {
 
     private static final String APP_URL = "https://appassets.androidplatform.net/index.html";
     private static final String THEME_BG = "#08090E";
+    private static final int REQUEST_FILE_CHOOSER = 43;
 
     private WebView web;
+    private ValueCallback<Uri[]> pendingFileChooser;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -56,7 +62,7 @@ public class MainActivity extends android.app.Activity {
         settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         settings.setAllowFileAccess(false);
-        settings.setAllowContentAccess(false);
+        settings.setAllowContentAccess(true);
         settings.setUserAgentString(settings.getUserAgentString() + " AddaBuzzApp/1.0.0");
 
         final WebViewAssetLoader loader = new WebViewAssetLoader.Builder()
@@ -75,6 +81,31 @@ public class MainActivity extends android.app.Activity {
             public void onPermissionRequest(final PermissionRequest request) {
                 request.grant(request.getResources());
             }
+
+            @Override
+            public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> filePathCallback,
+                                             FileChooserParams fileChooserParams) {
+                if (pendingFileChooser != null) {
+                    pendingFileChooser.onReceiveValue(null);
+                }
+                pendingFileChooser = filePathCallback;
+
+                Intent intent;
+                try {
+                    intent = fileChooserParams.createIntent();
+                } catch (Exception e) {
+                    intent = new Intent(Intent.ACTION_GET_CONTENT);
+                    intent.addCategory(Intent.CATEGORY_OPENABLE);
+                    intent.setType("*/*");
+                }
+                try {
+                    startActivityForResult(intent, REQUEST_FILE_CHOOSER);
+                    return true;
+                } catch (ActivityNotFoundException e) {
+                    pendingFileChooser = null;
+                    return false;
+                }
+            }
         });
 
         setContentView(web);
@@ -84,6 +115,30 @@ public class MainActivity extends android.app.Activity {
         } else {
             web.restoreState(savedInstanceState);
         }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == REQUEST_FILE_CHOOSER) {
+            if (pendingFileChooser != null) {
+                Uri[] results = null;
+                if (resultCode == RESULT_OK && data != null) {
+                    if (data.getClipData() != null) {
+                        int count = data.getClipData().getItemCount();
+                        results = new Uri[count];
+                        for (int i = 0; i < count; i++) {
+                            results[i] = data.getClipData().getItemAt(i).getUri();
+                        }
+                    } else if (data.getData() != null) {
+                        results = new Uri[]{data.getData()};
+                    }
+                }
+                pendingFileChooser.onReceiveValue(results);
+                pendingFileChooser = null;
+            }
+            return;
+        }
+        super.onActivityResult(requestCode, resultCode, data);
     }
 
     @Override
@@ -105,6 +160,10 @@ public class MainActivity extends android.app.Activity {
 
     @Override
     protected void onDestroy() {
+        if (pendingFileChooser != null) {
+            pendingFileChooser.onReceiveValue(null);
+            pendingFileChooser = null;
+        }
         if (web != null) {
             web.destroy();
             web = null;

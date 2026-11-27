@@ -861,6 +861,27 @@ html.light .lucide-sparkles:not(.theme-dark-stage *) {
   color: #8b5cf6 !important;
 }
 
+/* Icons on vivid gradient chips and violet badges keep their original white look */
+html.light
+  :is([class*="bg-gradient-to"], .bg-violet-600)
+  :is(
+    .lucide-camera,
+    .lucide-video,
+    .lucide-mic,
+    .lucide-coins,
+    .lucide-gem,
+    .lucide-bell,
+    .lucide-gift,
+    .lucide-heart,
+    .lucide-trophy,
+    .lucide-crown,
+    .lucide-flame,
+    .lucide-log-out,
+    .lucide-sparkles
+  ) {
+  color: #ffffff !important;
+}
+
 /* ---------------------------------------------------------------------------
    12. Immersive stages — keep original dark UI, just soften chrome edges
    ------------------------------------------------------------------------- */
