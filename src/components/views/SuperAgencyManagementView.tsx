@@ -21,6 +21,12 @@ import {
   addAgencyMemberDoc,
   subscribeAgencyMembers,
   subscribeAgencyCommissionStories,
+  fetchAgencyRewardShareStatus,
+  settleAgencyDailyRewardShares,
+  subscribeAgencyRewardSharePayouts,
+  type AgencyRewardSharePayout,
+  type AgencyRewardShareStatus,
+  type AgencyShareRole,
 } from '../../lib/firestoreService';
 
 interface SuperAgencyManagementViewProps {
@@ -56,6 +62,79 @@ export const SuperAgencyManagementView: React.FC<SuperAgencyManagementViewProps>
   // Add Member State
   const [targetPlatformId, setTargetPlatformId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // 15-day deposit qualified reward sharing
+  const shareRole: AgencyShareRole | null =
+    currentUser?.accountType === 'SUPER_AGENT'
+      ? 'SUPER_AGENT'
+      : currentUser?.accountType === 'AGENT'
+        ? 'AGENT'
+        : null;
+  const [shareStatus, setShareStatus] = useState<AgencyRewardShareStatus | null>(null);
+  const [sharePayouts, setSharePayouts] = useState<AgencyRewardSharePayout[]>([]);
+  const [isSettling, setIsSettling] = useState(false);
+  const [lastSettlement, setLastSettlement] = useState<{
+    coins: number;
+    diamonds: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!currentUser?.uid || !shareRole) {
+      setShareStatus(null);
+      setSharePayouts([]);
+      return;
+    }
+    let cancelled = false;
+    fetchAgencyRewardShareStatus(currentUser)
+      .then((status) => {
+        if (!cancelled) setShareStatus(status);
+      })
+      .catch(() => {});
+    const unsubPayouts = subscribeAgencyRewardSharePayouts(currentUser.uid, (list) => {
+      if (!cancelled) setSharePayouts(list);
+    });
+    return () => {
+      cancelled = true;
+      unsubPayouts();
+    };
+  }, [currentUser?.uid, currentUser?.accountType, shareRole]);
+
+  const handleSettleShares = async () => {
+    if (!currentUser || isSettling || isOffline) return;
+    setIsSettling(true);
+    try {
+      const result = await settleAgencyDailyRewardShares(currentUser);
+      if (result.payoutCount > 0) {
+        setLastSettlement({ coins: result.paidCoins, diamonds: result.paidDiamonds });
+        onShowToast(
+          'Reward Shares Settled',
+          `${result.payoutCount} payout(s): +${result.paidCoins.toLocaleString()} coins, +${result.paidDiamonds.toLocaleString()} diamonds.`,
+          'success'
+        );
+      } else {
+        onShowToast(
+          'Nothing to Settle',
+          'No completed day had member daily rewards inside an active 15-day deposit window.',
+          'info'
+        );
+      }
+      const status = await fetchAgencyRewardShareStatus(currentUser);
+      setShareStatus(status);
+    } catch (err) {
+      onShowToast(
+        'Settlement Failed',
+        err instanceof Error ? err.message : 'Could not settle reward shares.',
+        'error'
+      );
+    } finally {
+      setIsSettling(false);
+    }
+  };
+
+  const windowDate = (ms: number) =>
+    ms
+      ? new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+      : '—';
 
   // Subscribe to real-time members and stories
   useEffect(() => {
@@ -195,6 +274,78 @@ export const SuperAgencyManagementView: React.FC<SuperAgencyManagementViewProps>
           <p className="text-[11px] text-slate-400 mt-0.5">Under your Super Agency</p>
         </div>
       </div>
+
+      {/* 15-Day Deposit Reward Sharing */}
+      {shareRole && shareStatus && (
+        <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-900/25 to-[#121522] border border-emerald-500/20 space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-emerald-400" />
+              <h2 className="text-xs font-semibold text-white">Daily Reward Sharing (10%)</h2>
+            </div>
+            <button
+              type="button"
+              onClick={handleSettleShares}
+              disabled={isSettling || isOffline || !shareStatus.qualifies}
+              className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-[11px] font-semibold text-white transition-colors"
+            >
+              {isSettling ? 'Settling…' : 'Settle Now'}
+            </button>
+          </div>
+
+          {shareStatus.qualifies ? (
+            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px] text-slate-300">
+              <span>
+                Status: <span className="font-semibold text-emerald-400">Active</span>
+              </span>
+              <span>
+                Validity: <span className="font-semibold text-white">{shareStatus.daysRemaining} day(s) left</span>
+              </span>
+              <span>
+                Window: {windowDate(shareStatus.windowStartMs)} → {windowDate(shareStatus.windowEndMs)}
+              </span>
+              <span>
+                Threshold: {shareStatus.threshold.toLocaleString()} coins
+              </span>
+            </div>
+          ) : (
+            <p className="text-[11px] text-slate-400">
+              Deposit {shareStatus.threshold.toLocaleString()} coins for 15 days to earn 10% of
+              your {shareRole === 'SUPER_AGENT' ? "Agents' and Hosts'" : "Hosts'"} daily rewards.
+              Sharing stops when the 15-day validity window expires.
+            </p>
+          )}
+
+          {lastSettlement && (
+            <p className="text-[11px] text-emerald-300">
+              Last settle: +{lastSettlement.coins.toLocaleString()} coins, +
+              {lastSettlement.diamonds.toLocaleString()} diamonds
+            </p>
+          )}
+
+          {sharePayouts.length > 0 && (
+            <div className="space-y-1.5 pt-1 border-t border-white/[0.06]">
+              <p className="text-[10px] uppercase tracking-wider text-slate-500">Recent Shares</p>
+              {sharePayouts.slice(0, 5).map((p) => (
+                <div
+                  key={p.shareId}
+                  className="flex items-center justify-between gap-2 text-[11px]"
+                >
+                  <span className="text-slate-300 truncate">
+                    @{p.sourceUsername} · {p.sourceRole} · {p.day} · 10% of{' '}
+                    {(p.baseCoin + p.baseDiamond).toLocaleString()}
+                  </span>
+                  <span className="font-mono font-semibold text-emerald-400 shrink-0">
+                    {p.shareCoin > 0 ? `+${p.shareCoin.toLocaleString()} 💰` : ''}
+                    {p.shareCoin > 0 && p.shareDiamond > 0 ? ' ' : ''}
+                    {p.shareDiamond > 0 ? `+${p.shareDiamond.toLocaleString()} 💎` : ''}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {activeTab === 'MEMBERS' ? (
         <>

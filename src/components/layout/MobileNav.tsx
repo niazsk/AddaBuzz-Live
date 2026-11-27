@@ -10,6 +10,7 @@ import {
 import { AppSection } from '../../types/app';
 import { BrandLogo } from '../ui/BrandLogo';
 import { PWAInstallButton } from '../ui/PWAInstallButton';
+import { ThemeToggle } from '../ui/ThemeToggle';
 
 interface MobileNavProps {
   activeSection: AppSection;
@@ -35,6 +36,7 @@ export const MobileTopBar: React.FC<MobileNavProps> = ({
     <header className="lg:hidden sticky top-0 z-30 h-13 px-4 flex items-center justify-between bg-[#08090E]/85 backdrop-blur-xl border-b border-white/[0.07] shadow-[0_16px_40px_-32px_rgba(56,189,248,0.7)]">
       <BrandLogo />
       <div className="flex items-center gap-1.5">
+        <ThemeToggle compact />
         <PWAInstallButton compact />
         {!isSignedIn && (
           <button

@@ -56,6 +56,7 @@ import {
   sendLuckyGiftTransaction,
   sendPasswordReset,
   sendVirtualGiftTransaction,
+  settleAgencyDailyRewardShares,
   transferCoins,
   signInWithEmailPassword,
   signInWithGooglePopup,
@@ -449,6 +450,36 @@ export default function App() {
       unsubPresence();
     };
   }, [currentUser?.uid]);
+
+  // 15-day deposit qualified agency reward shares: settle completed days once
+  // per session for Super Agents and Agents. Deterministic per-day share docs
+  // make repeated runs (or a second tab) no-ops.
+  useEffect(() => {
+    if (!currentUser || isOffline) return;
+    if (currentUser.accountType !== 'SUPER_AGENT' && currentUser.accountType !== 'AGENT') {
+      return;
+    }
+    let cancelled = false;
+    settleAgencyDailyRewardShares(currentUser)
+      .then((result) => {
+        if (cancelled || result.payoutCount === 0) return;
+        const parts: string[] = [];
+        if (result.paidCoins > 0) parts.push(`+${result.paidCoins.toLocaleString()} Coins`);
+        if (result.paidDiamonds > 0) parts.push(`+${result.paidDiamonds.toLocaleString()} Diamonds`);
+        pushToast(
+          'Agency Reward Shares Credited',
+          `${parts.join(' • ')} from ${result.payoutCount} member reward share${
+            result.payoutCount === 1 ? '' : 's'
+          }.`,
+          'success'
+        );
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser?.uid, currentUser?.accountType, isOffline]);
 
   // Ledger window re-reads on every transaction, so attach it only while a
   // money view is open instead of for the whole signed-in session.
@@ -1098,7 +1129,9 @@ export default function App() {
     const me = requireSignedIn();
     if (!me) return;
     try {
-      const result = await requestRoomSeatDoc(roomId, me, seatNumber);
+      const result = await requestRoomSeatDoc(roomId, me, seatNumber, {
+        isAdmin: isAdminUser,
+      });
       if (result === 'joined') {
         pushToast(`You joined Seat ${seatNumber}`, 'Your camera and mic are ready to publish.', 'success');
       } else {
@@ -1121,8 +1154,20 @@ export default function App() {
     roomId: string,
     request: JoinRequest
   ) => {
+    if (!currentUser) return;
+    if (request.uid === currentUser.uid) {
+      pushToast(
+        'Not allowed',
+        'You cannot approve your own seat request.',
+        'warning'
+      );
+      return;
+    }
     try {
-      const assignedSeat = await approveJoinRequestDoc(roomId, request);
+      const assignedSeat = await approveJoinRequestDoc(roomId, request, {
+        uid: currentUser.uid,
+        isAdmin: isAdminUser,
+      });
       pushToast(
         `Approved @${request.username}`,
         `Assigned Seat ${assignedSeat} transactionally.`,
@@ -1141,8 +1186,12 @@ export default function App() {
     roomId: string,
     request: JoinRequest
   ) => {
+    if (!currentUser) return;
     try {
-      await rejectJoinRequestDoc(roomId, request);
+      await rejectJoinRequestDoc(roomId, request, {
+        uid: currentUser.uid,
+        isAdmin: isAdminUser,
+      });
       pushToast('Join request declined');
     } catch (err) {
       pushToast(

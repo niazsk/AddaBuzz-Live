@@ -14,6 +14,7 @@ import { AppSection, UserProfile } from '../../types/app';
 import { BrandLogo } from '../ui/BrandLogo';
 import { Avatar } from '../ui/Avatar';
 import { PWAInstallButton } from '../ui/PWAInstallButton';
+import { ThemeToggle } from '../ui/ThemeToggle';
 
 interface SidebarNavProps {
   activeSection: AppSection;
@@ -185,6 +186,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
       </div>
 
       <div className="space-y-3 pt-4 border-t border-white/[0.07]">
+        <ThemeToggle />
         <PWAInstallButton />
         {currentUser ? (
           <div className="flex items-center justify-between gap-2.5 px-2 py-2 rounded-xl bg-gradient-to-r from-white/[0.05] to-white/[0.02] border border-white/[0.07] hover:border-white/15 transition-colors">

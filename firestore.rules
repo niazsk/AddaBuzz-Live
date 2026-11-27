@@ -127,7 +127,8 @@ service cloud.firestore {
           'gender', 'accountType', 'avatarColor', 'coverGradient',
           'avatarUrl', 'coverUrl',
           'followersCount', 'followingCount', 'visitorsCount', 'isOnline', 'showPresence',
-          'lastActiveLabel', 'isNewCreator', 'isSuspended', 'createdAt', 'updatedAt'
+          'lastActiveLabel', 'isNewCreator', 'isSuspended', 'isHost',
+          'superAgentUid', 'hostAgencyUid', 'createdAt', 'updatedAt'
         ]) &&
         data.uid == uid &&
         isValidId(data.uid) &&
@@ -150,6 +151,9 @@ service cloud.firestore {
         (!('lastActiveLabel' in data) || (data.lastActiveLabel is string && data.lastActiveLabel.size() <= 48)) &&
         (!('isNewCreator' in data) || data.isNewCreator is bool) &&
         data.isSuspended is bool &&
+        (!('isHost' in data) || data.isHost is bool) &&
+        (!('superAgentUid' in data) || (data.superAgentUid is string && data.superAgentUid.size() <= 128 && (data.superAgentUid == '' || isValidId(data.superAgentUid)))) &&
+        (!('hostAgencyUid' in data) || (data.hostAgencyUid is string && data.hostAgencyUid.size() <= 128 && (data.hostAgencyUid == '' || isValidId(data.hostAgencyUid)))) &&
         data.createdAt is timestamp &&
         data.updatedAt is timestamp;
     }
@@ -314,13 +318,24 @@ service cloud.firestore {
         ]) &&
         data.seatNumber is int && data.seatNumber >= 1 && data.seatNumber <= 24 &&
         data.status in ['AVAILABLE', 'REQUESTED', 'OCCUPIED', 'LOCKED'] &&
-        (!('occupantUid' in data) || (data.occupantUid is string && data.occupantUid.size() <= 128)) &&
+        (!('occupantUid' in data) || data.occupantUid == '' || isValidId(data.occupantUid)) &&
         (!('occupantName' in data) || (data.occupantName is string && data.occupantName.size() <= 64)) &&
         (!('occupantUsername' in data) || (data.occupantUsername is string && data.occupantUsername.size() <= 32)) &&
         (!('occupantAvatarColor' in data) || (data.occupantAvatarColor is string && data.occupantAvatarColor.size() <= 24)) &&
         (!('isMuted' in data) || data.isMuted is bool) &&
         (!('isSpeaking' in data) || data.isSpeaking is bool) &&
         data.updatedAt == request.time;
+    }
+
+    // A controller (host / moderator / admin) may take a seat for themselves
+    // only while it is empty, or update their own already-occupied seat.
+    // Turning their own pending request into an occupation is self-approval
+    // and must be denied.
+    function isControllerSelfSeatApproval(existingSeat, seatData) {
+      return seatData.status == 'OCCUPIED' &&
+        seatData.occupantUid == request.auth.uid &&
+        existingSeat.status != 'AVAILABLE' &&
+        (!('occupantUid' in existingSeat) || existingSeat.occupantUid != request.auth.uid);
     }
 
     function isValidJoinRequest(data, requestId, roomId) {
@@ -491,6 +506,99 @@ service cloud.firestore {
         getAfter(/databases/$(database)/documents/giftEvents/$(data.eventId)).data.giftAmount == data.giftPrice;
     }
 
+    // Agency hierarchy: true when the caller is the user's direct agency
+    // (hostAgencyUid / superAgentUid) or the Super Agent of that agency.
+    function isAgencyOfUser(uid) {
+      return isSignedIn() &&
+        (
+          ('superAgentUid' in get(/databases/$(database)/documents/users/$(uid)).data &&
+            get(/databases/$(database)/documents/users/$(uid)).data.superAgentUid == request.auth.uid) ||
+          ('hostAgencyUid' in get(/databases/$(database)/documents/users/$(uid)).data &&
+            get(/databases/$(database)/documents/users/$(uid)).data.hostAgencyUid == request.auth.uid) ||
+          (
+            'hostAgencyUid' in get(/databases/$(database)/documents/users/$(uid)).data &&
+            get(/databases/$(database)/documents/users/$(uid)).data.hostAgencyUid is string &&
+            isValidId(get(/databases/$(database)/documents/users/$(uid)).data.hostAgencyUid) &&
+            exists(/databases/$(database)/documents/users/$(get(/databases/$(database)/documents/users/$(uid)).data.hostAgencyUid)) &&
+            get(/databases/$(database)/documents/users/$(get(/databases/$(database)/documents/users/$(uid)).data.hostAgencyUid)).data.superAgentUid == request.auth.uid
+          )
+        );
+    }
+
+    // Per-day daily reward totals (Reward Center coins + Host reward diamonds).
+    function isValidDailyRewardEarning(data, earningId) {
+      return data.keys().hasAll(['uid', 'day', 'coinReward', 'diamondReward', 'updatedAt']) &&
+        data.keys().hasOnly(['uid', 'day', 'coinReward', 'diamondReward', 'updatedAt']) &&
+        data.uid == request.auth.uid &&
+        isValidId(data.uid) &&
+        data.day is string && data.day.size() == 10 &&
+        earningId == data.uid + '_' + data.day &&
+        data.coinReward is int && data.coinReward >= 0 && data.coinReward <= 100000 &&
+        data.diamondReward is int && data.diamondReward >= 0 && data.diamondReward <= 100000 &&
+        data.updatedAt == request.time;
+    }
+
+    // 10% agency share of a member's daily reward, bound to the source's
+    // actual earnings document, the qualifying deposit record and its window.
+    function isValidRewardShare(data, shareId) {
+      return data.keys().hasAll([
+          'shareId', 'recipientUid', 'recipientRole', 'sourceUid', 'sourceRole',
+          'sourceUsername', 'sourceDisplayName', 'day', 'baseCoin', 'baseDiamond',
+          'shareCoin', 'shareDiamond', 'depositRecordId', 'windowStartMillis', 'windowEndMillis',
+          'createdAt'
+        ]) &&
+        data.keys().hasOnly([
+          'shareId', 'recipientUid', 'recipientRole', 'sourceUid', 'sourceRole',
+          'sourceUsername', 'sourceDisplayName', 'day', 'baseCoin', 'baseDiamond',
+          'shareCoin', 'shareDiamond', 'depositRecordId', 'windowStartMillis', 'windowEndMillis',
+          'createdAt'
+        ]) &&
+        data.shareId == shareId &&
+        shareId == 'rs_' + data.recipientUid + '_' + data.sourceUid + '_' + data.day &&
+        data.recipientUid == request.auth.uid &&
+        data.recipientRole in ['SUPER_AGENT', 'AGENT'] &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.accountType == data.recipientRole &&
+        isValidId(data.sourceUid) && data.sourceUid != data.recipientUid &&
+        data.sourceRole in ['AGENT', 'HOST'] &&
+        (data.recipientRole == 'SUPER_AGENT' || data.sourceRole == 'HOST') &&
+        (
+          (data.sourceRole == 'HOST' &&
+            get(/databases/$(database)/documents/users/$(data.sourceUid)).data.isHost == true) ||
+          (data.sourceRole == 'AGENT' &&
+            get(/databases/$(database)/documents/users/$(data.sourceUid)).data.accountType == 'AGENT')
+        ) &&
+        data.sourceUsername is string && data.sourceUsername.size() >= 1 && data.sourceUsername.size() <= 32 &&
+        data.sourceDisplayName is string && data.sourceDisplayName.size() >= 1 && data.sourceDisplayName.size() <= 64 &&
+        data.day is string && data.day.size() == 10 &&
+        data.baseCoin is int && data.baseCoin >= 0 &&
+        data.baseDiamond is int && data.baseDiamond >= 0 &&
+        data.baseCoin + data.baseDiamond > 0 &&
+        get(/databases/$(database)/documents/dailyRewardEarnings/$(data.sourceUid + '_' + data.day)).data.coinReward == data.baseCoin &&
+        get(/databases/$(database)/documents/dailyRewardEarnings/$(data.sourceUid + '_' + data.day)).data.diamondReward == data.baseDiamond &&
+        data.shareCoin is int && data.shareCoin >= 0 &&
+        data.shareCoin * 10 <= data.baseCoin &&
+        (data.shareCoin + 1) * 10 > data.baseCoin &&
+        data.shareDiamond is int && data.shareDiamond >= 0 &&
+        data.shareDiamond * 10 <= data.baseDiamond &&
+        (data.shareDiamond + 1) * 10 > data.baseDiamond &&
+        isValidId(data.depositRecordId) &&
+        exists(/databases/$(database)/documents/depositVaults/$(request.auth.uid)/records/$(data.depositRecordId)) &&
+        get(/databases/$(database)/documents/depositVaults/$(request.auth.uid)/records/$(data.depositRecordId)).data.principalWithdrawn == false &&
+        (
+          (data.recipientRole == 'SUPER_AGENT' &&
+            get(/databases/$(database)/documents/depositVaults/$(request.auth.uid)/records/$(data.depositRecordId)).data.amount >= 700000) ||
+          (data.recipientRole == 'AGENT' &&
+            get(/databases/$(database)/documents/depositVaults/$(request.auth.uid)/records/$(data.depositRecordId)).data.amount >= 500000)
+        ) &&
+        data.windowStartMillis is int && data.windowStartMillis > 0 &&
+        data.windowEndMillis is int &&
+        data.windowEndMillis == data.windowStartMillis + 1296000000 &&
+        data.windowEndMillis - data.windowStartMillis == 1296000000 &&
+        request.time >= get(/databases/$(database)/documents/depositVaults/$(request.auth.uid)/records/$(data.depositRecordId)).data.createdAt &&
+        request.time <= get(/databases/$(database)/documents/depositVaults/$(request.auth.uid)/records/$(data.depositRecordId)).data.createdAt + duration.value(15, 'd') &&
+        data.createdAt == request.time;
+    }
+
     function isValidConversation(data, conversationId) {
       return data.keys().hasAll(['conversationId', 'memberUids', 'createdAt', 'updatedAt']) &&
         data.keys().hasOnly([
@@ -565,7 +673,7 @@ service cloud.firestore {
 
     function isValidWallet(data, uid) {
       return data.keys().hasAll(['uid', 'coinBalance', 'diamondBalance', 'createdAt', 'updatedAt']) &&
-        data.keys().hasOnly(['uid', 'coinBalance', 'diamondBalance', 'tradingCoinBalance', 'lastGiftEventId', 'lastDepositEventId', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['uid', 'coinBalance', 'diamondBalance', 'tradingCoinBalance', 'lastGiftEventId', 'lastDepositEventId', 'lastRewardShareId', 'createdAt', 'updatedAt']) &&
         data.uid == uid &&
         isValidId(data.uid) &&
         data.coinBalance is int && data.coinBalance >= 0 &&
@@ -573,6 +681,7 @@ service cloud.firestore {
         (!('tradingCoinBalance' in data) || (data.tradingCoinBalance is int && data.tradingCoinBalance >= 0)) &&
         (!('lastGiftEventId' in data) || isValidId(data.lastGiftEventId)) &&
         (!('lastDepositEventId' in data) || isValidId(data.lastDepositEventId)) &&
+        (!('lastRewardShareId' in data) || isValidId(data.lastRewardShareId)) &&
         data.createdAt is timestamp &&
         data.updatedAt is timestamp;
     }
@@ -679,14 +788,58 @@ service cloud.firestore {
               'displayName', 'username', 'bio', 'country', 'gender',
               'avatarColor', 'coverGradient', 'avatarUrl', 'coverUrl',
               'isOnline', 'showPresence',
-              'lastActiveLabel', 'followingCount', 'updatedAt'
-            ])
+              'lastActiveLabel', 'followingCount', 'updatedAt',
+              'superAgentUid', 'hostAgencyUid'
+            ]) &&
+            (
+              !incoming().diff(existing()).affectedKeys().hasAny(['superAgentUid', 'hostAgencyUid']) ||
+              (
+                (
+                  incoming().get('superAgentUid', '') == '' ||
+                  (
+                    isValidId(incoming().get('superAgentUid', '')) &&
+                    incoming().get('superAgentUid', '') != uid &&
+                    exists(/databases/$(database)/documents/users/$(incoming().get('superAgentUid', ''))) &&
+                    (
+                      get(/databases/$(database)/documents/users/$(incoming().get('superAgentUid', ''))).data.accountType in ['AGENT', 'SUPER_AGENT'] ||
+                      get(/databases/$(database)/documents/users/$(incoming().get('superAgentUid', ''))).data.isHost == true
+                    )
+                  )
+                ) &&
+                (
+                  incoming().get('hostAgencyUid', '') == '' ||
+                  (
+                    isValidId(incoming().get('hostAgencyUid', '')) &&
+                    incoming().get('hostAgencyUid', '') != uid &&
+                    exists(/databases/$(database)/documents/users/$(incoming().get('hostAgencyUid', '')))
+                  )
+                )
+              )
+            )
           ) ||
           (
             isSuperAgent() &&
             existing().accountType == 'USER' &&
             incoming().accountType == 'AGENT' &&
-            incoming().diff(existing()).affectedKeys().hasOnly(['accountType', 'updatedAt'])
+            incoming().diff(existing()).affectedKeys().hasOnly(['accountType', 'superAgentUid', 'updatedAt']) &&
+            incoming().get('superAgentUid', '') == request.auth.uid
+          ) ||
+          (
+            (isSuperAgent() || isAgent()) &&
+            uid != request.auth.uid &&
+            incoming().accountType == existing().accountType &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['isHost', 'hostAgencyUid', 'superAgentUid', 'updatedAt']) &&
+            incoming().isHost == true &&
+            incoming().get('superAgentUid', '') == request.auth.uid &&
+            incoming().get('hostAgencyUid', '') == request.auth.uid
+          ) ||
+          (
+            isSuperAgent() &&
+            uid != request.auth.uid &&
+            existing().accountType == 'AGENT' &&
+            incoming().accountType == 'AGENT' &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['superAgentUid', 'updatedAt']) &&
+            incoming().get('superAgentUid', '') == request.auth.uid
           ) ||
           (
             isBdAgent() &&
@@ -1073,9 +1226,10 @@ service cloud.firestore {
         allow update: if isVerifiedUser() &&
           isValidRoomSeat(incoming(), seatId) &&
           incoming().seatNumber == existing().seatNumber && (
-            isRoomHost(roomId) ||
-            isRoomModerator(roomId) ||
-            isAdmin() ||
+            (
+              (isRoomHost(roomId) || isRoomModerator(roomId) || isAdmin()) &&
+              !isControllerSelfSeatApproval(existing(), incoming())
+            ) ||
             (
               existing().status == 'AVAILABLE' &&
               incoming().status == 'REQUESTED' &&
@@ -1116,7 +1270,7 @@ service cloud.firestore {
         allow delete: if isVerifiedUser() &&
           isValidId(roomId) &&
           isValidId(requestId) &&
-          (existing().uid == request.auth.uid || isRoomHost(roomId) || isAdmin());
+          (existing().uid == request.auth.uid || isRoomHost(roomId) || isRoomModerator(roomId) || isAdmin());
       }
 
       // WebRTC broadcast signaling (host <-> viewer peer connection setup)
@@ -1612,11 +1766,32 @@ service cloud.firestore {
             (incoming().coinBalance < existing().coinBalance || incoming().diamondBalance < existing().diamondBalance)
           ) ||
           (
+            // Agency daily reward share credit (15-day deposit qualified):
+            // the coin/diamond increase must equal the share doc created in
+            // this transaction, which is validated against member earnings.
+            isOwner(uid) &&
+            (isSuperAgent() || isAgent()) &&
+            'lastRewardShareId' in incoming() &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['coinBalance', 'diamondBalance', 'lastRewardShareId', 'updatedAt']) &&
+            incoming().lastRewardShareId is string &&
+            isValidId(incoming().lastRewardShareId) &&
+            !exists(/databases/$(database)/documents/rewardShares/$(incoming().lastRewardShareId)) &&
+            existsAfter(/databases/$(database)/documents/rewardShares/$(incoming().lastRewardShareId)) &&
+            getAfter(/databases/$(database)/documents/rewardShares/$(incoming().lastRewardShareId)).data.recipientUid == uid &&
+            incoming().coinBalance - existing().coinBalance ==
+              getAfter(/databases/$(database)/documents/rewardShares/$(incoming().lastRewardShareId)).data.shareCoin &&
+            incoming().diamondBalance - existing().diamondBalance ==
+              getAfter(/databases/$(database)/documents/rewardShares/$(incoming().lastRewardShareId)).data.shareDiamond &&
+            (incoming().coinBalance > existing().coinBalance ||
+              incoming().diamondBalance > existing().diamondBalance)
+          ) ||
+          (
             // 15-Day Deposit: 10% Diamond reward paid at maturity. The credit
             // must equal the pending reward on the deposit record, which flips
             // rewardCredited to true in the same transaction.
             isOwner(uid) &&
             incoming().diff(existing()).affectedKeys().hasOnly(['diamondBalance', 'lastDepositEventId', 'updatedAt']) &&
+            'lastDepositEventId' in incoming() &&
             incoming().lastDepositEventId is string &&
             isValidId(incoming().lastDepositEventId) &&
             incoming().diamondBalance > existing().diamondBalance &&
@@ -1632,6 +1807,7 @@ service cloud.firestore {
             // deposit record flips principalWithdrawn in the same transaction.
             isOwner(uid) &&
             incoming().diff(existing()).affectedKeys().hasOnly(['coinBalance', 'lastDepositEventId', 'updatedAt']) &&
+            'lastDepositEventId' in incoming() &&
             incoming().lastDepositEventId is string &&
             isValidId(incoming().lastDepositEventId) &&
             incoming().coinBalance > existing().coinBalance &&
@@ -1842,6 +2018,25 @@ service cloud.firestore {
               incoming().direction == 'CREDIT' &&
               incoming().amount <= 500 &&
               incoming().idempotencyKey.matches('^welcome_grant_.*$')
+            ) ||
+            (
+              // Agency daily reward share ledger: tied to the share doc
+              // created in the same transaction.
+              isOwner(uid) &&
+              incoming().direction == 'CREDIT' &&
+              incoming().idempotencyKey is string &&
+              incoming().idempotencyKey.matches('^rs_.*$') &&
+              !exists(/databases/$(database)/documents/rewardShares/$(incoming().idempotencyKey)) &&
+              existsAfter(/databases/$(database)/documents/rewardShares/$(incoming().idempotencyKey)) &&
+              getAfter(/databases/$(database)/documents/rewardShares/$(incoming().idempotencyKey)).data.recipientUid == uid &&
+              (
+                (incoming().currency == 'COIN' &&
+                  incoming().amount ==
+                    getAfter(/databases/$(database)/documents/rewardShares/$(incoming().idempotencyKey)).data.shareCoin) ||
+                (incoming().currency == 'DIAMOND' &&
+                  incoming().amount ==
+                    getAfter(/databases/$(database)/documents/rewardShares/$(incoming().idempotencyKey)).data.shareDiamond)
+              )
             ) ||
             (
               // 15-Day Deposit principal return.
@@ -2122,6 +2317,64 @@ service cloud.firestore {
         incoming().targetId is string && incoming().targetId.size() <= 128 &&
         incoming().detail is string && incoming().detail.size() <= 240 &&
         incoming().createdAt == request.time;
+      allow update, delete: if false;
+    }
+
+    // Agency membership registry (Super Agent / Agent -> member)
+    match /agencyMembers/{memberId} {
+      allow get: if isValidId(memberId) && isSignedIn() && (
+        isAdmin() ||
+        existing().memberUid == request.auth.uid ||
+        existing().superAgentUid == request.auth.uid
+      );
+      allow list: if isSignedIn() && (
+        isAdmin() ||
+        resource.data.superAgentUid == request.auth.uid ||
+        resource.data.memberUid == request.auth.uid
+      );
+      allow create, update: if isVerifiedUser() &&
+        isValidId(memberId) &&
+        (isSuperAgent() || isAgent()) &&
+        incoming().superAgentUid == request.auth.uid &&
+        memberId == incoming().superAgentUid + '_' + incoming().memberUid &&
+        isValidId(incoming().memberUid) &&
+        incoming().memberUid != request.auth.uid &&
+        incoming().memberPlatformId is string && incoming().memberPlatformId.size() >= 3 && incoming().memberPlatformId.size() <= 32 &&
+        incoming().memberUsername is string && incoming().memberUsername.size() >= 1 && incoming().memberUsername.size() <= 32 &&
+        incoming().memberDisplayName is string && incoming().memberDisplayName.size() >= 1 && incoming().memberDisplayName.size() <= 64 &&
+        incoming().memberType in ['AGENT', 'HOST'] &&
+        incoming().commissionRate in [0.05, 0.10] &&
+        incoming().createdAtMillis is int &&
+        incoming().createdAt == request.time;
+      allow delete: if isAdmin();
+    }
+
+    // Per-day daily reward totals used by the 15-day deposit reward sharing
+    match /dailyRewardEarnings/{earningId} {
+      allow get: if isValidId(earningId) && isSignedIn() && (
+        existing().uid == request.auth.uid ||
+        isAdmin() ||
+        isAgencyOfUser(existing().uid)
+      );
+      allow list: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid);
+      allow create, update: if isVerifiedUser() &&
+        isValidId(earningId) &&
+        isValidDailyRewardEarning(incoming(), earningId);
+      allow delete: if isAdmin();
+    }
+
+    // Agency reward shares: one immutable audit doc per owner/day/source
+    match /rewardShares/{shareId} {
+      allow get: if isValidId(shareId) && isSignedIn() && (
+        existing().recipientUid == request.auth.uid ||
+        isAdmin()
+      );
+      allow list: if isAdmin() || (isSignedIn() && resource.data.recipientUid == request.auth.uid);
+      allow create: if isVerifiedUser() &&
+        isValidId(shareId) &&
+        (isSuperAgent() || isAgent()) &&
+        isAgencyOfUser(incoming().sourceUid) &&
+        isValidRewardShare(incoming(), shareId);
       allow update, delete: if false;
     }
 

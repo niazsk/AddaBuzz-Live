@@ -21,6 +21,7 @@ import {
   DocumentSnapshot,
   DocumentData,
   DocumentReference,
+  Transaction,
 } from 'firebase/firestore';
 import {
   createUserWithEmailAndPassword,
@@ -617,29 +618,57 @@ export async function completeUserOnboarding(
 export async function updateOwnProfile(
   uid: string,
   updates: {
-    displayName: string;
-    bio: string;
-    country: string;
-    gender: GenderOption;
-    showPresence: boolean;
+    displayName?: string;
+    bio?: string;
+    country?: string;
+    gender?: GenderOption;
+    showPresence?: boolean;
     avatarUrl?: string;
     coverUrl?: string;
+    superAgentUid?: string;
+    hostAgencyUid?: string;
   }
 ): Promise<void> {
   const path = `users/${uid}`;
   try {
-    const payload: Record<string, unknown> = {
-      displayName: clampStr(updates.displayName, 64),
-      bio: clampStr(updates.bio, 300),
-      country: clampStr(updates.country, 64),
-      gender: updates.gender,
-      showPresence: updates.showPresence,
-      updatedAt: serverTimestamp(),
-    };
+    const payload: Record<string, unknown> = { updatedAt: serverTimestamp() };
+    if (updates.displayName !== undefined) payload.displayName = clampStr(updates.displayName, 64);
+    if (updates.bio !== undefined) payload.bio = clampStr(updates.bio, 300);
+    if (updates.country !== undefined) payload.country = clampStr(updates.country, 64);
+    if (updates.gender !== undefined) payload.gender = updates.gender;
+    if (updates.showPresence !== undefined) payload.showPresence = updates.showPresence;
     if (updates.avatarUrl !== undefined) payload.avatarUrl = updates.avatarUrl;
     if (updates.coverUrl !== undefined) payload.coverUrl = updates.coverUrl;
+
+    if (updates.superAgentUid !== undefined) {
+      const agentUid = updates.superAgentUid.trim();
+      if (!agentUid) {
+        payload.superAgentUid = '';
+        payload.hostAgencyUid = '';
+      } else {
+        if (agentUid === uid) throw new Error('You cannot add yourself as your agent.');
+        const agentProfile = await fetchUserProfile(agentUid);
+        const eligible =
+          agentProfile &&
+          (agentProfile.accountType === 'AGENT' ||
+            agentProfile.accountType === 'SUPER_AGENT' ||
+            agentProfile.isHost === true);
+        if (!agentProfile || !eligible) {
+          throw new Error('This user is not an Agent, Super Agent, or Host.');
+        }
+        payload.superAgentUid = agentUid;
+        payload.hostAgencyUid = agentProfile.isHost ? agentUid : '';
+      }
+    }
     await updateDoc(doc(db, 'users', uid), payload);
   } catch (error) {
+    if (
+      error instanceof Error &&
+      (error.message.startsWith('You cannot add yourself') ||
+        error.message.startsWith('This user is not'))
+    ) {
+      throw error;
+    }
     handleFirestoreError(error, OperationType.UPDATE, path);
   }
 }
@@ -1128,27 +1157,72 @@ export async function removeRoomModeratorDoc(
   }
 }
 
+export interface SeatActor {
+  uid: string;
+  /** True when the acting account is a platform admin (bootstrap email). */
+  isAdmin?: boolean;
+}
+
+// Room controllers (host, appointed moderator, platform admin) may act on
+// seats directly; everyone else must go through the join-request flow.
+async function isRoomControllerInTx(
+  tx: Transaction,
+  roomId: string,
+  roomData: DocumentData,
+  actor: SeatActor
+): Promise<boolean> {
+  if (actor.isAdmin) return true;
+  if (roomData.hostUid === actor.uid) return true;
+  const modSnap = await tx.get(doc(db, 'liveRooms', roomId, 'moderators', actor.uid));
+  return modSnap.exists();
+}
+
 export async function requestRoomSeatDoc(
   roomId: string,
   user: UserProfile,
-  seatNumber: number
+  seatNumber: number,
+  opts?: { isAdmin?: boolean }
 ): Promise<'joined' | 'requested'> {
   const reqId = `req_${user.uid.slice(0, 12)}_${seatNumber}`;
   const seatRef = doc(db, 'liveRooms', roomId, 'seats', `seat_${seatNumber}`);
   const reqRef = doc(db, 'liveRooms', roomId, 'joinRequests', reqId);
+  const actor: SeatActor = { uid: user.uid, isAdmin: opts?.isAdmin };
 
   try {
     return await runTransaction(db, async (tx) => {
       const roomSnap = await tx.get(doc(db, 'liveRooms', roomId));
       if (!roomSnap.exists()) throw new Error('This room is no longer available.');
-      const roomData = roomSnap.data();
+      const roomData = roomSnap.data()!;
       if (roomData.status !== 'LIVE') throw new Error('This live room has ended.');
+      const seatSnap = await tx.get(seatRef);
+      if (!seatSnap.exists()) throw new Error('Seat not found.');
+      const seatData = seatSnap.data()!;
+
+      // Hosts, moderators and admins take seats directly — they never need
+      // to request or self-approve. The seat still must be empty and unlocked.
+      if (await isRoomControllerInTx(tx, roomId, roomData, actor)) {
+        if (seatData.status === 'LOCKED') {
+          throw new Error(`Seat ${seatNumber} is locked. Unlock it first.`);
+        }
+        if (seatData.status !== 'AVAILABLE') {
+          throw new Error(`Seat ${seatNumber} is not available right now.`);
+        }
+        tx.update(seatRef, {
+          status: 'OCCUPIED',
+          occupantUid: user.uid,
+          occupantName: clampStr(user.displayName, 64),
+          occupantUsername: clampStr(user.username, 32),
+          occupantAvatarColor: clampStr(user.avatarColor, 24),
+          isMuted: false,
+          isSpeaking: true,
+          updatedAt: serverTimestamp(),
+        });
+        return 'joined' as const;
+      }
+
       if (roomData.allowGuestRequests === false) {
         throw new Error('The host has turned off guest seat requests.');
       }
-      const seatSnap = await tx.get(seatRef);
-      if (!seatSnap.exists()) throw new Error('Seat not found.');
-      const seatData = seatSnap.data();
       if (seatData.status !== 'AVAILABLE') {
         throw new Error(`Seat ${seatNumber} is no longer available.`);
       }
@@ -1196,14 +1270,32 @@ export async function requestRoomSeatDoc(
 
 export async function approveJoinRequestDoc(
   roomId: string,
-  request: JoinRequest
+  request: JoinRequest,
+  actor: SeatActor
 ): Promise<number> {
   const reqRef = doc(db, 'liveRooms', roomId, 'joinRequests', request.requestId);
   try {
     return await runTransaction(db, async (tx) => {
+      if (request.uid === actor.uid) {
+        throw new Error(
+          'You cannot approve your own seat request. Ask another host, moderator or admin.'
+        );
+      }
       const roomSnap = await tx.get(doc(db, 'liveRooms', roomId));
       if (!roomSnap.exists()) throw new Error('Room not found.');
-      const capacity = normalizeSeatCount(roomSnap.data().seatCount);
+      const roomData = roomSnap.data()!;
+      if (roomData.status !== 'LIVE') throw new Error('This live room has ended.');
+      if (!(await isRoomControllerInTx(tx, roomId, roomData, actor))) {
+        throw new Error('Only the host, moderators or an admin can approve seat requests.');
+      }
+      const reqSnap = await tx.get(reqRef);
+      if (!reqSnap.exists()) {
+        throw new Error('This seat request is no longer pending.');
+      }
+      if (String(reqSnap.data().uid) !== request.uid) {
+        throw new Error('Seat request details changed. Refresh and try again.');
+      }
+      const capacity = normalizeSeatCount(roomData.seatCount);
       const seatSnaps = await Promise.all(
         Array.from({ length: capacity }, (_, idx) =>
           tx.get(doc(db, 'liveRooms', roomId, 'seats', `seat_${idx + 1}`))
@@ -1223,9 +1315,7 @@ export async function approveJoinRequestDoc(
           (s.data().status === 'AVAILABLE' || s.data().status === 'REQUESTED')
       );
       const fallback = seatSnaps.find(
-        (s) =>
-          s.exists() &&
-          (s.data().status === 'AVAILABLE' || s.data().status === 'REQUESTED')
+        (s) => s.exists() && s.data().status === 'AVAILABLE'
       );
       const target = preferred ?? fallback;
       if (!target) {
@@ -1256,11 +1346,23 @@ export async function approveJoinRequestDoc(
 
 export async function rejectJoinRequestDoc(
   roomId: string,
-  request: JoinRequest
+  request: JoinRequest,
+  actor: SeatActor
 ): Promise<void> {
   const reqRef = doc(db, 'liveRooms', roomId, 'joinRequests', request.requestId);
   try {
     await runTransaction(db, async (tx) => {
+      // The requester may withdraw their own request; otherwise only room
+      // controllers can reject someone else's request.
+      if (request.uid !== actor.uid) {
+        const roomSnap = await tx.get(doc(db, 'liveRooms', roomId));
+        if (!roomSnap.exists()) throw new Error('Room not found.');
+        if (!(await isRoomControllerInTx(tx, roomId, roomSnap.data()!, actor))) {
+          throw new Error(
+            'Only the host, moderators or an admin can reject seat requests.'
+          );
+        }
+      }
       if (request.preferredSeatNumber) {
         const seatRef = doc(
           db,
@@ -4094,12 +4196,17 @@ export async function claimReward(
 
   const rpRef = doc(db, 'rewardProfiles', uid);
   const walletRef = doc(db, 'wallets', uid);
+  const earningsRef = doc(db, 'dailyRewardEarnings', `${uid}_${today}`);
   let awarded = 0;
   let streakOut = 0;
 
   try {
     await runTransaction(db, async (tx) => {
-      const [rpSnap, wSnap] = await Promise.all([tx.get(rpRef), tx.get(walletRef)]);
+      const [rpSnap, wSnap, earnSnap] = await Promise.all([
+        tx.get(rpRef),
+        tx.get(walletRef),
+        tx.get(earningsRef),
+      ]);
       if (!rpSnap.exists()) throw new Error('Reward profile not ready.');
       if (!wSnap.exists()) throw new Error('Wallet not initialized.');
 
@@ -4149,6 +4256,16 @@ export async function claimReward(
         updatedAt: serverTimestamp(),
       });
       tx.update(rpRef, patch);
+
+      // Per-day reward total feeds the 15-day agency reward sharing ledger.
+      const earnData = earnSnap.exists() ? earnSnap.data() : {};
+      tx.set(earningsRef, {
+        uid,
+        day: today,
+        coinReward: Number(earnData.coinReward ?? 0) + amount,
+        diamondReward: Number(earnData.diamondReward ?? 0),
+        updatedAt: serverTimestamp(),
+      });
 
       const txId = `tx_rw_${kind}_${uid.slice(0, 8)}_${today}`;
       tx.set(doc(db, 'wallets', uid, 'transactions', txId), {
@@ -4278,11 +4395,16 @@ export async function claimHostReward(
 
   const hpRef = doc(db, 'hostRewardProfiles', uid);
   const walletRef = doc(db, 'wallets', uid);
+  const earningsRef = doc(db, 'dailyRewardEarnings', `${uid}_${today}`);
   let awarded = 0;
 
   try {
     await runTransaction(db, async (tx) => {
-      const [hpSnap, wSnap] = await Promise.all([tx.get(hpRef), tx.get(walletRef)]);
+      const [hpSnap, wSnap, earnSnap] = await Promise.all([
+        tx.get(hpRef),
+        tx.get(walletRef),
+        tx.get(earningsRef),
+      ]);
       if (!hpSnap.exists()) throw new Error('Host reward profile not ready.');
       if (!wSnap.exists()) throw new Error('Wallet not initialized.');
 
@@ -4341,6 +4463,16 @@ export async function claimHostReward(
         updatedAt: serverTimestamp(),
       });
       tx.update(hpRef, patch);
+
+      // Per-day reward total feeds the 15-day agency reward sharing ledger.
+      const earnData = earnSnap.exists() ? earnSnap.data() : {};
+      tx.set(earningsRef, {
+        uid,
+        day: today,
+        coinReward: Number(earnData.coinReward ?? 0),
+        diamondReward: Number(earnData.diamondReward ?? 0) + amount,
+        updatedAt: serverTimestamp(),
+      });
 
       const txId = `tx_hr_${kind}_${uid.slice(0, 8)}_${today}`;
       tx.set(doc(db, 'wallets', uid, 'transactions', txId), {
@@ -4657,6 +4789,460 @@ export async function withdrawDepositPrincipal(
     await new Promise((resolve) => setTimeout(resolve, GAME_TX_RETRY_DELAY_MS * attempt));
   }
   handleFirestoreError(lastError, OperationType.WRITE, `depositVaults/${uid}`);
+}
+
+// ---------------------------------------------------------------------------
+// AGENCY DAILY REWARD SHARING — 15-day deposit qualified 10% shares
+// A Super Agent (700,000 coin deposit) earns 10% of the daily rewards of the
+// Agents and Hosts under it; an Agent (500,000 coin deposit) earns 10% of the
+// daily rewards of its Hosts. Only days fully inside the 15-day validity
+// window of a qualifying deposit are shared. Each share is a deterministic
+// document (one per owner/day/source) so re-runs never double-pay.
+// ---------------------------------------------------------------------------
+
+export const AGENCY_SHARE_PERCENT = 10;
+export const AGENCY_SHARE_VALIDITY_DAYS = 15;
+export const AGENCY_SHARE_SUPER_AGENT_DEPOSIT = 700000;
+export const AGENCY_SHARE_AGENT_DEPOSIT = 500000;
+export const REWARD_SHARE_PREFIX = 'rs_';
+
+const AGENCY_SHARE_DAY_MS = 24 * 60 * 60 * 1000;
+
+export type AgencyShareRole = 'SUPER_AGENT' | 'AGENT';
+export type AgencyShareSourceRole = 'AGENT' | 'HOST';
+
+export interface DailyRewardEarningRecord {
+  uid: string;
+  day: string;
+  coinReward: number;
+  diamondReward: number;
+}
+
+export interface AgencyRewardSharePayout {
+  shareId: string;
+  recipientUid: string;
+  recipientRole: AgencyShareRole;
+  sourceUid: string;
+  sourceRole: AgencyShareSourceRole;
+  sourceUsername: string;
+  sourceDisplayName: string;
+  day: string;
+  baseCoin: number;
+  baseDiamond: number;
+  shareCoin: number;
+  shareDiamond: number;
+  depositRecordId: string;
+  windowStartMs: number;
+  windowEndMs: number;
+  timestampLabel: string;
+  createdAtMs: number;
+}
+
+export interface AgencyRewardShareStatus {
+  role: AgencyShareRole | null;
+  threshold: number;
+  qualifies: boolean;
+  depositRecordId: string;
+  windowStartMs: number;
+  windowEndMs: number;
+  daysRemaining: number;
+}
+
+export interface AgencyRewardShareSettlement {
+  settled: boolean;
+  reason: string;
+  payoutCount: number;
+  paidCoins: number;
+  paidDiamonds: number;
+  memberCount: number;
+  windowStartMs: number;
+  windowEndMs: number;
+}
+
+interface AgencyShareMember {
+  uid: string;
+  role: AgencyShareSourceRole;
+  username: string;
+  displayName: string;
+}
+
+function agencyShareRole(user: UserProfile | null | undefined): AgencyShareRole | null {
+  if (!user) return null;
+  if (user.accountType === 'SUPER_AGENT') return 'SUPER_AGENT';
+  if (user.accountType === 'AGENT') return 'AGENT';
+  return null;
+}
+
+function agencyShareThreshold(role: AgencyShareRole): number {
+  return role === 'SUPER_AGENT'
+    ? AGENCY_SHARE_SUPER_AGENT_DEPOSIT
+    : AGENCY_SHARE_AGENT_DEPOSIT;
+}
+
+function agencyShareWindowEnd(record: DepositRecord): number {
+  return record.createdAt + AGENCY_SHARE_VALIDITY_DAYS * AGENCY_SHARE_DAY_MS;
+}
+
+function localDayStartMs(day: string): number {
+  const [year, month, datePart] = day.split('-').map((part) => parseInt(part, 10));
+  if (!year || !month || !datePart) return 0;
+  return new Date(year, month - 1, datePart).getTime();
+}
+
+function completedShareDays(): string[] {
+  const days: string[] = [];
+  for (let offset = 1; offset <= AGENCY_SHARE_VALIDITY_DAYS; offset += 1) {
+    days.push(rewardDayKey(new Date(Date.now() - offset * AGENCY_SHARE_DAY_MS)));
+  }
+  return days;
+}
+
+async function fetchAgencyShareDeposits(
+  uid: string,
+  threshold: number
+): Promise<DepositRecord[]> {
+  const snap = await getDocs(
+    query(
+      collection(db, 'depositVaults', uid, 'records'),
+      orderBy('createdAt', 'desc'),
+      limit(50)
+    )
+  );
+  return snap.docs
+    .map(mapDepositRecord)
+    .filter((record) => record.amount >= threshold && !record.principalWithdrawn);
+}
+
+function addAgencyShareMember(
+  members: Map<string, AgencyShareMember>,
+  ownerUid: string,
+  data: DocumentData
+) {
+  const uid = String(data.uid ?? '');
+  if (!uid || uid === ownerUid || members.has(uid)) return;
+  const isHost = Boolean(data.isHost ?? false);
+  const accountType = String(data.accountType ?? 'USER');
+  const role: AgencyShareSourceRole | null = isHost
+    ? 'HOST'
+    : accountType === 'AGENT'
+      ? 'AGENT'
+      : null;
+  if (!role) return;
+  members.set(uid, {
+    uid,
+    role,
+    username: String(data.username ?? ''),
+    displayName: String(data.displayName ?? data.username ?? ''),
+  });
+}
+
+async function resolveAgencyShareMembers(
+  owner: UserProfile,
+  role: AgencyShareRole
+): Promise<AgencyShareMember[]> {
+  const members = new Map<string, AgencyShareMember>();
+  const usersRef = collection(db, 'users');
+
+  const loadByField = async (field: 'superAgentUid' | 'hostAgencyUid', uid: string) => {
+    const snap = await getDocs(
+      query(
+        usersRef,
+        where(field, '==', uid),
+        where('isSuspended', '==', false),
+        limit(200)
+      )
+    );
+    snap.docs.forEach((memberSnap) =>
+      addAgencyShareMember(members, owner.uid, memberSnap.data())
+    );
+  };
+
+  await loadByField('superAgentUid', owner.uid);
+  await loadByField('hostAgencyUid', owner.uid);
+
+  if (role === 'SUPER_AGENT') {
+    // Hosts under the Super Agent's own Agents share with the Super Agent too.
+    const agentUids = Array.from(members.values())
+      .filter((member) => member.role === 'AGENT')
+      .map((member) => member.uid);
+    for (const agentUid of agentUids) {
+      await loadByField('hostAgencyUid', agentUid);
+    }
+  } else {
+    // An Agent only shares their Hosts, never other Agents.
+    for (const [uid, member] of members) {
+      if (member.role !== 'HOST') members.delete(uid);
+    }
+  }
+
+  return Array.from(members.values()).filter(
+    (member) => member.role === 'HOST' || role === 'SUPER_AGENT'
+  );
+}
+
+export async function fetchAgencyRewardShareStatus(
+  owner: UserProfile | null
+): Promise<AgencyRewardShareStatus> {
+  const role = agencyShareRole(owner);
+  const empty: AgencyRewardShareStatus = {
+    role,
+    threshold: role ? agencyShareThreshold(role) : 0,
+    qualifies: false,
+    depositRecordId: '',
+    windowStartMs: 0,
+    windowEndMs: 0,
+    daysRemaining: 0,
+  };
+  if (!owner || !role) return empty;
+
+  try {
+    const threshold = agencyShareThreshold(role);
+    const deposits = await fetchAgencyShareDeposits(owner.uid, threshold);
+    const now = Date.now();
+    const active =
+      deposits.find(
+        (record) => now >= record.createdAt && now < agencyShareWindowEnd(record)
+      ) ?? null;
+    if (!active) return empty;
+    return {
+      role,
+      threshold,
+      qualifies: true,
+      depositRecordId: active.recordId,
+      windowStartMs: active.createdAt,
+      windowEndMs: agencyShareWindowEnd(active),
+      daysRemaining: Math.max(
+        0,
+        Math.ceil((agencyShareWindowEnd(active) - now) / AGENCY_SHARE_DAY_MS)
+      ),
+    };
+  } catch {
+    return empty;
+  }
+}
+
+export async function settleAgencyDailyRewardShares(
+  owner: UserProfile | null
+): Promise<AgencyRewardShareSettlement> {
+  const role = agencyShareRole(owner);
+  const empty: AgencyRewardShareSettlement = {
+    settled: false,
+    reason: 'not-agency',
+    payoutCount: 0,
+    paidCoins: 0,
+    paidDiamonds: 0,
+    memberCount: 0,
+    windowStartMs: 0,
+    windowEndMs: 0,
+  };
+  if (!owner || !role) return empty;
+
+  let deposits: DepositRecord[];
+  try {
+    deposits = await fetchAgencyShareDeposits(owner.uid, agencyShareThreshold(role));
+  } catch {
+    return { ...empty, reason: 'deposit-read-failed' };
+  }
+  if (!deposits.length) return { ...empty, reason: 'no-qualifying-deposit' };
+
+  let members: AgencyShareMember[];
+  try {
+    members = await resolveAgencyShareMembers(owner, role);
+  } catch {
+    return { ...empty, reason: 'member-read-failed' };
+  }
+  if (!members.length) return { ...empty, reason: 'no-members' };
+
+  let paidCoins = 0;
+  let paidDiamonds = 0;
+  let payoutCount = 0;
+  let windowStartMs = 0;
+  let windowEndMs = 0;
+  const walletRef = doc(db, 'wallets', owner.uid);
+
+  for (const day of completedShareDays()) {
+    const dayStartMs = localDayStartMs(day);
+    if (!dayStartMs) continue;
+    const dayEndMs = dayStartMs + AGENCY_SHARE_DAY_MS;
+    const deposit = deposits.find((record) => {
+      const recordEnd = agencyShareWindowEnd(record);
+      return dayStartMs >= record.createdAt && dayEndMs <= recordEnd;
+    });
+    if (!deposit) continue;
+    windowStartMs = deposit.createdAt;
+    windowEndMs = agencyShareWindowEnd(deposit);
+
+    for (const member of members) {
+      const shareId = `${REWARD_SHARE_PREFIX}${owner.uid}_${member.uid}_${day}`;
+      const shareRef = doc(db, 'rewardShares', shareId);
+      const earningsRef = doc(db, 'dailyRewardEarnings', `${member.uid}_${day}`);
+      const coinLedgerRef = doc(db, 'wallets', owner.uid, 'transactions', `${shareId}_c`);
+      const diamondLedgerRef = doc(db, 'wallets', owner.uid, 'transactions', `${shareId}_d`);
+
+      let baseCoin = 0;
+      let baseDiamond = 0;
+      try {
+        const [earnSnap, shareSnap] = await Promise.all([
+          getDoc(earningsRef),
+          getDoc(shareRef),
+        ]);
+        if (shareSnap.exists() || !earnSnap.exists()) continue;
+        baseCoin = Number(earnSnap.data().coinReward ?? 0);
+        baseDiamond = Number(earnSnap.data().diamondReward ?? 0);
+      } catch {
+        continue;
+      }
+      if (baseCoin + baseDiamond <= 0) continue;
+
+      const shareCoin = Math.floor((baseCoin * AGENCY_SHARE_PERCENT) / 100);
+      const shareDiamond = Math.floor((baseDiamond * AGENCY_SHARE_PERCENT) / 100);
+      if (shareCoin + shareDiamond <= 0) continue;
+
+      try {
+        let wrote = false;
+        await runTransaction(db, async (tx) => {
+          const [freshShare, walletSnap] = await Promise.all([
+            tx.get(shareRef),
+            tx.get(walletRef),
+          ]);
+          if (freshShare.exists()) return;
+          if (!walletSnap.exists()) throw new Error('Wallet not initialized.');
+
+          const coins = Number(walletSnap.data().coinBalance ?? 0);
+          const diamonds = Number(walletSnap.data().diamondBalance ?? 0);
+
+          tx.set(shareRef, {
+            shareId,
+            recipientUid: owner.uid,
+            recipientRole: role,
+            sourceUid: member.uid,
+            sourceRole: member.role,
+            sourceUsername: clampStr(member.username || member.uid.slice(0, 8), 32),
+            sourceDisplayName: clampStr(member.displayName || member.username || 'Member', 64),
+            day,
+            baseCoin,
+            baseDiamond,
+            shareCoin,
+            shareDiamond,
+            depositRecordId: deposit.recordId,
+            windowStartMillis: deposit.createdAt,
+            windowEndMillis: windowEndMs,
+            createdAt: serverTimestamp(),
+          });
+          tx.update(walletRef, {
+            coinBalance: coins + shareCoin,
+            diamondBalance: diamonds + shareDiamond,
+            lastRewardShareId: shareId,
+            updatedAt: serverTimestamp(),
+          });
+          if (shareCoin > 0) {
+            tx.set(coinLedgerRef, {
+              transactionId: `${shareId}_c`,
+              uid: owner.uid,
+              currency: 'COIN',
+              direction: 'CREDIT',
+              amount: shareCoin,
+              reason: clampStr(
+                `Agency reward share (10%): ${member.role} @${member.username} ${day}`,
+                160
+              ),
+              counterparty: clampStr(`@${member.username}`, 64),
+              idempotencyKey: shareId,
+              createdAt: serverTimestamp(),
+            });
+          }
+          if (shareDiamond > 0) {
+            tx.set(diamondLedgerRef, {
+              transactionId: `${shareId}_d`,
+              uid: owner.uid,
+              currency: 'DIAMOND',
+              direction: 'CREDIT',
+              amount: shareDiamond,
+              reason: clampStr(
+                `Agency reward share (10%): ${member.role} @${member.username} ${day}`,
+                160
+              ),
+              counterparty: clampStr(`@${member.username}`, 64),
+              idempotencyKey: shareId,
+              createdAt: serverTimestamp(),
+            });
+          }
+          wrote = true;
+        });
+        if (wrote) {
+          paidCoins += shareCoin;
+          paidDiamonds += shareDiamond;
+          payoutCount += 1;
+        }
+      } catch (error) {
+        if (error instanceof Error && error.message.startsWith('Wallet not')) {
+          return {
+            settled: payoutCount > 0,
+            reason: 'wallet-missing',
+            payoutCount,
+            paidCoins,
+            paidDiamonds,
+            memberCount: members.length,
+            windowStartMs,
+            windowEndMs,
+          };
+        }
+        // Any other failure only skips this share; the remaining shares retry
+        // on the next settlement run.
+      }
+    }
+  }
+
+  return {
+    settled: payoutCount > 0,
+    reason: payoutCount > 0 ? 'settled' : 'nothing-to-settle',
+    payoutCount,
+    paidCoins,
+    paidDiamonds,
+    memberCount: members.length,
+    windowStartMs,
+    windowEndMs,
+  };
+}
+
+export function subscribeAgencyRewardSharePayouts(
+  uid: string,
+  onData: (payouts: AgencyRewardSharePayout[]) => void
+): Unsubscribe {
+  return listenWithRetry(
+    query(
+      collection(db, 'rewardShares'),
+      where('recipientUid', '==', uid),
+      limit(200)
+    ),
+    (snap) => {
+      const list: AgencyRewardSharePayout[] = snap.docs.map((shareSnap) => {
+        const d = shareSnap.data();
+        return {
+          shareId: shareSnap.id,
+          recipientUid: String(d.recipientUid ?? ''),
+          recipientRole: (d.recipientRole as AgencyShareRole) ?? 'AGENT',
+          sourceUid: String(d.sourceUid ?? ''),
+          sourceRole: (d.sourceRole as AgencyShareSourceRole) ?? 'HOST',
+          sourceUsername: String(d.sourceUsername ?? ''),
+          sourceDisplayName: String(d.sourceDisplayName ?? ''),
+          day: String(d.day ?? ''),
+          baseCoin: Number(d.baseCoin ?? 0),
+          baseDiamond: Number(d.baseDiamond ?? 0),
+          shareCoin: Number(d.shareCoin ?? 0),
+          shareDiamond: Number(d.shareDiamond ?? 0),
+          depositRecordId: String(d.depositRecordId ?? ''),
+          windowStartMs: Number(d.windowStartMillis ?? 0),
+          windowEndMs: Number(d.windowEndMillis ?? 0),
+          timestampLabel: formatTimestamp(d.createdAt),
+          createdAtMs: tsToMs(d.createdAt),
+        };
+      });
+      list.sort((a, b) => b.createdAtMs - a.createdAtMs);
+      onData(list.slice(0, 60));
+    },
+    () => onData([])
+  );
 }
 
 

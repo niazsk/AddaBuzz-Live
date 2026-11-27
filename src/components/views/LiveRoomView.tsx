@@ -1304,19 +1304,27 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
                     </div>
                   ) : (
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5">
-                      {allowGuestRequests ? (
+                      {allowGuestRequests || canModerateSeats ? (
                         <>
                           <button
                             type="button"
                             disabled={isOfflineSimulated || Boolean(mySeat)}
                             onClick={() => onRequestSeat(room.roomId, seat.seatNumber)}
-                            aria-label={`Request seat ${seat.seatNumber}${
-                              hostApprovalForGuests ? ', host approval required' : ', instant join'
-                            }`}
+                            aria-label={
+                              canModerateSeats
+                                ? `Take seat ${seat.seatNumber}`
+                                : `Request seat ${seat.seatNumber}${
+                                    hostApprovalForGuests
+                                      ? ', host approval required'
+                                      : ', instant join'
+                                  }`
+                            }
                             title={
-                              hostApprovalForGuests
-                                ? 'Request seat — the host approves guests'
-                                : 'Join seat instantly'
+                              canModerateSeats
+                                ? 'Take this seat'
+                                : hostApprovalForGuests
+                                  ? 'Request seat — the host approves guests'
+                                  : 'Join seat instantly'
                             }
                             className="w-10 h-10 rounded-full bg-white/10 hover:bg-fuchsia-500/40 disabled:opacity-40 flex items-center justify-center text-slate-200 transition-colors"
                           >
@@ -2556,40 +2564,60 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
                   {joinRequests.length}
                 </span>
               </p>
-              {joinRequests.map((req) => (
-                <div
-                  key={req.requestId}
-                  className="rounded-xl bg-white/[0.03] border border-white/[0.06] px-3 py-2.5 flex items-center justify-between gap-2"
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <Avatar name={req.displayName} color={req.avatarColor} size="xs" />
-                    <div className="min-w-0">
-                      <p className="text-xs font-medium text-white truncate">{req.displayName}</p>
-                      <p className="text-[10px] text-slate-400 truncate">
-                        @{req.username} · Seat {req.preferredSeatNumber ?? 'Any'}
-                      </p>
+              {joinRequests.map((req) => {
+                const isMine = currentUser?.uid === req.uid;
+                return (
+                  <div
+                    key={req.requestId}
+                    className="rounded-xl bg-white/[0.03] border border-white/[0.06] px-3 py-2.5 flex items-center justify-between gap-2"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Avatar name={req.displayName} color={req.avatarColor} size="xs" />
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-white truncate">{req.displayName}</p>
+                        <p className="text-[10px] text-slate-400 truncate">
+                          @{req.username} · Seat {req.preferredSeatNumber ?? 'Any'}
+                        </p>
+                      </div>
                     </div>
+                    {isMine ? (
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="text-[9px] font-semibold uppercase tracking-wide text-amber-300/90">
+                          Yours
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => onRejectJoinRequest(room.roomId, req)}
+                          aria-label="Cancel your seat request"
+                          title="Cancel your seat request"
+                          className="p-1.5 rounded-lg bg-white/[0.06] text-slate-300 hover:bg-white/[0.12]"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => onApproveJoinRequest(room.roomId, req)}
+                          aria-label={`Approve ${req.displayName}`}
+                          className="p-1.5 rounded-lg bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/35"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onRejectJoinRequest(room.roomId, req)}
+                          aria-label={`Reject ${req.displayName}`}
+                          className="p-1.5 rounded-lg bg-rose-600/20 text-rose-300 hover:bg-rose-600/35"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => onApproveJoinRequest(room.roomId, req)}
-                      aria-label={`Approve ${req.displayName}`}
-                      className="p-1.5 rounded-lg bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/35"
-                    >
-                      <Check className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onRejectJoinRequest(room.roomId, req)}
-                      aria-label={`Reject ${req.displayName}`}
-                      className="p-1.5 rounded-lg bg-rose-600/20 text-rose-300 hover:bg-rose-600/35"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 

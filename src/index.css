@@ -37,6 +37,18 @@
   }
 }
 
+/* ============ Light Theme Base Variables ============ */
+html.light {
+  color-scheme: light;
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+html.light body {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+}
+
 .tabular-nums {
   font-variant-numeric: tabular-nums;
 }
