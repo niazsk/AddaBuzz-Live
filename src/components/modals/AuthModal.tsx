@@ -160,31 +160,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setBusy(true);
     try {
       if (authTab === 'signin') {
-        try {
-          await onEmailSignIn(cleanEmail, password);
-        } catch (signInErr) {
-          const errString = String(signInErr);
-          if (
-            errString.includes('auth/user-not-found') ||
-            errString.includes('auth/invalid-credential')
-          ) {
-            if (password.length >= 6) {
-              try {
-                await onEmailRegister(cleanEmail, password, registerName || cleanEmail.split('@')[0]);
-                setInfoMsg(
-                  'Account created! Verify the email link sent to your inbox, then click Refresh Status.'
-                );
-                return;
-              } catch (regErr) {
-                const regStr = String(regErr);
-                if (!regStr.includes('auth/email-already-in-use')) {
-                  throw regErr;
-                }
-              }
-            }
-          }
-          throw signInErr;
-        }
+        await onEmailSignIn(cleanEmail, password);
       } else {
         await onEmailRegister(cleanEmail, password, registerName);
         setInfoMsg(

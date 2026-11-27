@@ -165,34 +165,7 @@ export const SignInView: React.FC<SignInViewProps> = ({
     setBusy(true);
     try {
       if (authTab === 'signin') {
-        try {
-          await onEmailSignIn(cleanEmail, password);
-        } catch (signInErr) {
-          const errString = String(signInErr);
-          // If the account does not exist in Firebase Auth yet, offer seamless auto-registration
-          if (
-            errString.includes('auth/user-not-found') ||
-            errString.includes('auth/invalid-credential')
-          ) {
-            // Check if password meets minimal length for registration
-            if (password.length >= 6) {
-              try {
-                await onEmailRegister(cleanEmail, password, registerName || cleanEmail.split('@')[0]);
-                setInfoMsg(
-                  'Account created! A verification email was sent to your inbox. Click the link in that email, then click Refresh Status.'
-                );
-                return;
-              } catch (regErr) {
-                // If it already existed or had another issue, throw the original sign-in error
-                const regStr = String(regErr);
-                if (!regStr.includes('auth/email-already-in-use')) {
-                  throw regErr;
-                }
-              }
-            }
-          }
-          throw signInErr;
-        }
+        await onEmailSignIn(cleanEmail, password);
       } else {
         await onEmailRegister(cleanEmail, password, registerName);
         setInfoMsg(
