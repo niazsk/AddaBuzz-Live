@@ -2344,6 +2344,7 @@ export default function App() {
               coinBalance={coinBalance}
               diamondBalance={diamondBalance}
               transactions={transactions}
+              currentUser={currentUser}
               onBack={() => setActiveSection('profile')}
               onToast={pushToast}
             />

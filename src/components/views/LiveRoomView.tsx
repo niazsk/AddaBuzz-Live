@@ -1875,7 +1875,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
           className={`overflow-y-auto space-y-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
             isSolo
               ? 'max-h-60 max-w-[85%] sm:max-w-md'
-              : 'absolute inset-x-3 bottom-full z-20 mb-3 max-h-40 [mask-image:linear-gradient(to_top,#000_72%,transparent)] sm:inset-x-4'
+              : 'pointer-events-none max-h-40 w-full [mask-image:linear-gradient(to_top,#000_72%,transparent)] [&>*]:pointer-events-auto'
           }`}
         >
           {visibleComments.length === 0 ? (
@@ -2230,14 +2230,14 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
             </div>
           )}
 
-          <div className="mx-auto flex w-fit max-w-full items-center gap-1 overflow-x-auto rounded-2xl border border-white/[0.08] bg-black/30 p-1 backdrop-blur-xl [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="mx-auto flex w-fit max-w-full items-center gap-2 overflow-x-auto rounded-2xl border border-white/[0.08] bg-black/30 p-1.5 backdrop-blur-xl [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {isSolo && canPublishLocalMedia && room.mode !== 'AUDIO' && (
               <button
                 type="button"
                 onClick={handleToggleCamera}
                 aria-label={!mediaActive ? 'Start camera' : cameraOff ? 'Turn camera on' : 'Turn camera off'}
                 title={!mediaActive ? 'Start camera' : cameraOff ? 'Turn camera on' : 'Camera off'}
-                className={`relative w-10 h-10 shrink-0 rounded-2xl backdrop-blur-md border flex items-center justify-center transition-all active:scale-95 ${
+                className={`relative w-11 h-11 shrink-0 rounded-2xl backdrop-blur-md border flex items-center justify-center transition-all active:scale-95 ${
                   cameraInactive
                     ? 'bg-rose-500/80 border-rose-300/40 text-white'
                     : 'bg-[#232456]/90 border-white/15 text-white hover:bg-[#2E2F6E]'
@@ -2256,7 +2256,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
               onClick={handleReconnect}
               aria-label="Reconnect stream"
               title={canPublishLocalMedia ? 'Restart camera & broadcast' : 'Reconnect to stream'}
-              className="relative w-10 h-10 shrink-0 rounded-2xl bg-white/[0.05] ring-1 ring-white/[0.08] backdrop-blur-xl hover:bg-white/[0.1] flex items-center justify-center text-white transition-all active:scale-95"
+              className="relative w-11 h-11 shrink-0 rounded-2xl bg-white/[0.05] ring-1 ring-white/[0.08] backdrop-blur-xl hover:bg-white/[0.1] flex items-center justify-center text-white transition-all active:scale-95"
             >
               <RefreshCw className="w-4.5 h-4.5" />
             </button>
@@ -2267,7 +2267,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
                 onClick={handleToggleMic}
                 aria-label={!mediaActive ? 'Start microphone' : micMuted ? 'Unmute microphone' : 'Mute microphone'}
                 title={!mediaActive ? 'Start microphone' : micMuted ? 'Unmute mic' : 'Mute mic'}
-                className={`relative w-10 h-10 shrink-0 rounded-2xl border flex items-center justify-center transition-all active:scale-95 ${
+                className={`relative w-11 h-11 shrink-0 rounded-2xl border flex items-center justify-center transition-all active:scale-95 ${
                   micInactive
                     ? 'bg-rose-500/80 border-rose-300/40 text-white'
                     : 'bg-[#232456]/90 border-white/15 text-white hover:bg-[#2E2F6E]'
@@ -2287,7 +2287,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
               aria-label="Live chat"
               title="Live chat"
               aria-pressed={boardTab === 'chat'}
-              className={`relative w-10 h-10 shrink-0 rounded-2xl ring-1 flex items-center justify-center transition-all active:scale-95 ${
+              className={`relative w-11 h-11 shrink-0 rounded-2xl ring-1 flex items-center justify-center transition-all active:scale-95 ${
                 boardTab === 'chat'
                   ? 'bg-cyan-500/20 ring-cyan-300/40 text-cyan-100'
                   : 'bg-white/[0.07] text-white ring-white/10 hover:bg-white/[0.14]'
@@ -2322,7 +2322,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
                   ? 'No one else on stage to gift yet'
                   : 'Send a gift'
               }
-              className={`relative w-10 h-10 shrink-0 rounded-2xl flex items-center justify-center transition-all active:scale-95 disabled:opacity-40 ${
+              className={`relative w-11 h-11 shrink-0 rounded-2xl flex items-center justify-center transition-all active:scale-95 disabled:opacity-40 ${
                 showGiftTray
                   ? 'bg-gradient-to-br from-amber-400 to-orange-500 text-[#1A1206]'
                   : 'bg-gradient-to-br from-pink-500 to-amber-400 hover:from-pink-400 hover:to-amber-300 text-white'
@@ -2336,7 +2336,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
               onClick={handleLike}
               aria-label="Like this live"
               title="Like"
-              className="relative w-10 h-10 shrink-0 rounded-2xl bg-gradient-to-br from-pink-500 to-rose-500 hover:from-pink-400 hover:to-rose-400 flex items-center justify-center text-white transition-all active:scale-90"
+              className="relative w-11 h-11 shrink-0 rounded-2xl bg-gradient-to-br from-pink-500 to-rose-500 hover:from-pink-400 hover:to-rose-400 flex items-center justify-center text-white transition-all active:scale-90"
             >
               <Heart className="w-4.5 h-4.5 fill-current" />
               {likeTotal > 0 && (
@@ -2351,7 +2351,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
               onClick={() => setShowGamesModal(true)}
               aria-label="Mini games"
               title="Mini games"
-              className="relative w-10 h-10 shrink-0 rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 flex items-center justify-center text-white transition-colors shadow-lg shadow-violet-900/30 active:scale-95"
+              className="relative w-11 h-11 shrink-0 rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 flex items-center justify-center text-white transition-colors shadow-lg shadow-violet-900/30 active:scale-95"
             >
               <Gamepad2 className="w-4.5 h-4.5 text-violet-100" />
             </button>
@@ -2361,7 +2361,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
               onClick={() => setViewersOpen(true)}
               aria-label="Viewer list"
               title="Viewers"
-              className="relative w-10 h-10 shrink-0 rounded-2xl bg-white/[0.05] ring-1 ring-white/[0.08] backdrop-blur-xl hover:bg-white/[0.1] flex items-center justify-center text-white transition-colors active:scale-95"
+              className="relative w-11 h-11 shrink-0 rounded-2xl bg-white/[0.05] ring-1 ring-white/[0.08] backdrop-blur-xl hover:bg-white/[0.1] flex items-center justify-center text-white transition-colors active:scale-95"
             >
               <Users className="w-4.5 h-4.5" />
               {viewerProfiles.length > 0 && (
@@ -2377,7 +2377,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
                 onClick={() => setViewersOpen(true)}
                 aria-label="Invite viewers"
                 title="Invite viewers"
-                className="relative w-10 h-10 shrink-0 rounded-2xl bg-white/[0.05] ring-1 ring-white/[0.08] backdrop-blur-xl hover:bg-white/[0.1] flex items-center justify-center text-white transition-colors active:scale-95"
+                className="relative w-11 h-11 shrink-0 rounded-2xl bg-white/[0.05] ring-1 ring-white/[0.08] backdrop-blur-xl hover:bg-white/[0.1] flex items-center justify-center text-white transition-colors active:scale-95"
               >
                 <UserPlus className="w-4.5 h-4.5 text-cyan-300" />
               </button>
@@ -2388,7 +2388,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
               onClick={() => setSettingsOpen(true)}
               aria-label="Live settings"
               title="Live settings"
-              className="relative w-10 h-10 shrink-0 rounded-2xl bg-white/[0.05] ring-1 ring-white/[0.08] backdrop-blur-xl hover:bg-white/[0.1] flex items-center justify-center text-white transition-colors active:scale-95"
+              className="relative w-11 h-11 shrink-0 rounded-2xl bg-white/[0.05] ring-1 ring-white/[0.08] backdrop-blur-xl hover:bg-white/[0.1] flex items-center justify-center text-white transition-colors active:scale-95"
             >
               <SlidersHorizontal className="w-4.5 h-4.5" />
             </button>

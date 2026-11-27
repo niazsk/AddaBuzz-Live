@@ -32,6 +32,8 @@ import {
   X,
 } from 'lucide-react';
 import { AppSection, UserProfile } from '../../types/app';
+import { ProfileFrameOverlay } from '../ui/ProfileFrameOverlay';
+import { FRAME_CHANGE_EVENT, getEquippedFrame } from '../../data/profileFrames';
 import { Avatar } from '../ui/Avatar';
 import { ProfileImageKind, compressProfileImage } from '../../lib/profileImages';
 import {
@@ -167,6 +169,22 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   >(null);
   const [confirmSignOut, setConfirmSignOut] = useState(false);
   const [photoBusy, setPhotoBusy] = useState<ProfileImageKind | null>(null);
+  // Stylish profile frame chosen in the Store.
+  const [equippedFrame, setEquippedFrameState] = useState<string>(() => {
+    try { return currentUser ? getEquippedFrame(currentUser.uid) : 'none'; } catch { return 'none'; }
+  });
+
+  useEffect(() => {
+    setEquippedFrameState(currentUser ? getEquippedFrame(currentUser.uid) : 'none');
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ uid?: string; frameId?: string }>).detail;
+      if (!detail || !currentUser || detail.uid === currentUser.uid) {
+        setEquippedFrameState(currentUser ? getEquippedFrame(currentUser.uid) : 'none');
+      }
+    };
+    window.addEventListener(FRAME_CHANGE_EVENT, handler);
+    return () => window.removeEventListener(FRAME_CHANGE_EVENT, handler);
+  }, [currentUser?.uid]);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
   const [coverImage, setCoverImage] = useState<string | null>(null);
@@ -442,6 +460,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 size="xl"
                 className="border-[3px] border-[#0A0D16]"
               />
+              <ProfileFrameOverlay frameId={equippedFrame} />
               <button
                 type="button"
                 onClick={() => avatarInputRef.current?.click()}

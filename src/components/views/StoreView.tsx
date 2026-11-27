@@ -1,22 +1,23 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { ArrowLeft, Coins, Gem, ReceiptText, ShoppingBag, Sparkles, Image, Check } from 'lucide-react';
+import { WalletTransaction } from '../../types/app';
 import {
-  ArrowLeft,
-  Gift,
-  Coins,
-  Gem,
-  Image,
-  ReceiptText,
-  ShoppingBag,
-  Sparkles,
-  Search,
-} from 'lucide-react';
-import { GiftCatalogItem, WalletTransaction } from '../../types/app';
-import { GIFT_CATALOG, giftTier } from '../../data/gifts';
+  PROFILE_FRAMES,
+  FRAME_CHANGE_EVENT,
+  addOwnedFrame,
+  getEquippedFrame,
+  getOwnedFrames,
+  isFrameOwned,
+  setEquippedFrame,
+} from '../../data/profileFrames';
+import { gameCoinDebit } from '../../lib/firestoreService';
+import { ProfileFrameOverlay } from '../ui/ProfileFrameOverlay';
 
 interface StoreViewProps {
   coinBalance: number;
   diamondBalance: number;
   transactions?: WalletTransaction[];
+  currentUser?: { uid: string; displayName?: string; avatarColor?: string; avatarUrl?: string } | null;
   onBack: () => void;
   onToast?: (title: string, desc?: string, tone?: 'info' | 'success' | 'warning' | 'error') => void;
 }
@@ -25,27 +26,63 @@ export const StoreView: React.FC<StoreViewProps> = ({
   coinBalance,
   diamondBalance,
   transactions = [],
+  currentUser,
   onBack,
   onToast,
 }) => {
-  const [tab, setTab] = useState<'GIFTS' | 'ORDERS' | 'DECOR'>('GIFTS');
-  const [selectedCategory, setSelectedCategory] = useState<'ALL' | 'CLASSIC' | 'PREMIUM' | 'LUXURY'>('ALL');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedGift, setSelectedGift] = useState<GiftCatalogItem | null>(null);
+  const uid = currentUser?.uid ?? 'guest';
+  const [tab, setTab] = useState<'ORDERS' | 'FRAMES'>('FRAMES');
+  const [owned, setOwned] = useState<string[]>(() => getOwnedFrames(uid));
+  const [equipped, setEquipped] = useState<string>(() => getEquippedFrame(uid));
+  const [busy, setBusy] = useState<string | null>(null);
 
-  const orders = transactions.filter(
-    (tx) => tx.direction === 'DEBIT' && tx.reason.startsWith('Sent ')
-  );
+  const orders = transactions.filter((tx) => tx.direction === 'DEBIT');
 
-  const filteredGifts = GIFT_CATALOG.filter((g) => {
-    const matchesSearch = g.name.toLowerCase().includes(searchQuery.toLowerCase());
-    if (!matchesSearch) return false;
+  const refresh = useCallback(() => {
+    setOwned(getOwnedFrames(uid));
+    setEquipped(getEquippedFrame(uid));
+  }, [uid]);
 
-    if (selectedCategory === 'CLASSIC') return g.price < 50000;
-    if (selectedCategory === 'PREMIUM') return g.price >= 50000 && g.price < 300000;
-    if (selectedCategory === 'LUXURY') return g.price >= 300000;
-    return true;
-  });
+  useEffect(() => {
+    refresh();
+    const handler = () => refresh();
+    window.addEventListener(FRAME_CHANGE_EVENT, handler);
+    return () => window.removeEventListener(FRAME_CHANGE_EVENT, handler);
+  }, [refresh]);
+
+  const equip = (frameId: string) => {
+    setEquippedFrame(uid, frameId);
+    setEquipped(frameId);
+    onToast?.('Frame applied', 'Your profile frame has been updated.', 'success');
+  };
+
+  const buyFrame = async (frameId: string, price: number, name: string) => {
+    if (!currentUser) {
+      onToast?.('Sign in required', 'Sign in to buy profile frames.', 'warning');
+      return;
+    }
+    if (isFrameOwned(uid, frameId)) {
+      equip(frameId);
+      return;
+    }
+    if (coinBalance < price) {
+      onToast?.('Not enough Coins', `You need ${price.toLocaleString()} Coins for ${name}.`, 'warning');
+      return;
+    }
+    setBusy(frameId);
+    try {
+      await gameCoinDebit(uid, price, `Profile frame: ${name}`, `frame_${frameId}_${uid}`);
+      addOwnedFrame(uid, frameId);
+      setEquippedFrame(uid, frameId);
+      setOwned(getOwnedFrames(uid));
+      setEquipped(frameId);
+      onToast?.('Frame purchased', `${name} unlocked and applied to your profile.`, 'success');
+    } catch (err) {
+      onToast?.('Purchase failed', err instanceof Error ? err.message : 'Unable to buy frame.', 'warning');
+    } finally {
+      setBusy(null);
+    }
+  };
 
   return (
     <div className="space-y-6 pb-12 max-w-4xl mx-auto">
@@ -62,11 +99,10 @@ export const StoreView: React.FC<StoreViewProps> = ({
           </button>
           <div className="flex items-center gap-2">
             <ShoppingBag className="w-5 h-5 text-amber-400" />
-            <h1 className="font-display text-lg font-bold text-white">Store & Gift Shop</h1>
+            <h1 className="font-display text-lg font-bold text-white">Store</h1>
           </div>
         </div>
 
-        {/* User Balance Chips */}
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs font-mono font-bold text-amber-300">
             <Coins className="w-3.5 h-3.5 text-amber-400" />
@@ -85,15 +121,15 @@ export const StoreView: React.FC<StoreViewProps> = ({
         <div className="space-y-1 text-center sm:text-left">
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[11px] font-bold">
             <Sparkles className="w-3 h-3" />
-            <span>Official Gift Collection</span>
+            <span>Profile Customization</span>
           </span>
-          <h2 className="text-xl font-bold text-white">Interactive Live Gifts</h2>
+          <h2 className="text-xl font-bold text-white">Stylish Profile Frames</h2>
           <p className="text-xs text-slate-300 max-w-md">
-            Browse exclusive virtual gifts for live streaming, room celebrations, and creator appreciation.
+            Buy beautiful frames with Coins and wear them on your profile. No gifts here — just look good.
           </p>
         </div>
         <div className="w-16 h-16 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0 shadow-lg shadow-amber-950/40">
-          <Gift className="w-8 h-8" />
+          <Image className="w-8 h-8" />
         </div>
       </div>
 
@@ -101,9 +137,8 @@ export const StoreView: React.FC<StoreViewProps> = ({
       <div className="flex gap-1.5 p-1 rounded-xl bg-[#111420] border border-white/[0.08] w-full sm:w-auto">
         {(
           [
-            { id: 'GIFTS', label: 'Gift Shop', icon: Gift },
+            { id: 'FRAMES', label: 'Profile Frames', icon: Image },
             { id: 'ORDERS', label: 'Purchase History', icon: ReceiptText },
-            { id: 'DECOR', label: 'Frames & Decor', icon: Image },
           ] as const
         ).map((item) => {
           const Icon = item.icon;
@@ -113,9 +148,7 @@ export const StoreView: React.FC<StoreViewProps> = ({
               type="button"
               onClick={() => setTab(item.id)}
               className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-medium inline-flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap ${
-                tab === item.id
-                  ? 'bg-amber-500 text-[#0B0D14] font-bold'
-                  : 'text-slate-400 hover:text-white'
+                tab === item.id ? 'bg-amber-500 text-[#0B0D14] font-bold' : 'text-slate-400 hover:text-white'
               }`}
             >
               <Icon className="w-3.5 h-3.5" />
@@ -131,20 +164,11 @@ export const StoreView: React.FC<StoreViewProps> = ({
             {orders.length === 0 ? (
               <div className="px-4 py-8 text-center space-y-1.5">
                 <ReceiptText className="w-6 h-6 text-slate-500 mx-auto" />
-                <p className="text-xs text-slate-400">
-                  No gift purchases in the loaded wallet history.
-                </p>
-                <p className="text-[11px] text-slate-500">
-                  Gifts are purchased at the moment you send them in a live room or chat. Your
-                  recent purchases appear here.
-                </p>
+                <p className="text-xs text-slate-400">No purchases in the loaded wallet history.</p>
               </div>
             ) : (
               orders.map((tx) => (
-                <div
-                  key={tx.transactionId}
-                  className="flex items-center justify-between gap-3 px-4 py-3"
-                >
+                <div key={tx.transactionId} className="flex items-center justify-between gap-3 px-4 py-3">
                   <div className="min-w-0">
                     <p className="text-xs font-medium text-slate-200 truncate">{tx.reason}</p>
                     <p className="text-[10px] text-slate-500">
@@ -159,152 +183,75 @@ export const StoreView: React.FC<StoreViewProps> = ({
               ))
             )}
           </div>
-          <p className="text-[10px] text-slate-500 px-1">
-            Purchases are recorded automatically in your audited wallet ledger.
-          </p>
+          <p className="text-[10px] text-slate-500 px-1">Purchases are recorded in your audited wallet ledger.</p>
         </section>
       )}
 
-      {tab === 'DECOR' && (
-        <section className="rounded-2xl bg-[#111420] border border-white/[0.08] px-4 py-10 text-center space-y-2">
-          <Image className="w-7 h-7 text-slate-500 mx-auto" />
-          <p className="text-sm font-medium text-slate-200">Frames & decorations coming soon</p>
-          <p className="text-[11px] text-slate-500 max-w-md mx-auto leading-relaxed">
-            Profile frames, entry effects and room decorations are not released yet. When they
-            launch, purchases will appear here with your full order history.
-          </p>
-        </section>
-      )}
-
-      {tab === 'GIFTS' && (
-        <>
-      {/* Filter and Search */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-[#111420] border border-white/[0.08] w-full sm:w-auto overflow-x-auto">
-          {(['ALL', 'CLASSIC', 'PREMIUM', 'LUXURY'] as const).map((cat) => (
-            <button
-              key={cat}
-              type="button"
-              onClick={() => setSelectedCategory(cat)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
-                selectedCategory === cat
-                  ? 'bg-gradient-to-r from-amber-400 to-orange-400 text-[#0B0D14] font-bold shadow-[0_8px_18px_-10px_rgba(245,158,11,0.9)]'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              {cat === 'ALL' ? 'All Gifts' : cat.charAt(0) + cat.slice(1).toLowerCase()}
-            </button>
-          ))}
-        </div>
-
-        <div className="relative w-full sm:w-64">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search gifts..."
-            className="w-full h-10 pl-9 pr-4 rounded-xl bg-[#111420] border border-white/[0.08] text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50"
-          />
-        </div>
-      </div>
-
-      {/* Gifts Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-        {filteredGifts.map((gift) => {
-          const isSelected = selectedGift?.giftId === gift.giftId;
-          const tier = giftTier(gift.price);
-          return (
-            <button
-              key={gift.giftId}
-              type="button"
-              onClick={() => setSelectedGift(gift)}
-              className={`group relative rounded-2xl bg-gradient-to-b from-[#141827] to-[#0E111A] border transition-all duration-200 text-left p-3.5 flex flex-col items-center gap-2.5 hover:-translate-y-1 hover:shadow-[0_24px_44px_-30px_rgba(2,6,23,0.95)] ${
-                isSelected
-                  ? 'border-amber-400 ring-2 ring-amber-400/30 shadow-lg shadow-amber-950/50'
-                  : 'border-white/[0.08] hover:border-amber-400/35'
-              }`}
-            >
-              <span
-                className={`absolute top-2 left-2 px-1.5 py-0.5 rounded-md text-[9px] font-bold tracking-wider ${
-                  tier === 'luxury'
-                    ? 'bg-gradient-to-r from-amber-400 to-rose-400 text-[#1A1206]'
-                    : tier === 'premium'
-                    ? 'bg-sky-500/15 border border-sky-400/30 text-sky-300'
-                    : 'bg-white/[0.06] border border-white/10 text-slate-400'
+      {tab === 'FRAMES' && (
+        <section className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+          {PROFILE_FRAMES.map((frame) => {
+            const ownedFrame = isFrameOwned(uid, frame.id);
+            const isEquipped = equipped === frame.id;
+            const affordable = coinBalance >= frame.price;
+            const isBusy = busy === frame.id;
+            return (
+              <div
+                key={frame.id}
+                className={`group relative rounded-2xl bg-gradient-to-b from-[#141827] to-[#0E111A] border p-4 flex flex-col items-center gap-3 transition-all ${
+                  isEquipped ? 'border-amber-400 ring-2 ring-amber-400/30' : 'border-white/[0.08] hover:border-amber-400/35'
                 }`}
               >
-                {tier.toUpperCase()}
-              </span>
-              {/* Gift Image */}
-              <div className="w-16 h-16 rounded-xl bg-white/[0.04] p-1.5 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <img
-                  src={gift.imageUrl}
-                  alt={gift.name}
-                  className="w-full h-full object-contain"
-                  onError={(e) => {
-                    // Fallback to gift icon
-                    (e.target as HTMLElement).style.display = 'none';
-                  }}
-                />
-              </div>
-
-              {/* Details */}
-              <div className="w-full text-center">
-                <p className="text-xs font-semibold text-white truncate">{gift.name}</p>
-                <div className="flex items-center justify-center gap-1 mt-1">
-                  <Coins className="w-3 h-3 text-amber-400" />
-                  <span className="font-mono text-xs font-bold text-amber-300">
-                    {gift.price.toLocaleString()}
+                {/* Preview avatar with frame */}
+                <div className="relative flex items-center justify-center p-1.5">
+                  <span className="relative inline-flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-fuchsia-500 to-violet-600 text-xl font-bold text-white">
+                    {(currentUser?.displayName ?? 'A').charAt(0).toUpperCase()}
                   </span>
+                  <ProfileFrameOverlay frameId={frame.id} />
                 </div>
+
+                <div className="w-full text-center">
+                  <p className="text-xs font-semibold text-white truncate">{frame.name}</p>
+                  <p className="text-[10px] text-slate-500 truncate">{frame.description}</p>
+                  <div className="flex items-center justify-center gap-1 mt-1">
+                    <Coins className="w-3 h-3 text-amber-400" />
+                    <span className="font-mono text-xs font-bold text-amber-300">
+                      {frame.price === 0 ? 'Free' : frame.price.toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+
+                {frame.id === 'none' ? (
+                  <button
+                    type="button"
+                    onClick={() => equip('none')}
+                    className="w-full px-3 py-2 rounded-xl text-xs font-bold bg-white/[0.06] text-slate-200 ring-1 ring-white/10 hover:bg-white/[0.12] transition-colors"
+                  >
+                    {isEquipped ? 'Equipped' : 'Use'}
+                  </button>
+                ) : ownedFrame ? (
+                  <button
+                    type="button"
+                    onClick={() => equip(frame.id)}
+                    disabled={isEquipped}
+                    className="w-full inline-flex items-center justify-center gap-1 px-3 py-2 rounded-xl text-xs font-bold bg-amber-500 text-[#0B0D14] hover:bg-amber-400 disabled:opacity-60 transition-colors"
+                  >
+                    {isEquipped ? (<><Check className="w-3.5 h-3.5" />Equipped</>) : 'Apply to profile'}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => void buyFrame(frame.id, frame.price, frame.name)}
+                    disabled={isBusy || !affordable || !currentUser}
+                    className="w-full inline-flex items-center justify-center gap-1 px-3 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-fuchsia-500 to-violet-600 text-white hover:opacity-90 disabled:opacity-40 transition-opacity"
+                  >
+                    <Coins className="w-3.5 h-3.5" />
+                    {isBusy ? 'Buying…' : affordable ? `Buy ${frame.price.toLocaleString()}` : 'Not enough'}
+                  </button>
+                )}
               </div>
-
-              {gift.effect && (
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/[0.06] text-slate-400 capitalize">
-                  {gift.effect}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Selected Gift Preview Modal / Card */}
-      {selectedGift && (
-        <div className="rounded-3xl bg-gradient-to-r from-amber-500/10 via-[#111420] to-[#111420] border border-amber-500/30 p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-amber-500/20 border border-amber-500/30 p-2 flex items-center justify-center">
-              <img
-                src={selectedGift.imageUrl}
-                alt={selectedGift.name}
-                className="w-full h-full object-contain"
-              />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-white">{selectedGift.name}</h3>
-              <p className="text-xs text-slate-400">
-                Cost: <span className="text-amber-400 font-bold font-mono">{selectedGift.price.toLocaleString()} Coins</span> · Effect: <span className="capitalize text-sky-400">{selectedGift.effect || 'Standard'}</span>
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              onToast?.(
-                'Live Gift Ready',
-                `"${selectedGift.name}" is available in any Live Room to send to hosts & creators!`,
-                'info'
-              );
-              setSelectedGift(null);
-            }}
-            className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-[#0B0D14] text-xs font-bold transition-colors shadow-md"
-          >
-            Send in Live Room
-          </button>
-        </div>
-      )}
-        </>
+            );
+          })}
+        </section>
       )}
     </div>
   );
