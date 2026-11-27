@@ -12,23 +12,45 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
   const { isInstallable, isInstalled, isIOS, install } = usePWAInstall();
   const [showIOSGuide, setShowIOSGuide] = useState(false);
 
+  const nativeUpdater =
+    typeof window !== 'undefined'
+      ? (window as Window & { AddaBuzzApp?: { installUpdate: () => void } }).AddaBuzzApp
+      : undefined;
+  const inAndroidApp = Boolean(nativeUpdater?.installUpdate);
+
   // Direct APK download button for Android / Web users
   const apkDownloadButton = (
     <a
       href="https://raw.githubusercontent.com/niazsk/AddaBuzz-Live/main/public/addabuzz-live.apk"
       download="AddaBuzzLive.apk"
+      onClick={(e) => {
+        if (nativeUpdater?.installUpdate) {
+          e.preventDefault();
+          nativeUpdater.installUpdate();
+        }
+      }}
       className={
         compact
           ? 'inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-600/30 to-teal-600/30 border border-emerald-400/40 px-2.5 py-1.5 text-xs font-semibold text-emerald-300 hover:from-emerald-600/40 hover:to-teal-600/40 transition-all shadow-sm'
           : 'w-full h-10 px-3 rounded-xl bg-gradient-to-r from-emerald-600/20 to-teal-600/20 border border-emerald-400/35 hover:from-emerald-600/30 hover:to-teal-600/30 text-emerald-200 text-xs font-semibold inline-flex items-center justify-center gap-2 transition-all shadow-sm'
       }
-      title="Download Android APK (AddaBuzz Live)"
+      title={
+        inAndroidApp
+          ? 'Update AddaBuzz App (downloads the latest APK from GitHub)'
+          : 'Download Android APK (AddaBuzz Live)'
+      }
     >
       <Download className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
-      <span className={compact ? 'hidden min-[480px]:inline' : undefined}>
-        {compact ? 'Download APK' : 'Download Android APK'}
-      </span>
-      {compact && <span className="min-[480px]:hidden">APK</span>}
+      {inAndroidApp ? (
+        <span>Update</span>
+      ) : (
+        <>
+          <span className={compact ? 'hidden min-[480px]:inline' : undefined}>
+            {compact ? 'Download APK' : 'Download Android APK'}
+          </span>
+          {compact && <span className="min-[480px]:hidden">APK</span>}
+        </>
+      )}
     </a>
   );
 

@@ -10,6 +10,7 @@ import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.view.Window;
 import android.webkit.PermissionRequest;
 import android.webkit.ValueCallback;
@@ -19,13 +20,23 @@ import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.Toast;
 
+import androidx.core.content.FileProvider;
 import androidx.webkit.WebViewAssetLoader;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 
 public class MainActivity extends android.app.Activity {
 
     private static final String APP_URL = "https://appassets.androidplatform.net/index.html";
     private static final String THEME_BG = "#08090E";
+    private static final String APK_UPDATE_URL =
+            "https://raw.githubusercontent.com/niazsk/AddaBuzz-Live/main/public/addabuzz-live.apk";
     private static final int REQUEST_FILE_CHOOSER = 43;
 
     private WebView web;
@@ -69,6 +80,19 @@ public class MainActivity extends android.app.Activity {
                 .addPathHandler("/", new WebViewAssetLoader.AssetsPathHandler(this))
                 .build();
 
+        setWebViewClients(loader);
+        web.addJavascriptInterface(new UpdateBridge(), "AddaBuzzApp");
+
+        setContentView(web);
+
+        if (savedInstanceState == null) {
+            web.loadUrl(APP_URL);
+        } else {
+            web.restoreState(savedInstanceState);
+        }
+    }
+
+    private void setWebViewClients(final WebViewAssetLoader loader) {
         web.setWebViewClient(new WebViewClient() {
             @Override
             public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
@@ -107,13 +131,88 @@ public class MainActivity extends android.app.Activity {
                 }
             }
         });
+    }
 
-        setContentView(web);
+    public class UpdateBridge {
+        @android.webkit.JavascriptInterface
+        public void installUpdate() {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    startApkUpdate();
+                }
+            });
+        }
+    }
 
-        if (savedInstanceState == null) {
-            web.loadUrl(APP_URL);
-        } else {
-            web.restoreState(savedInstanceState);
+    private void startApkUpdate() {
+        if (Build.VERSION.SDK_INT >= 26 && !getPackageManager().canRequestPackageInstalls()) {
+            Toast.makeText(this, "Allow installs from AddaBuzz, then tap Update again", Toast.LENGTH_LONG).show();
+            try {
+                startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                        Uri.parse("package:" + getPackageName())));
+            } catch (Exception ignored) {
+            }
+            return;
+        }
+        Toast.makeText(this, "Downloading update from GitHub...", Toast.LENGTH_SHORT).show();
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    File dir = new File(getCacheDir(), "apk");
+                    if (!dir.exists() && !dir.mkdirs()) {
+                        throw new java.io.IOException("Cannot create cache dir");
+                    }
+                    File out = new File(dir, "addabuzz-live.apk");
+                    HttpURLConnection conn = (HttpURLConnection) new URL(
+                            APK_UPDATE_URL + "?t=" + System.currentTimeMillis()).openConnection();
+                    conn.setConnectTimeout(20000);
+                    conn.setReadTimeout(120000);
+                    conn.setInstanceFollowRedirects(true);
+                    conn.connect();
+                    int code = conn.getResponseCode();
+                    if (code != HttpURLConnection.HTTP_OK) {
+                        throw new java.io.IOException("HTTP " + code);
+                    }
+                    try (InputStream in = conn.getInputStream();
+                         FileOutputStream fos = new FileOutputStream(out)) {
+                        byte[] buf = new byte[64 * 1024];
+                        int n;
+                        while ((n = in.read(buf)) > 0) {
+                            fos.write(buf, 0, n);
+                        }
+                    } finally {
+                        conn.disconnect();
+                    }
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            launchInstaller(new File(new File(getCacheDir(), "apk"), "addabuzz-live.apk"));
+                        }
+                    });
+                } catch (final Exception e) {
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            Toast.makeText(MainActivity.this,
+                                    "Update download failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                        }
+                    });
+                }
+            }
+        }).start();
+    }
+
+    private void launchInstaller(File apk) {
+        try {
+            Uri uri = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", apk);
+            Intent intent = new Intent(Intent.ACTION_VIEW)
+                    .setDataAndType(uri, "application/vnd.android.package-archive")
+                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(intent);
+        } catch (Exception e) {
+            Toast.makeText(this, "Could not open installer: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
     }
 
