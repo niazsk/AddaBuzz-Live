@@ -446,7 +446,7 @@ service cloud.firestore {
             data.giftCurrency == 'COIN' &&
             get(/databases/$(database)/documents/wallets/$(request.auth.uid)).data.coinBalance -
               getAfter(/databases/$(database)/documents/wallets/$(request.auth.uid)).data.coinBalance ==
-              data.giftAmount
+              data.giftAmount - (('luckyValue' in data) ? data.luckyValue : 0)
           ) ||
           (
             data.giftCurrency == 'DIAMOND' &&

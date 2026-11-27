@@ -85,10 +85,15 @@ public class MainActivity extends android.app.Activity {
 
         setContentView(web);
 
+        // 3. Force a fresh page every cold start: drop WebView + service-worker
+        // caches so an updated bundled build is not shadowed by an old cached copy.
+        web.clearCache(true);
+        web.clearHistory();
         if (savedInstanceState == null) {
             web.loadUrl(APP_URL);
         } else {
             web.restoreState(savedInstanceState);
+            web.loadUrl(APP_URL);
         }
     }
 
@@ -97,6 +102,18 @@ public class MainActivity extends android.app.Activity {
             @Override
             public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
                 return loader.shouldInterceptRequest(request.getUrl());
+            }
+
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                // Poppo-style app bundle ships its own assets; drop any stale
+                // PWA service worker so cached old builds are not served.
+                view.evaluateJavascript(
+                        "if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations()" +
+                                ".then(function(rs){rs.forEach(function(r){r.unregister();});});}",
+                        null);
+                view.clearCache(true);
             }
         });
 

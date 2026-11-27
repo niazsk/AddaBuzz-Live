@@ -1794,9 +1794,14 @@ async function sendGiftTransactionCore(
         }
       }
 
-      // 1. Debit the sender.
+      // 1. Debit the sender, then return any Lucky winnings as Coins.
+      // Lucky opens pay `gift.price`; the revealed `luckyValue` is credited
+      // back to the sender's Coin balance (net = luckyValue - price).
+      const luckyCoinCredit = lucky ? Math.floor(lucky.luckyValue) : 0;
+      const senderCoinBalance =
+        (gift.currency === 'COIN' ? coins - gift.price : coins) + luckyCoinCredit;
       tx.update(senderWalletRef, {
-        coinBalance: gift.currency === 'COIN' ? coins - gift.price : coins,
+        coinBalance: senderCoinBalance,
         diamondBalance: gift.currency === 'DIAMOND' ? diamonds - gift.price : diamonds,
         updatedAt: serverTimestamp(),
       });
