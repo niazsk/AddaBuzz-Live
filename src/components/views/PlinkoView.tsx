@@ -251,7 +251,7 @@ export const PlinkoView: React.FC<PlinkoViewProps> = ({
         </div>
       ) : (
         <div className="space-y-3">
-          <section className="relative overflow-hidden rounded-3xl border border-sky-300/20 bg-[linear-gradient(160deg,rgba(10,40,64,0.95),rgba(8,12,24,0.98)_55%,rgba(12,14,30,0.98))] p-4">
+          <section className="theme-dark-stage relative overflow-hidden rounded-3xl border border-sky-300/20 bg-[linear-gradient(160deg,rgba(10,40,64,0.95),rgba(8,12,24,0.98)_55%,rgba(12,14,30,0.98))] p-4">
             <div
               aria-hidden="true"
               className="pointer-events-none absolute -right-14 -top-14 h-48 w-48 rounded-full bg-[radial-gradient(closest-side,rgba(56,189,248,0.28),transparent)] blur-2xl"

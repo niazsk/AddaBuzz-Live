@@ -38,7 +38,7 @@ export const Avatar: React.FC<AvatarProps> = ({
 
   return (
     <div
-      className={`relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full font-display font-semibold text-white select-none ${
+      className={`avatar-chip relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full font-display font-semibold text-white select-none ${
         SIZE_CLASSES[size]
       } ${
         isSpeaking

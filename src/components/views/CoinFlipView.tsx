@@ -220,7 +220,7 @@ export const CoinFlipView: React.FC<CoinFlipViewProps> = ({
         </div>
       ) : (
         <div className="space-y-3">
-          <section className="relative overflow-hidden rounded-3xl border border-amber-300/20 bg-[linear-gradient(160deg,rgba(46,32,8,0.95),rgba(18,13,7,0.98)_55%,rgba(24,16,10,0.98))] p-3.5 sm:p-4">
+          <section className="theme-dark-stage relative overflow-hidden rounded-3xl border border-amber-300/20 bg-[linear-gradient(160deg,rgba(46,32,8,0.95),rgba(18,13,7,0.98)_55%,rgba(24,16,10,0.98))] p-3.5 sm:p-4">
             <div
               aria-hidden="true"
               className="pointer-events-none absolute -right-16 -top-16 h-52 w-52 rounded-full bg-[radial-gradient(closest-side,rgba(245,158,11,0.3),transparent)] blur-2xl"

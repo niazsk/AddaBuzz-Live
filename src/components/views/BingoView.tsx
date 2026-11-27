@@ -304,7 +304,7 @@ export const BingoView: React.FC<BingoViewProps> = ({
         </div>
       ) : (
         <div className="space-y-3">
-          <section className="relative overflow-hidden rounded-3xl border border-fuchsia-300/20 bg-[linear-gradient(160deg,rgba(58,10,42,0.95),rgba(20,8,18,0.98)_55%,rgba(30,10,26,0.98))] p-3.5">
+          <section className="theme-dark-stage relative overflow-hidden rounded-3xl border border-fuchsia-300/20 bg-[linear-gradient(160deg,rgba(58,10,42,0.95),rgba(20,8,18,0.98)_55%,rgba(30,10,26,0.98))] p-3.5">
             <div
               aria-hidden="true"
               className="pointer-events-none absolute -right-14 -top-14 h-48 w-48 rounded-full bg-[radial-gradient(closest-side,rgba(232,121,249,0.28),transparent)] blur-2xl"

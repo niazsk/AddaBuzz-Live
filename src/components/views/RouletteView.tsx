@@ -158,7 +158,7 @@ export const RouletteView: React.FC<Props> = ({
         </div>
       ) : (
         <>
-          <section className="relative overflow-hidden rounded-3xl border border-emerald-300/20 bg-[linear-gradient(160deg,rgba(6,42,34,0.95),rgba(8,12,20,0.98)_55%,rgba(8,28,32,0.98))] p-3 sm:p-4">
+          <section className="theme-dark-stage relative overflow-hidden rounded-3xl border border-emerald-300/20 bg-[linear-gradient(160deg,rgba(6,42,34,0.95),rgba(8,12,20,0.98)_55%,rgba(8,28,32,0.98))] p-3 sm:p-4">
             <div
               aria-hidden="true"
               className="pointer-events-none absolute -right-14 -top-14 h-44 w-44 rounded-full bg-[radial-gradient(closest-side,rgba(16,185,129,0.28),transparent)] blur-2xl"

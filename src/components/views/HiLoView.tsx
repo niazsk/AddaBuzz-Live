@@ -311,7 +311,7 @@ export const HiLoView: React.FC<Props> = ({
         </div>
       ) : (
         <div className="space-y-3">
-          <section className="relative overflow-hidden rounded-3xl border border-violet-300/20 bg-[linear-gradient(160deg,rgba(30,16,58,0.95),rgba(10,10,22,0.98)_55%,rgba(22,14,44,0.98))] p-4">
+          <section className="theme-dark-stage relative overflow-hidden rounded-3xl border border-violet-300/20 bg-[linear-gradient(160deg,rgba(30,16,58,0.95),rgba(10,10,22,0.98)_55%,rgba(22,14,44,0.98))] p-4">
             <div
               aria-hidden="true"
               className="pointer-events-none absolute -right-16 -top-16 h-52 w-52 rounded-full bg-[radial-gradient(closest-side,rgba(139,92,246,0.3),transparent)] blur-2xl"

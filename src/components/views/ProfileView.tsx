@@ -356,14 +356,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
       {/* Identity card */}
       <div
-        className="relative overflow-hidden rounded-[30px] border border-transparent shadow-[0_30px_80px_-42px_rgba(139,92,246,0.65)]"
+        className="profile-identity relative overflow-hidden rounded-[30px] border border-transparent shadow-[0_30px_80px_-42px_rgba(139,92,246,0.65)]"
         style={{
           background:
             'linear-gradient(#0A0D16, #0A0D16) padding-box, linear-gradient(180deg, rgba(255,255,255,0.17), rgba(255,255,255,0.04)) border-box',
         }}
       >
         <div
-          className="relative h-36 w-full sm:h-44"
+          className="theme-dark-stage relative h-36 w-full sm:h-44"
           style={{
             background: coverImage
               ? `center / cover no-repeat url(${coverImage})`
@@ -372,7 +372,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               : currentUser.coverGradient,
           }}
         >
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0A0D16] via-[#0A0D16]/20 to-black/10" />
+          <div className="profile-cover-fade absolute inset-0 bg-gradient-to-t from-[#0A0D16] via-[#0A0D16]/20 to-black/10" />
           <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
             <div className="absolute -left-10 -top-16 h-40 w-40 rounded-full bg-fuchsia-500/[0.18] blur-3xl" />
             <div className="absolute -right-12 top-4 h-36 w-36 rounded-full bg-cyan-400/[0.14] blur-3xl" />

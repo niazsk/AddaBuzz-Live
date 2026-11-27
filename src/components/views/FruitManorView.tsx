@@ -255,7 +255,7 @@ export const FruitManorView: React.FC<FruitManorViewProps> = ({
 
   return (
     <div
-      className="fm-root relative -mx-4 -mt-6 min-h-[calc(100vh-52px)] overflow-x-hidden px-3 pb-24 pt-2 sm:-mx-6 sm:px-4 lg:-mx-8 lg:px-6 lg:pb-10"
+      className="theme-dark-stage fm-root relative -mx-4 -mt-6 min-h-[calc(100vh-52px)] overflow-x-hidden px-3 pb-24 pt-2 sm:-mx-6 sm:px-4 lg:-mx-8 lg:px-6 lg:pb-10"
       onPointerDownCapture={unlockAudio}
     >
       {/* Layered orchard backdrop */}

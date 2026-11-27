@@ -968,7 +968,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
     'w-11 h-11 rounded-full bg-black/45 backdrop-blur-md border border-white/15 hover:bg-black/65 flex items-center justify-center text-white transition-colors';
 
   return (
-    <div className={`fixed inset-0 bg-[#07080D] text-white overflow-hidden ${isSolo ? '' : 'flex flex-col'}`}>
+    <div className={`theme-dark-stage fixed inset-0 bg-[#07080D] text-white overflow-hidden ${isSolo ? '' : 'flex flex-col'}`}>
       {/* Stage background: solo = full-screen host feed; multi-guest = ambient gradient (host lives in Seat 1) */}
       <div className="absolute inset-0">
         {isSolo ? (

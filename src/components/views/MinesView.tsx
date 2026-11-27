@@ -262,7 +262,7 @@ export const MinesView: React.FC<Props> = ({
         </div>
       ) : (
         <div className="space-y-3">
-          <section className="relative overflow-hidden rounded-3xl border border-emerald-300/20 bg-[linear-gradient(160deg,rgba(8,44,32,0.95),rgba(8,12,20,0.98)_55%,rgba(8,30,34,0.98))] p-4">
+          <section className="theme-dark-stage relative overflow-hidden rounded-3xl border border-emerald-300/20 bg-[linear-gradient(160deg,rgba(8,44,32,0.95),rgba(8,12,20,0.98)_55%,rgba(8,30,34,0.98))] p-4">
             <div
               aria-hidden="true"
               className="pointer-events-none absolute -left-16 -top-16 h-48 w-48 rounded-full bg-[radial-gradient(closest-side,rgba(16,185,129,0.28),transparent)] blur-2xl"

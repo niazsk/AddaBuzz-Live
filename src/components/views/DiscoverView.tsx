@@ -186,7 +186,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
       {/* Hero Featured Live Spotlight */}
       {featuredRoom && featuredHost && !normalizedQuery && selectedCategory === 'All' && (
         <section aria-label="Featured live broadcast">
-          <div className="relative rounded-3xl bg-gradient-to-br from-[#151A2B] via-[#111420] to-[#0D101A] border border-white/10 overflow-hidden grid grid-cols-1 lg:grid-cols-12 items-stretch shadow-[0_36px_80px_-52px_rgba(56,189,248,0.55)]">
+          <div className="theme-dark-stage relative rounded-3xl bg-gradient-to-br from-[#151A2B] via-[#111420] to-[#0D101A] border border-white/10 overflow-hidden grid grid-cols-1 lg:grid-cols-12 items-stretch shadow-[0_36px_80px_-52px_rgba(56,189,248,0.55)]">
             <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/50 to-transparent" />
             <div className="lg:col-span-7 relative min-h-[240px] sm:min-h-[300px] lg:min-h-[340px]">
               <MediaImage

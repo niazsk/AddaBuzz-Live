@@ -133,7 +133,7 @@ export const CrashView: React.FC<Props> = ({
           </button>
         </div>
       ) : (
-        <section className="relative overflow-hidden rounded-3xl border border-rose-300/20 bg-[linear-gradient(160deg,rgba(52,8,28,0.95),rgba(12,10,22,0.98)_55%,rgba(34,8,30,0.98))] p-4 sm:p-5">
+        <section className="theme-dark-stage relative overflow-hidden rounded-3xl border border-rose-300/20 bg-[linear-gradient(160deg,rgba(52,8,28,0.95),rgba(12,10,22,0.98)_55%,rgba(34,8,30,0.98))] p-4 sm:p-5">
           <div
             aria-hidden="true"
             className="pointer-events-none absolute -right-14 -top-14 h-44 w-44 rounded-full bg-[radial-gradient(closest-side,rgba(244,63,94,0.28),transparent)] blur-2xl"

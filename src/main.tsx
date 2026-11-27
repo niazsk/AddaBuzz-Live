@@ -1,6 +1,7 @@
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
+import './styles/light-theme.css';
 import { ThemeProvider } from './context/ThemeContext';
 
 if (location.hostname !== 'appassets.androidplatform.net') {
