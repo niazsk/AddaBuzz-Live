@@ -15,7 +15,7 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
   // Direct APK download button for Android / Web users
   const apkDownloadButton = (
     <a
-      href="/addabuzz-live.apk"
+      href="https://raw.githubusercontent.com/niazsk/AddaBuzz-Live/main/public/addabuzz-live.apk"
       download="AddaBuzzLive.apk"
       className={
         compact
