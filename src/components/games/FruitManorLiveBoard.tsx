@@ -121,7 +121,7 @@ export const FruitManorLiveBoard: React.FC<FruitManorLiveBoardProps> = ({
   const phaseMeta = PHASE_META[phase];
 
   return (
-    <div className="space-y-1 p-1.5" role="group" aria-label="Fruit Manor live board">
+    <div className="flex h-full min-h-0 flex-col space-y-1 p-1.5 [&>*:last-child]:mt-auto" role="group" aria-label="Fruit Manor live board">
       <div className="flex items-center gap-1.5">
         <button
           type="button"
