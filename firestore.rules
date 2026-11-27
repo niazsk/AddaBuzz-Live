@@ -338,6 +338,14 @@ service cloud.firestore {
         (!('occupantUid' in existingSeat) || existingSeat.occupantUid != request.auth.uid);
     }
 
+    // The host already sits on stage in Seat 1 — guest seats are viewers-only.
+    function isHostTakingSeat(roomId, seatData) {
+      return seatData.status == 'OCCUPIED' &&
+        ('occupantUid' in seatData) &&
+        seatData.occupantUid == request.auth.uid &&
+        get(/databases/$(database)/documents/liveRooms/$(roomId)).data.hostUid == request.auth.uid;
+    }
+
     function isValidJoinRequest(data, requestId, roomId) {
       return data.keys().hasAll(['requestId', 'roomId', 'uid', 'username', 'displayName', 'createdAt']) &&
         data.keys().hasOnly(['requestId', 'roomId', 'uid', 'username', 'displayName', 'avatarColor', 'preferredSeatNumber', 'createdAt']) &&
@@ -1228,7 +1236,8 @@ service cloud.firestore {
           incoming().seatNumber == existing().seatNumber && (
             (
               (isRoomHost(roomId) || isRoomModerator(roomId) || isAdmin()) &&
-              !isControllerSelfSeatApproval(existing(), incoming())
+              !isControllerSelfSeatApproval(existing(), incoming()) &&
+              !isHostTakingSeat(roomId, incoming())
             ) ||
             (
               existing().status == 'AVAILABLE' &&

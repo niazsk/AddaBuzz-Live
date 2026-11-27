@@ -1198,6 +1198,43 @@ export async function requestRoomSeatDoc(
       if (!seatSnap.exists()) throw new Error('Seat not found.');
       const seatData = seatSnap.data()!;
 
+      // The host already has their own stage seat (Seat 1). Guest seats are
+      // for viewers only.
+      if (String(roomData.hostUid) === user.uid) {
+        throw new Error('You are the host — you are already on stage in Seat 1.');
+      }
+
+      // One seat per person: block accounts that already sit on stage or
+      // already have a pending request for another seat.
+      const capacity = normalizeSeatCount(roomData.seatCount);
+      const seatSnaps = await Promise.all(
+        Array.from({ length: capacity }, (_, idx) =>
+          tx.get(doc(db, 'liveRooms', roomId, 'seats', `seat_${idx + 1}`))
+        )
+      );
+      const myOccupiedSeat = seatSnaps.find(
+        (s) =>
+          s.exists() &&
+          s.data().status === 'OCCUPIED' &&
+          s.data().occupantUid === user.uid
+      );
+      if (myOccupiedSeat) {
+        throw new Error(
+          `You are already on stage in Seat ${Number(myOccupiedSeat.data()!.seatNumber)}.`
+        );
+      }
+      const myReqPrefix = `req_${user.uid.slice(0, 12)}_`;
+      for (const pending of seatSnaps) {
+        if (!pending.exists() || pending.data().status !== 'REQUESTED') continue;
+        const pendingNum = Number(pending.data()!.seatNumber);
+        const myPending = await tx.get(
+          doc(db, 'liveRooms', roomId, 'joinRequests', `${myReqPrefix}${pendingNum}`)
+        );
+        if (myPending.exists()) {
+          throw new Error(`You already have a pending request for Seat ${pendingNum}.`);
+        }
+      }
+
       // Hosts, moderators and admins take seats directly — they never need
       // to request or self-approve. The seat still must be empty and unlocked.
       if (await isRoomControllerInTx(tx, roomId, roomData, actor)) {
@@ -1306,6 +1343,19 @@ export async function approveJoinRequestDoc(
       ).length;
       if (occupiedCount >= capacity) {
         throw new Error(`Maximum ${capacity} guest seats are already occupied.`);
+      }
+      const alreadySeated = seatSnaps.find(
+        (s) =>
+          s.exists() &&
+          s.data().status === 'OCCUPIED' &&
+          s.data().occupantUid === request.uid
+      );
+      if (alreadySeated) {
+        throw new Error(
+          `@${request.username} is already on stage in Seat ${Number(
+            alreadySeated.data()!.seatNumber
+          )}.`
+        );
       }
 
       const preferred = seatSnaps.find(

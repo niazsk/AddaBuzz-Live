@@ -1,18 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   AlertCircle,
-  Camera,
   Check,
-  ChevronDown,
   Globe,
+  LayoutGrid,
   Loader2,
   Lock,
   Mic,
   MicOff,
+  PencilLine,
   Radio,
   RefreshCw,
   ShieldCheck,
-  Sparkles,
   Users,
   Video,
   X,
@@ -21,8 +20,6 @@ import { CreateLiveRoomPayload, RoomCategory, RoomMode } from '../../types/app';
 import { ROOM_CATEGORIES } from '../../data/previewData';
 import {
   LocalMediaHandle,
-  describeMediaError,
-  listMediaDevices,
   startLocalMediaCapture,
 } from '../../lib/mediaProvider';
 
@@ -37,6 +34,13 @@ interface GoLiveModalProps {
 const SEAT_OPTIONS = [8, 12, 16, 24] as const;
 
 type PreviewState = 'idle' | 'starting' | 'ready' | 'error';
+type SetupTab = 'format' | 'details' | 'access';
+
+const SETUP_TABS: { id: SetupTab; label: string; icon: typeof LayoutGrid }[] = [
+  { id: 'format', label: 'Format', icon: LayoutGrid },
+  { id: 'details', label: 'Details', icon: PencilLine },
+  { id: 'access', label: 'Access', icon: ShieldCheck },
+];
 
 interface ToggleRowProps {
   label: string;
@@ -60,46 +64,24 @@ const ToggleRow: React.FC<ToggleRowProps> = ({
     aria-label={label}
     disabled={disabled}
     onClick={() => onChange(!checked)}
-    className={`flex w-full items-center justify-between gap-3 px-3.5 py-2.5 text-left transition-colors disabled:opacity-45 ${
-      checked ? 'bg-violet-500/[0.05]' : 'hover:bg-white/[0.03]'
-    }`}
+    className="flex w-full items-center justify-between gap-3 py-3 text-left transition-colors disabled:opacity-45"
   >
     <span className="min-w-0">
-      <span className="block text-[11px] font-semibold text-slate-200">{label}</span>
+      <span className="block text-xs font-medium text-slate-200">{label}</span>
       {hint && <span className="mt-0.5 block text-[10px] leading-snug text-slate-500">{hint}</span>}
     </span>
     <span
-      className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${
-        checked ? 'bg-gradient-to-r from-cyan-400 to-violet-500' : 'bg-white/15'
+      className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+        checked ? 'bg-violet-600' : 'bg-white/15'
       }`}
     >
       <span
-        className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-all ${
-          checked ? 'left-[18px]' : 'left-0.5'
+        className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-all ${
+          checked ? 'left-[22px]' : 'left-0.5'
         }`}
       />
     </span>
   </button>
-);
-
-const SectionHeading: React.FC<{ step: string; title: string; trailing?: React.ReactNode }> = ({
-  step,
-  title,
-  trailing,
-}) => (
-  <div className="flex items-center gap-2">
-    <span className="font-mono text-[9px] font-semibold tracking-[0.2em] text-cyan-300/80">
-      {step}
-    </span>
-    <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-300">
-      {title}
-    </span>
-    <span
-      aria-hidden="true"
-      className="h-px flex-1 bg-gradient-to-r from-white/[0.10] to-transparent"
-    />
-    {trailing}
-  </div>
 );
 
 export const GoLiveModal: React.FC<GoLiveModalProps> = ({
@@ -120,18 +102,12 @@ export const GoLiveModal: React.FC<GoLiveModalProps> = ({
   const [hostApproval, setHostApproval] = useState(true);
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [tab, setTab] = useState<SetupTab>('format');
 
   const [cameraId, setCameraId] = useState('');
   const [micId, setMicId] = useState('');
-  const [facing, setFacing] = useState<'user' | 'environment'>('user');
-  const [cameraDevices, setCameraDevices] = useState<MediaDeviceInfo[]>([]);
-  const [micDevices, setMicDevices] = useState<MediaDeviceInfo[]>([]);
   const [previewState, setPreviewState] = useState<PreviewState>('idle');
-  const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewHasVideo, setPreviewHasVideo] = useState(false);
-  const [previewHasAudio, setPreviewHasAudio] = useState(false);
-  const [deviceNote, setDeviceNote] = useState<string | null>(null);
-  const [micLevel, setMicLevel] = useState(0);
   const [micMuted, setMicMuted] = useState(false);
   const [previewKey, setPreviewKey] = useState(0);
 
@@ -157,12 +133,6 @@ export const GoLiveModal: React.FC<GoLiveModalProps> = ({
         ? `Video board · ${seatCount} guest seats`
         : 'Solo video broadcast';
 
-  const refreshDevices = async () => {
-    const { cameras, mics } = await listMediaDevices();
-    setCameraDevices(cameras);
-    setMicDevices(mics);
-  };
-
   const stopPreview = () => {
     if (previewRef.current) {
       previewRef.current.stop();
@@ -170,8 +140,6 @@ export const GoLiveModal: React.FC<GoLiveModalProps> = ({
     }
     if (videoRef.current) videoRef.current.srcObject = null;
     setPreviewHasVideo(false);
-    setPreviewHasAudio(false);
-    setMicLevel(0);
     setPreviewState('idle');
   };
 
@@ -183,37 +151,30 @@ export const GoLiveModal: React.FC<GoLiveModalProps> = ({
     handle.setAudioMuted(micMuted);
     previewRef.current = handle;
     setPreviewHasVideo(handle.stream.getVideoTracks().length > 0);
-    setPreviewHasAudio(handle.stream.getAudioTracks().length > 0);
     if (videoRef.current) videoRef.current.srcObject = handle.stream;
     setPreviewState('ready');
-    setPreviewError(null);
     setPreviewKey((k) => k + 1);
-    void refreshDevices();
   };
 
   const startPreview = async (opts?: {
     mode?: RoomMode;
     cameraId?: string;
     micId?: string;
-    facing?: 'user' | 'environment';
   }) => {
     const targetMode = opts?.mode ?? effectiveMode;
     const targetCamera = opts?.cameraId ?? cameraId;
     const targetMic = opts?.micId ?? micId;
-    const targetFacing = opts?.facing ?? facing;
     setPreviewState('starting');
-    setPreviewError(null);
     previewRef.current?.stop();
     previewRef.current = null;
 
     const capture = (useSaved: boolean) =>
       startLocalMediaCapture({
         mode: targetMode,
-        facingMode: targetFacing,
+        facingMode: 'user',
         cameraDeviceId: useSaved && targetCamera ? targetCamera : undefined,
         micDeviceId: useSaved && targetMic ? targetMic : undefined,
         quality: '720p',
-        onAudioLevel: setMicLevel,
       });
 
     try {
@@ -226,18 +187,15 @@ export const GoLiveModal: React.FC<GoLiveModalProps> = ({
       if (staleDevice) {
         setCameraId('');
         setMicId('');
-        setDeviceNote('Saved device was unavailable — switched to the default device.');
         try {
           applyHandle(await capture(false));
           return;
-        } catch (retryErr) {
+        } catch {
           setPreviewState('error');
-          setPreviewError(describeMediaError(retryErr));
           return;
         }
       }
       setPreviewState('error');
-      setPreviewError(describeMediaError(err));
     }
   };
 
@@ -257,14 +215,11 @@ export const GoLiveModal: React.FC<GoLiveModalProps> = ({
     setHostApproval(true);
     setFormError(null);
     setSubmitting(false);
-    setDeviceNote(null);
+    setTab('format');
     setMicMuted(false);
-    setMicLevel(0);
     setCameraId('');
     setMicId('');
-    setFacing('user');
     setPreviewState('idle');
-    setPreviewError(null);
   }, [open]);
 
   // Auto-start the real device preview when the sheet opens or the board changes.
@@ -278,7 +233,7 @@ export const GoLiveModal: React.FC<GoLiveModalProps> = ({
     startedModeRef.current = effectiveMode;
     void startPreview(
       isInitial
-        ? { mode: effectiveMode, cameraId: '', micId: '', facing: 'user' }
+        ? { mode: effectiveMode, cameraId: '', micId: '' }
         : { mode: effectiveMode }
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -297,14 +252,6 @@ export const GoLiveModal: React.FC<GoLiveModalProps> = ({
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
-
-  // Refresh the device list when cameras/mics are plugged or removed.
-  useEffect(() => {
-    if (!open || !navigator.mediaDevices?.addEventListener) return;
-    const onChange = () => void refreshDevices();
-    navigator.mediaDevices.addEventListener('devicechange', onChange);
-    return () => navigator.mediaDevices.removeEventListener('devicechange', onChange);
   }, [open]);
 
   // Keep the video element bound across re-mounts (audio ↔ video board switches).
@@ -358,34 +305,9 @@ export const GoLiveModal: React.FC<GoLiveModalProps> = ({
     previewRef.current?.setAudioMuted(next);
   };
 
-  const handleSwitchCamera = () => {
-    if (cameraDevices.length > 1) {
-      const currentIndex = cameraDevices.findIndex((d) => d.deviceId === cameraId);
-      const next = cameraDevices[(currentIndex + 1) % cameraDevices.length];
-      setCameraId(next.deviceId);
-      void startPreview({ cameraId: next.deviceId });
-      return;
-    }
-    const nextFacing = facing === 'user' ? 'environment' : 'user';
-    setFacing(nextFacing);
-    setCameraId('');
-    void startPreview({ facing: nextFacing, cameraId: '' });
-  };
-
   const validate = (): string | null => {
     const effectiveTitle = title.trim() || DEFAULT_ROOM_TITLE;
     if (effectiveTitle.length < 3) return 'Room title must be at least 3 characters.';
-    if (previewState === 'starting') {
-      return 'Camera and microphone are still starting — wait a moment.';
-    }
-    if (previewState !== 'ready' || !previewHasAudio) {
-      return effectiveMode === 'AUDIO'
-        ? 'Microphone is not available. Allow microphone access, then retry.'
-        : 'Camera and microphone are not available. Allow access, connect a device, or switch to the Audio board.';
-    }
-    if (wantsVideo && !previewHasVideo) {
-      return 'No camera detected. Reconnect a camera or switch this room to the Audio board.';
-    }
     return null;
   };
 
@@ -428,11 +350,12 @@ export const GoLiveModal: React.FC<GoLiveModalProps> = ({
     }
   };
 
-  const cameraMissing = previewState === 'error' && wantsVideo;
+  const fieldClass =
+    'mt-1.5 w-full rounded-xl border border-white/[0.09] bg-[#0B0E17] px-3.5 text-sm text-white placeholder:text-slate-500 transition-colors focus:border-violet-400/60 focus:outline-none focus:ring-2 focus:ring-violet-500/15';
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-stretch sm:items-center justify-center bg-black/80 backdrop-blur-md sm:p-4"
+      className="fixed inset-0 z-50 bg-[#05070D] sm:bg-slate-950/85 sm:p-4 sm:backdrop-blur-xl"
       role="dialog"
       aria-modal="true"
       aria-labelledby="go-live-title"
@@ -440,484 +363,271 @@ export const GoLiveModal: React.FC<GoLiveModalProps> = ({
       <div
         ref={panelRef}
         tabIndex={-1}
-        className="relative flex h-[100dvh] sm:h-auto w-full sm:max-w-[980px] sm:max-h-[94dvh] flex-col overflow-hidden rounded-none sm:rounded-[28px] border-0 sm:border border-white/[0.09] bg-[#090B12] shadow-[0_40px_120px_-30px_rgba(0,0,0,0.95)] outline-none"
+        className="relative mx-auto flex h-[100dvh] w-full max-w-[1140px] flex-col outline-none sm:h-full sm:flex-row sm:gap-4"
       >
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 overflow-hidden rounded-none sm:rounded-[28px]"
-        >
-          <div
-            className="absolute inset-0 opacity-40"
-            style={{
-              backgroundImage:
-                'linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px)',
-              backgroundSize: '34px 34px',
-              maskImage: 'radial-gradient(ellipse at 50% 0%, black 10%, transparent 70%)',
-              WebkitMaskImage: 'radial-gradient(ellipse at 50% 0%, black 10%, transparent 70%)',
-            }}
-          />
-          <div className="absolute -top-28 left-1/4 h-64 w-64 -translate-x-1/2 rounded-full bg-cyan-500/15 blur-3xl" />
-          <div className="absolute -top-24 right-0 h-56 w-56 rounded-full bg-fuchsia-500/15 blur-3xl" />
-        </div>
-        <div
-          aria-hidden="true"
-          className="h-px w-full shrink-0 bg-gradient-to-r from-transparent via-violet-400/50 to-transparent"
-        />
+        {/* Camera stage */}
+        <div className="theme-dark-stage relative h-full flex-1 overflow-hidden bg-[#05070D] sm:rounded-[32px] sm:border sm:border-white/[0.08]">
+          {wantsVideo ? (
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className={`absolute inset-0 h-full w-full -scale-x-100 object-cover transition-opacity ${
+                previewHasVideo && previewState === 'ready' ? 'opacity-100' : 'opacity-0'
+              }`}
+            />
+          ) : null}
 
-        <div className="relative flex items-center gap-3 px-5 sm:px-7 pt-[calc(env(safe-area-inset-top)+0.9rem)] sm:pt-5 pb-4 shrink-0">
-          <span className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-300/25 bg-gradient-to-br from-cyan-500/20 via-violet-600/20 to-fuchsia-500/20 text-cyan-200">
-            <Radio className="w-4 h-4" />
-            <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400 opacity-70" />
-              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-[#090B12]" />
-            </span>
-          </span>
-          <div className="min-w-0">
-            <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.32em] text-cyan-300/80">
-              AddaBuzz Studio
-            </p>
-            <h2
-              id="go-live-title"
-              className="truncate font-display text-base font-bold tracking-tight text-white sm:text-lg"
-            >
-              Start Live Room
-            </h2>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={submitting}
-            aria-label="Close Go Live modal"
-            className="ml-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.03] text-slate-400 transition-colors hover:bg-white/[0.08] hover:text-white disabled:opacity-40"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        <form
-          onSubmit={handleSubmit}
-          noValidate
-          className="relative flex min-h-0 flex-1 flex-col"
-        >
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 sm:px-7 pb-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <div className="grid gap-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:items-start">
-              <div className="space-y-3.5">
-                <SectionHeading
-                  step="01"
-                  title="Stage monitor"
-                  trailing={
-                    <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-slate-600">
-                      16:9
-                    </span>
-                  }
-                />
-
-            {/* Camera & microphone test */}
-            <div className="space-y-2.5">
-              <div className="relative overflow-hidden rounded-[20px] border border-white/[0.10] bg-[#05070D] shadow-[0_24px_60px_-34px_rgba(56,189,248,0.45)]">
-                <div className="relative aspect-video w-full">
-                  <span
-                    aria-hidden="true"
-                    className="pointer-events-none absolute left-1.5 top-1.5 h-3.5 w-3.5 rounded-tl-md border-l-2 border-t-2 border-cyan-300/30"
-                  />
-                  <span
-                    aria-hidden="true"
-                    className="pointer-events-none absolute right-1.5 top-1.5 h-3.5 w-3.5 rounded-tr-md border-r-2 border-t-2 border-cyan-300/30"
-                  />
-                  <span
-                    aria-hidden="true"
-                    className="pointer-events-none absolute bottom-1.5 left-1.5 h-3.5 w-3.5 rounded-bl-md border-b-2 border-l-2 border-cyan-300/30"
-                  />
-                  <span
-                    aria-hidden="true"
-                    className="pointer-events-none absolute bottom-1.5 right-1.5 h-3.5 w-3.5 rounded-br-md border-b-2 border-r-2 border-cyan-300/30"
-                  />
-                  <span
-                    className={`pointer-events-none absolute left-3 top-3 z-10 inline-flex items-center gap-1.5 rounded-full border px-2 py-1 font-mono text-[8px] font-semibold uppercase tracking-[0.22em] backdrop-blur-sm ${
-                      previewState === 'ready'
-                        ? 'border-rose-400/40 bg-rose-500/20 text-rose-100'
-                        : 'border-white/10 bg-black/45 text-slate-400'
-                    }`}
-                  >
-                    <span
-                      className={`h-1.5 w-1.5 rounded-full ${
-                        previewState === 'ready' ? 'animate-pulse bg-rose-400' : 'bg-slate-500'
-                      }`}
-                    />
-                    {wantsVideo ? 'Camera' : 'Audio'}
-                  </span>
-                  <span
-                    className={`pointer-events-none absolute right-3 top-3 z-10 inline-flex items-center gap-1 rounded-full border px-2 py-1 font-mono text-[8px] font-semibold uppercase tracking-[0.18em] backdrop-blur-sm ${
-                      previewState === 'ready'
-                        ? 'border-emerald-400/30 bg-emerald-500/15 text-emerald-200'
-                        : previewState === 'starting'
-                          ? 'border-amber-400/30 bg-amber-500/15 text-amber-200'
-                          : previewState === 'error'
-                            ? 'border-rose-400/30 bg-rose-500/15 text-rose-200'
-                            : 'border-white/10 bg-black/45 text-slate-400'
-                    }`}
-                  >
-                    {previewState === 'starting' ? (
-                      <Loader2 className="h-2.5 w-2.5 animate-spin" />
-                    ) : (
-                      <span
-                        className={`h-1.5 w-1.5 rounded-full ${
-                          previewState === 'ready'
-                            ? 'bg-emerald-400'
-                            : previewState === 'error'
-                              ? 'bg-rose-400'
-                              : 'bg-slate-500'
-                        }`}
-                      />
-                    )}
-                    {previewState === 'ready'
-                      ? 'Preview live'
-                      : previewState === 'starting'
-                        ? 'Starting'
-                        : previewState === 'error'
-                          ? 'Device error'
-                          : 'Standby'}
-                  </span>
-                {wantsVideo ? (
-                  <video
-                    ref={videoRef}
-                    autoPlay
-                    playsInline
-                    muted
-                    className={`absolute inset-0 h-full w-full object-cover transition-opacity ${
-                      previewHasVideo && previewState === 'ready'
-                        ? 'opacity-100'
-                        : 'opacity-0'
-                    } ${facing === 'user' ? '-scale-x-100' : ''}`}
-                  />
-                ) : null}
-                {(!previewHasVideo || !wantsVideo) && (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-[radial-gradient(circle_at_50%_30%,rgba(14,116,144,0.28),rgba(5,7,13,0.97)_68%)] px-6 text-center">
-                    <span className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-cyan-300">
-                      {wantsVideo ? <Video className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-                    </span>
-                    <p className="text-xs font-semibold text-slate-200">
-                      {wantsVideo
-                        ? previewState === 'starting'
-                          ? 'Requesting camera & microphone…'
-                          : 'Camera preview is off'
-                        : 'Audio board — no camera needed'}
-                    </p>
-                    <p className="max-w-[260px] text-[10px] leading-relaxed text-slate-400">
-                      {wantsVideo
-                        ? 'Your real camera feed appears here once permission is granted.'
-                        : 'Only your microphone is captured. Perfect for talk rooms.'}
-                    </p>
-                  </div>
-                )}
-
-                {previewState === 'starting' && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                    <Loader2 className="w-6 h-6 animate-spin text-violet-300" />
-                  </div>
-                )}
-
-                <div className="absolute inset-x-0 bottom-0 z-10 flex items-center gap-2 bg-gradient-to-t from-black/90 via-black/40 to-transparent px-3 pt-8 pb-2.5">
+          {(!previewHasVideo || !wantsVideo) && (
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_32%,rgba(91,33,182,0.38),rgba(5,7,13,0.97)_70%)]">
+              <div className="flex h-full flex-col items-center justify-start gap-2.5 px-8 pt-[18dvh] text-center sm:justify-center sm:pt-0">
+                <span className="flex h-16 w-16 items-center justify-center rounded-3xl bg-white/10 text-violet-200 ring-1 ring-white/10 backdrop-blur-sm">
+                  {wantsVideo ? <Video className="h-7 w-7" /> : <Mic className="h-7 w-7" />}
+                </span>
+                <p className="text-sm font-semibold text-white">
+                  {wantsVideo
+                    ? previewState === 'starting'
+                      ? 'Requesting camera & microphone…'
+                      : 'Camera is off'
+                    : 'Audio room — no camera needed'}
+                </p>
+                <p className="max-w-[300px] text-[11px] leading-relaxed text-white/65">
+                  {wantsVideo
+                    ? 'Allow access and your live camera feed will fill this stage.'
+                    : 'Only your microphone is captured. Perfect for talk rooms.'}
+                </p>
+                {previewState !== 'starting' && (
                   <button
                     type="button"
                     onClick={() => void startPreview({ mode: effectiveMode })}
-                    disabled={previewState === 'starting'}
-                    aria-label="Retry camera and microphone"
-                    title="Retry devices"
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-black/55 text-slate-200 backdrop-blur-sm transition-colors hover:bg-black/80 disabled:opacity-40"
+                    className="mt-1.5 rounded-full bg-white/15 px-4 py-2 text-xs font-semibold text-white ring-1 ring-white/20 backdrop-blur-sm transition-colors hover:bg-white/25"
                   >
-                    <RefreshCw className="w-3.5 h-3.5" />
+                    {wantsVideo ? 'Enable camera & mic' : 'Enable microphone'}
                   </button>
-                  {wantsVideo && (
-                    <button
-                      type="button"
-                      onClick={handleSwitchCamera}
-                      disabled={previewState === 'starting'}
-                      aria-label="Switch camera"
-                      title="Switch camera"
-                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-black/55 text-slate-200 backdrop-blur-sm transition-colors hover:bg-black/80 disabled:opacity-40"
-                    >
-                      <Camera className="w-3.5 h-3.5" />
-                    </button>
-                  )}
+                )}
+              </div>
+            </div>
+          )}
+
+          {previewState === 'starting' && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+              <Loader2 className="h-7 w-7 animate-spin text-fuchsia-300" />
+            </div>
+          )}
+
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-black/70 via-black/25 to-transparent"
+          />
+
+          <div className="absolute inset-x-0 top-0 z-20 flex items-center gap-2 px-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] sm:px-5 sm:pt-5">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={submitting}
+              aria-label="Close Go Live modal"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10 text-white ring-1 ring-white/15 backdrop-blur-md transition-colors hover:bg-white/20 disabled:opacity-40"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            <h2
+              id="go-live-title"
+              className="min-w-0 truncate text-sm font-semibold tracking-tight text-white drop-shadow sm:text-base"
+            >
+              Start Live Room
+            </h2>
+            <div className="ml-auto flex items-center gap-2">
+              <button
+                type="button"
+                onClick={toggleMic}
+                aria-label={micMuted ? 'Unmute microphone' : 'Mute microphone'}
+                aria-pressed={micMuted}
+                title={micMuted ? 'Unmute mic' : 'Mute mic'}
+                className={`flex h-10 w-10 items-center justify-center rounded-full ring-1 backdrop-blur-md transition-colors ${
+                  micMuted
+                    ? 'bg-rose-500 text-white ring-rose-300/40'
+                    : 'bg-white/10 text-white ring-white/15 hover:bg-white/20'
+                }`}
+              >
+                {micMuted ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+              </button>
+              <button
+                type="button"
+                onClick={() => void startPreview({ mode: effectiveMode })}
+                disabled={previewState === 'starting'}
+                aria-label="Retry camera and microphone"
+                title="Retry devices"
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white ring-1 ring-white/15 backdrop-blur-md transition-colors hover:bg-white/20 disabled:opacity-40"
+              >
+                <RefreshCw className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Setup sheet */}
+        <form
+          onSubmit={handleSubmit}
+          noValidate
+          className="absolute inset-x-0 bottom-0 z-30 flex max-h-[68dvh] flex-col overflow-hidden rounded-t-[28px] border-t border-white/[0.10] bg-[#101321] shadow-[0_-30px_90px_-30px_rgba(0,0,0,0.9)] sm:static sm:h-full sm:max-h-none sm:w-[400px] sm:shrink-0 sm:rounded-[32px] sm:border sm:border-white/[0.08] sm:shadow-none"
+        >
+          <div className="shrink-0 px-4 pb-3 pt-2.5 sm:px-5 sm:pt-5">
+            <span
+              aria-hidden="true"
+              className="mx-auto mb-2.5 block h-1 w-10 rounded-full bg-white/15 sm:hidden"
+            />
+            <div className="flex items-end justify-between gap-2">
+              <div className="min-w-0">
+                <h3 className="text-sm font-bold text-white">Room setup</h3>
+                <p className="truncate text-[10px] text-slate-500">{modeSummary}</p>
+              </div>
+              <span className="flex items-center gap-1 rounded-full bg-rose-500/10 px-2 py-1 text-[9px] font-semibold uppercase tracking-wider text-rose-300 ring-1 ring-rose-400/20">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-500 opacity-60" />
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-rose-500" />
+                </span>
+                Live
+              </span>
+            </div>
+            <div className="mt-3 grid grid-cols-3 gap-1 rounded-2xl bg-white/[0.05] p-1">
+              {SETUP_TABS.map((item) => {
+                const Icon = item.icon;
+                const active = tab === item.id;
+                return (
                   <button
+                    key={item.id}
                     type="button"
-                    onClick={toggleMic}
-                    aria-label={micMuted ? 'Unmute microphone' : 'Mute microphone'}
-                    aria-pressed={micMuted}
-                    title={micMuted ? 'Unmute mic' : 'Mute mic'}
-                    className={`flex h-8 w-8 items-center justify-center rounded-lg border transition-colors ${
-                      micMuted
-                        ? 'border-rose-400/40 bg-rose-500/85 text-white'
-                        : 'border-white/10 bg-black/55 text-slate-200 backdrop-blur-sm hover:bg-black/80'
+                    onClick={() => setTab(item.id)}
+                    aria-pressed={active}
+                    className={`flex h-9 items-center justify-center gap-1.5 rounded-xl text-xs font-semibold transition-colors ${
+                      active ? 'bg-violet-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
                     }`}
                   >
-                    {micMuted ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
+                    <Icon className="h-3.5 w-3.5" />
+                    {item.label}
                   </button>
-                  <div className="ml-auto flex items-center gap-1.5 rounded-lg border border-white/10 bg-black/45 px-2 py-1.5 backdrop-blur-sm">
-                    <span className="font-mono text-[8px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                      Mic
-                    </span>
-                    <div className="h-1 w-12 overflow-hidden rounded-full bg-white/15">
-                      <div
-                        className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-cyan-400 transition-all duration-75"
-                        style={{ width: `${micMuted ? 0 : micLevel}%` }}
-                      />
-                    </div>
-                  </div>
-                </div>
-                </div>
-              </div>
-
-              {previewState === 'error' && previewError && (
-                <div className="rounded-xl border border-rose-500/30 bg-rose-950/40 px-3.5 py-3 space-y-2">
-                  <p className="flex items-start gap-1.5 text-[11px] leading-relaxed text-rose-200">
-                    <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                    <span>{previewError}</span>
-                  </p>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => void startPreview({ mode: effectiveMode })}
-                      className="inline-flex items-center gap-1 rounded-lg bg-rose-500 px-3 py-1.5 text-[11px] font-bold text-white hover:bg-rose-400"
-                    >
-                      <RefreshCw className="w-3 h-3" />
-                      Retry
-                    </button>
-                    {cameraMissing && mode === 'MULTI_GUEST' && board !== 'AUDIO' && (
-                      <button
-                        type="button"
-                        onClick={() => setBoard('AUDIO')}
-                        className="rounded-lg bg-white/[0.08] px-3 py-1.5 text-[11px] font-semibold text-slate-200 hover:bg-white/[0.14]"
-                      >
-                        Use Audio board instead
-                      </button>
-                    )}
-                    {cameraMissing && mode === 'VIDEO' && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setMode('MULTI_GUEST');
-                          setBoard('AUDIO');
-                        }}
-                        className="rounded-lg bg-white/[0.08] px-3 py-1.5 text-[11px] font-semibold text-slate-200 hover:bg-white/[0.14]"
-                      >
-                        Start a Multi-Guest audio room
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {deviceNote && (
-                <p className="rounded-xl border border-amber-400/25 bg-amber-500/[0.06] px-3 py-2 text-[10px] text-amber-200">
-                  {deviceNote}
-                </p>
-              )}
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {wantsVideo && (
-                  <label className="block">
-                    <span className="flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-[0.16em] text-slate-500">
-                      <Camera className="h-3 w-3" />
-                      Camera
-                    </span>
-                    <div className="relative mt-1.5">
-                      <select
-                        value={cameraId}
-                        onChange={(e) => {
-                          setCameraId(e.target.value);
-                          void startPreview({ cameraId: e.target.value });
-                        }}
-                        aria-label="Select camera"
-                        className="h-10 w-full appearance-none rounded-xl border border-white/[0.09] bg-[#070A11] px-3 pr-8 text-xs text-slate-100 transition-colors focus:border-cyan-400/60 focus:outline-none"
-                      >
-                        <option value="">Auto (default camera)</option>
-                        {cameraDevices.map((device, idx) => (
-                          <option key={device.deviceId || idx} value={device.deviceId}>
-                            {device.label || `Camera ${idx + 1}`}
-                          </option>
-                        ))}
-                      </select>
-                      <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" />
-                    </div>
-                  </label>
-                )}
-                <label className="block">
-                  <span className="flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-[0.16em] text-slate-500">
-                    <Mic className="h-3 w-3" />
-                    Microphone
-                  </span>
-                  <div className="relative mt-1.5">
-                    <select
-                      value={micId}
-                      onChange={(e) => {
-                        setMicId(e.target.value);
-                        void startPreview({ micId: e.target.value });
-                      }}
-                      aria-label="Select microphone"
-                      className="h-10 w-full appearance-none rounded-xl border border-white/[0.09] bg-[#070A11] px-3 pr-8 text-xs text-slate-100 transition-colors focus:border-cyan-400/60 focus:outline-none"
-                    >
-                      <option value="">Auto (default microphone)</option>
-                      {micDevices.map((device, idx) => (
-                        <option key={device.deviceId || idx} value={device.deviceId}>
-                          {device.label || `Microphone ${idx + 1}`}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" />
-                  </div>
-                </label>
-              </div>
-              {(cameraDevices.length === 0 || micDevices.some((d) => !d.label)) && (
-                <p className="text-[10px] text-slate-500">
-                  Device names appear after you allow camera / microphone access.
-                </p>
-              )}
+                );
+              })}
             </div>
-              </div>
+          </div>
 
-              <div className="space-y-5 lg:rounded-2xl lg:border lg:border-white/[0.07] lg:bg-white/[0.02] lg:p-4">
-                <div className="space-y-2.5">
-                  <SectionHeading step="02" title="Format" />
-                  <div className="grid grid-cols-2 gap-1.5 rounded-2xl border border-white/[0.08] bg-black/30 p-1.5">
-                    {(
-                      [
-                        { id: 'MULTI_GUEST', label: 'Multi-Guest', desc: '8–24 seats', icon: Users },
-                        { id: 'VIDEO', label: 'Video Live', desc: 'Solo stage', icon: Video },
-                      ] as const
-                    ).map((item) => {
-                      const Icon = item.icon;
-                      const active = mode === item.id;
-                      return (
-                        <button
-                          key={item.id}
-                          type="button"
-                          onClick={() => setMode(item.id)}
-                          aria-pressed={active}
-                          className={`flex items-center gap-2 rounded-xl border px-2.5 py-2 text-left transition-all duration-200 ${
-                            active
-                              ? 'border-cyan-300/35 bg-gradient-to-br from-violet-600/35 via-fuchsia-600/20 to-sky-500/25 text-white shadow-[0_10px_24px_-18px_rgba(139,92,246,0.8)]'
-                              : 'border-white/[0.06] text-slate-400 hover:border-white/10 hover:bg-white/[0.04] hover:text-slate-200'
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 pt-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:px-5">
+            {previewState === 'error' && (
+              <div className="mb-3 flex items-start gap-2 rounded-2xl border border-amber-400/20 bg-amber-500/[0.06] px-3.5 py-3">
+                <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-300" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] leading-relaxed text-amber-100">
+                    Camera &amp; mic are off — you can still go live and turn them on
+                    anytime from inside the room.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void startPreview({ mode: effectiveMode })}
+                    className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-white/[0.08] px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-white/[0.14]"
+                  >
+                    <RefreshCw className="h-3 w-3" />
+                    Retry
+                  </button>
+                </div>
+              </div>
+            )}
+            {tab === 'format' && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-2">
+                  {(
+                    [
+                      {
+                        id: 'MULTI_GUEST',
+                        label: 'Multi-Guest',
+                        desc: '8–24 seats on stage',
+                        icon: Users,
+                      },
+                      { id: 'VIDEO', label: 'Video Live', desc: 'Solo broadcast', icon: Video },
+                    ] as const
+                  ).map((item) => {
+                    const Icon = item.icon;
+                    const active = mode === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => setMode(item.id)}
+                        aria-pressed={active}
+                        className={`relative rounded-2xl border p-3 text-left transition-colors ${
+                          active
+                            ? 'border-violet-400/50 bg-violet-500/15'
+                            : 'border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.05]'
+                        }`}
+                      >
+                        {active && (
+                          <span className="absolute right-2.5 top-2.5 flex h-5 w-5 items-center justify-center rounded-full bg-violet-600 text-white">
+                            <Check className="h-3 w-3" />
+                          </span>
+                        )}
+                        <span
+                          className={`flex h-8 w-8 items-center justify-center rounded-xl ${
+                            active ? 'bg-violet-500/20 text-violet-300' : 'bg-white/[0.06] text-slate-400'
                           }`}
                         >
-                          <span
-                            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${
-                              active ? 'bg-white/10 text-cyan-200' : 'bg-white/[0.05] text-cyan-300/70'
-                            }`}
-                          >
-                            <Icon className="w-3.5 h-3.5" />
-                          </span>
-                          <span className="min-w-0">
-                            <span className="block truncate text-[11px] font-semibold">
-                              {item.label}
-                            </span>
-                            <span
-                              className={`block truncate text-[9px] ${
-                                active ? 'text-white/60' : 'text-slate-500'
-                              }`}
-                            >
-                              {item.desc}
-                            </span>
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {mode === 'MULTI_GUEST' && (
-                    <div className="space-y-2 rounded-2xl border border-white/[0.07] bg-white/[0.02] p-3">
-                      <div className="flex items-center justify-between">
-                        <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-slate-500">
-                          Board
+                          <Icon className="h-4 w-4" />
                         </span>
-                        <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-cyan-300/70">
-                          {board === 'AUDIO' ? 'Mic only' : 'Cam + mic'}
+                        <span className="mt-2 block text-[12px] font-semibold text-white">
+                          {item.label}
                         </span>
-                      </div>
-                      <div className="grid grid-cols-2 gap-1 rounded-xl bg-black/40 p-1">
-                        {(
-                          [
-                            { id: 'VIDEO', label: 'Video', icon: Video },
-                            { id: 'AUDIO', label: 'Audio', icon: Mic },
-                          ] as const
-                        ).map((item) => {
-                          const Icon = item.icon;
-                          const active = board === item.id;
-                          return (
-                            <button
-                              key={item.id}
-                              type="button"
-                              onClick={() => setBoard(item.id)}
-                              aria-pressed={active}
-                              className={`flex h-8 items-center justify-center gap-1.5 rounded-lg text-[11px] font-semibold transition-colors ${
-                                active
-                                  ? 'bg-white/[0.10] text-white shadow-[inset_0_0_0_1px_rgba(103,232,249,0.25)]'
-                                  : 'text-slate-400 hover:text-white'
-                              }`}
-                            >
-                              <Icon className="w-3.5 h-3.5" />
-                              <span>{item.label}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                      <p className="text-[10px] leading-relaxed text-slate-500">
-                        {board === 'AUDIO'
-                          ? 'Audio-only seats — microphone on, no camera required.'
-                          : 'Seats stream live camera and microphone.'}
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                <div className="space-y-2.5">
-                  <SectionHeading step="03" title="Room details" />
-                  <label className="block">
-                    <span className="flex items-center justify-between">
-                      <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-slate-300">
-                        <Sparkles className="w-3 h-3 text-violet-400" />
-                        Title
-                      </span>
-                      <span className="font-mono text-[9px] tabular-nums text-slate-500">
-                        {title.length}/120
-                      </span>
-                    </span>
-                    <input
-                      type="text"
-                      value={title}
-                      onChange={(e) => {
-                        setTitle(e.target.value);
-                        if (formError) setFormError(null);
-                      }}
-                      maxLength={120}
-                      required
-                      minLength={3}
-                      placeholder="Give your room a catchy title"
-                      className="mt-1.5 h-11 w-full px-3.5 rounded-xl bg-black/35 border border-white/[0.09] text-sm text-white placeholder:text-slate-500 transition-colors focus:border-cyan-400/60 focus:ring-2 focus:ring-cyan-400/15 focus:outline-none"
-                    />
-                  </label>
-
-                  <label className="block">
-                    <span className="flex items-center justify-between">
-                      <span className="text-[11px] font-medium text-slate-300">Description</span>
-                      <span className="font-mono text-[9px] tabular-nums text-slate-500">
-                        {description.length}/400
-                      </span>
-                    </span>
-                    <textarea
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      maxLength={400}
-                      rows={2}
-                      placeholder="Tell viewers what to expect (optional)"
-                      className="mt-1.5 w-full min-h-[64px] resize-none px-3.5 py-2.5 rounded-xl bg-black/35 border border-white/[0.09] text-sm text-white placeholder:text-slate-500 transition-colors focus:border-cyan-400/60 focus:ring-2 focus:ring-cyan-400/15 focus:outline-none"
-                    />
-                  </label>
+                        <span className="mt-0.5 block text-[10px] leading-snug text-slate-500">
+                          {item.desc}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {mode === 'MULTI_GUEST' && (
-                  <div className="space-y-2.5">
-                    <SectionHeading step="04" title="Guest seats" />
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                        Board
+                      </span>
+                      <span className="text-[10px] font-medium text-violet-300">
+                        {board === 'AUDIO' ? 'Mic only' : 'Cam + mic'}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1 rounded-xl bg-white/[0.05] p-1">
+                      {(
+                        [
+                          { id: 'VIDEO', label: 'Video', icon: Video },
+                          { id: 'AUDIO', label: 'Audio', icon: Mic },
+                        ] as const
+                      ).map((item) => {
+                        const Icon = item.icon;
+                        const active = board === item.id;
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => setBoard(item.id)}
+                            aria-pressed={active}
+                            className={`flex h-9 items-center justify-center gap-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                              active
+                                ? 'bg-violet-600 text-white shadow-sm'
+                                : 'text-slate-400 hover:text-white'
+                            }`}
+                          >
+                            <Icon className="h-3.5 w-3.5" />
+                            <span>{item.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {mode === 'MULTI_GUEST' && (
+                  <div className="space-y-2">
+                    <span className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                      Guest seats
+                    </span>
                     <div className="grid grid-cols-4 gap-1.5">
                       {SEAT_OPTIONS.map((option) => {
                         const active = seatCount === option;
@@ -927,16 +637,16 @@ export const GoLiveModal: React.FC<GoLiveModalProps> = ({
                             type="button"
                             onClick={() => setSeatCount(option)}
                             aria-pressed={active}
-                            className={`rounded-xl border px-1.5 py-2 text-center transition-all duration-200 active:scale-[0.97] ${
+                            className={`rounded-xl border py-2 text-center transition-colors active:scale-[0.98] ${
                               active
-                                ? 'border-cyan-300/50 bg-gradient-to-b from-violet-600/30 via-fuchsia-600/10 to-cyan-500/20 text-white shadow-[0_12px_28px_-18px_rgba(56,189,248,0.8)]'
-                                : 'border-white/[0.08] bg-white/[0.02] text-slate-400 hover:text-white hover:bg-white/[0.05]'
+                                ? 'border-violet-400/60 bg-violet-500/15 text-white'
+                                : 'border-white/[0.08] bg-white/[0.02] text-slate-400 hover:bg-white/[0.05] hover:text-white'
                             }`}
                           >
-                            <span className="block text-base font-bold tabular-nums leading-tight">
+                            <span className="block text-base font-bold leading-tight tabular-nums">
                               {option}
                             </span>
-                            <span className="block font-mono text-[8px] font-medium uppercase tracking-[0.16em] opacity-70">
+                            <span className="block text-[9px] font-medium uppercase tracking-wider opacity-70">
                               seats
                             </span>
                           </button>
@@ -944,171 +654,210 @@ export const GoLiveModal: React.FC<GoLiveModalProps> = ({
                       })}
                     </div>
                     <div aria-hidden="true" className="flex flex-wrap items-center gap-1">
-                      <span className="h-3.5 w-6 rounded-[3px] bg-gradient-to-br from-fuchsia-500 to-violet-600 shadow-[0_0_10px_-2px_rgba(217,70,239,0.7)]" />
+                      <span className="h-3.5 w-6 rounded bg-gradient-to-br from-fuchsia-500 to-violet-600" />
                       {Array.from({ length: seatCount }).map((_, index) => (
                         <span
                           key={index}
-                          className="h-3.5 w-6 rounded-[3px] border border-white/10 bg-white/[0.05]"
+                          className="h-3.5 w-6 rounded border border-white/[0.08] bg-white/[0.06]"
                         />
                       ))}
-                      <span className="ml-1 font-mono text-[9px] uppercase tracking-[0.16em] text-slate-500">
-                        Host + {seatCount}
-                      </span>
+                      <span className="ml-1.5 text-[10px] text-slate-500">Host + {seatCount}</span>
                     </div>
-                    <p className="text-[10px] leading-relaxed text-slate-500">
-                      Host takes the stage; {seatCount} guests can join the{' '}
-                      {board === 'AUDIO' ? 'audio seat grid' : 'seat grid'}.
-                    </p>
                   </div>
                 )}
 
-                <div className="space-y-2.5">
-                  <SectionHeading step="05" title="Access & rules" />
-                  <div className="grid grid-cols-2 gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => setPrivacy('public')}
-                      aria-pressed={privacy === 'public'}
-                      className={`flex items-start gap-2 rounded-xl border px-2.5 py-2.5 text-left transition-colors ${
-                        privacy === 'public'
-                          ? 'border-emerald-400/40 bg-emerald-500/[0.07]'
-                          : 'border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.05]'
-                      }`}
-                    >
-                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-300">
-                        <Globe className="w-3.5 h-3.5" />
-                      </span>
-                      <span className="min-w-0">
-                        <span className="flex items-center gap-1 text-[11px] font-semibold text-white">
-                          Public
-                          {privacy === 'public' && <Check className="w-3 h-3 text-emerald-300" />}
-                        </span>
-                        <span className="mt-0.5 block text-[10px] leading-snug text-slate-400">
-                          Listed on Discover for everyone.
-                        </span>
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPrivacy('followers')}
-                      aria-pressed={privacy === 'followers'}
-                      className={`flex items-start gap-2 rounded-xl border px-2.5 py-2.5 text-left transition-colors ${
-                        privacy === 'followers'
-                          ? 'border-violet-400/40 bg-violet-500/[0.09]'
-                          : 'border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.05]'
-                      }`}
-                    >
-                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-violet-500/10 text-violet-300">
-                        <Lock className="w-3.5 h-3.5" />
-                      </span>
-                      <span className="min-w-0">
-                        <span className="flex items-center gap-1 text-[11px] font-semibold text-white">
-                          Followers only
-                          {privacy === 'followers' && <Check className="w-3 h-3 text-violet-300" />}
-                        </span>
-                        <span className="mt-0.5 block text-[10px] leading-snug text-slate-400">
-                          Hidden from Discover; only your followers can open it.
-                        </span>
-                      </span>
-                    </button>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <span className="flex items-center gap-1.5 text-[11px] font-medium text-slate-300">
-                      <ShieldCheck className="w-3 h-3 text-emerald-400" />
-                      Room permissions
-                    </span>
-                    <div className="overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.02] divide-y divide-white/[0.05]">
-                      {mode === 'MULTI_GUEST' && (
-                        <ToggleRow
-                          label="Allow guest seat requests"
-                          hint="Viewers can ask to join the seat grid."
-                          checked={allowGuestRequests}
-                          onChange={setAllowGuestRequests}
-                        />
-                      )}
-                      {mode === 'MULTI_GUEST' && (
-                        <ToggleRow
-                          label="Require host approval for guests"
-                          hint={
-                            allowGuestRequests
-                              ? 'Off = seats open instantly without a request.'
-                              : 'Turn on seat requests to use approval.'
-                          }
-                          checked={hostApproval}
-                          onChange={setHostApproval}
-                          disabled={!allowGuestRequests}
-                        />
-                      )}
-                      <ToggleRow
-                        label="Allow viewer comments"
-                        hint="Off = only you and your moderators can chat."
-                        checked={allowViewerComments}
-                        onChange={setAllowViewerComments}
-                      />
-                      <ToggleRow
-                        label="Allow gifts"
-                        hint="Viewers can send gifts to the stage."
-                        checked={allowGifts}
-                        onChange={setAllowGifts}
-                      />
-                    </div>
+                <div className="space-y-2">
+                  <span className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                    Category
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectableCategories.map((item) => {
+                      const active = category === item;
+                      return (
+                        <button
+                          key={item}
+                          type="button"
+                          onClick={() => setCategory(item)}
+                          aria-pressed={active}
+                          className={`rounded-full border px-3 py-1.5 text-[11px] font-medium transition-colors ${
+                            active
+                              ? 'border-violet-400/60 bg-violet-500/15 text-white'
+                              : 'border-white/[0.08] bg-white/[0.02] text-slate-400 hover:bg-white/[0.05] hover:text-white'
+                          }`}
+                        >
+                          {item}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
-
               </div>
-            </div>
+            )}
+
+            {tab === 'details' && (
+              <div className="space-y-3.5">
+                <label className="block">
+                  <span className="flex items-center justify-between">
+                    <span className="text-[11px] font-medium text-slate-300">Title</span>
+                    <span className="text-[10px] tabular-nums text-slate-500">
+                      {title.length}/120
+                    </span>
+                  </span>
+                  <input
+                    type="text"
+                    value={title}
+                    onChange={(e) => {
+                      setTitle(e.target.value);
+                      if (formError) setFormError(null);
+                    }}
+                    maxLength={120}
+                    required
+                    minLength={3}
+                    placeholder="Give your room a catchy title"
+                    className={`${fieldClass} h-11`}
+                  />
+                </label>
+                <label className="block">
+                  <span className="flex items-center justify-between">
+                    <span className="text-[11px] font-medium text-slate-300">Description</span>
+                    <span className="text-[10px] tabular-nums text-slate-500">
+                      {description.length}/400
+                    </span>
+                  </span>
+                  <textarea
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    maxLength={400}
+                    rows={4}
+                    placeholder="Tell viewers what to expect (optional)"
+                    className={`${fieldClass} min-h-[96px] resize-none py-2.5`}
+                  />
+                </label>
+              </div>
+            )}
+
+            {tab === 'access' && (
+              <div className="space-y-3.5">
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPrivacy('public')}
+                    aria-pressed={privacy === 'public'}
+                    className={`rounded-2xl border p-3 text-left transition-colors ${
+                      privacy === 'public'
+                        ? 'border-emerald-400/50 bg-emerald-500/10'
+                        : 'border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.05]'
+                    }`}
+                  >
+                    <span
+                      className={`flex h-8 w-8 items-center justify-center rounded-xl ${
+                        privacy === 'public'
+                          ? 'bg-emerald-500/15 text-emerald-300'
+                          : 'bg-white/[0.06] text-slate-400'
+                      }`}
+                    >
+                      <Globe className="h-4 w-4" />
+                    </span>
+                    <span className="mt-2 flex items-center gap-1 text-[12px] font-semibold text-white">
+                      Public
+                      {privacy === 'public' && <Check className="h-3.5 w-3.5 text-emerald-300" />}
+                    </span>
+                    <span className="mt-0.5 block text-[10px] leading-snug text-slate-500">
+                      Listed on Discover for everyone.
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPrivacy('followers')}
+                    aria-pressed={privacy === 'followers'}
+                    className={`rounded-2xl border p-3 text-left transition-colors ${
+                      privacy === 'followers'
+                        ? 'border-violet-400/50 bg-violet-500/10'
+                        : 'border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.05]'
+                    }`}
+                  >
+                    <span
+                      className={`flex h-8 w-8 items-center justify-center rounded-xl ${
+                        privacy === 'followers'
+                          ? 'bg-violet-500/15 text-violet-300'
+                          : 'bg-white/[0.06] text-slate-400'
+                      }`}
+                    >
+                      <Lock className="h-4 w-4" />
+                    </span>
+                    <span className="mt-2 flex items-center gap-1 text-[12px] font-semibold text-white">
+                      Followers only
+                      {privacy === 'followers' && (
+                        <Check className="h-3.5 w-3.5 text-violet-300" />
+                      )}
+                    </span>
+                    <span className="mt-0.5 block text-[10px] leading-snug text-slate-500">
+                      Hidden from Discover; followers can open it.
+                    </span>
+                  </button>
+                </div>
+
+                <div className="overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.02] px-3.5 divide-y divide-white/[0.05]">
+                  {mode === 'MULTI_GUEST' && (
+                    <ToggleRow
+                      label="Allow guest seat requests"
+                      hint="Viewers can ask to join the seat grid."
+                      checked={allowGuestRequests}
+                      onChange={setAllowGuestRequests}
+                    />
+                  )}
+                  {mode === 'MULTI_GUEST' && (
+                    <ToggleRow
+                      label="Require host approval for guests"
+                      hint={
+                        allowGuestRequests
+                          ? 'Off = seats open instantly without a request.'
+                          : 'Turn on seat requests to use approval.'
+                      }
+                      checked={hostApproval}
+                      onChange={setHostApproval}
+                      disabled={!allowGuestRequests}
+                    />
+                  )}
+                  <ToggleRow
+                    label="Allow viewer comments"
+                    hint="Off = only you and your moderators can chat."
+                    checked={allowViewerComments}
+                    onChange={setAllowViewerComments}
+                  />
+                  <ToggleRow
+                    label="Allow gifts"
+                    hint="Viewers can send gifts to the stage."
+                    checked={allowGifts}
+                    onChange={setAllowGifts}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
-          <div className="relative shrink-0 border-t border-white/[0.08] bg-[#070910]/95 backdrop-blur-xl px-5 sm:px-7 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] sm:pb-4">
+          <div className="shrink-0 border-t border-white/[0.08] px-4 pb-[calc(env(safe-area-inset-bottom)+0.9rem)] pt-3 sm:px-5 sm:pb-5">
             {formError && (
               <p
                 role="alert"
-                className="mb-2.5 flex items-start gap-1.5 rounded-xl border border-rose-500/30 bg-rose-950/45 px-3 py-2 text-[11px] leading-relaxed text-rose-200"
+                className="mb-2.5 flex items-start gap-1.5 rounded-xl border border-rose-400/30 bg-rose-500/[0.08] px-3 py-2 text-[11px] leading-relaxed text-rose-200"
               >
                 <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                 <span>{formError}</span>
               </p>
             )}
-            <div className="flex items-center gap-2.5">
-              <div className="hidden min-w-0 flex-1 sm:block">
-                <p className="flex items-center gap-1.5 font-mono text-[9px] font-semibold uppercase tracking-[0.24em] text-slate-500">
-                  <span className="relative flex h-2 w-2">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-500 opacity-60" />
-                    <span className="relative inline-flex h-2 w-2 rounded-full bg-rose-500" />
-                  </span>
-                  Ready to broadcast
-                </p>
-                <p className="mt-1 truncate text-xs font-medium text-slate-300">{modeSummary}</p>
-              </div>
-              <button
-                type="button"
-                onClick={onClose}
-                disabled={submitting}
-                className="h-11 rounded-xl border border-white/[0.10] bg-white/[0.03] px-4 text-xs font-medium text-slate-300 transition-colors hover:bg-white/[0.08] disabled:opacity-40 sm:h-12"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={submitting}
-                className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-500 via-violet-600 to-sky-500 text-sm font-semibold text-white shadow-[0_18px_44px_-18px_rgba(139,92,246,0.95)] transition-all hover:from-fuchsia-400 hover:via-violet-500 hover:to-sky-400 active:scale-[0.99] disabled:opacity-50 disabled:shadow-none sm:h-12 sm:flex-none sm:px-8"
-              >
-                {submitting ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Radio className="w-4 h-4" />
-                )}
-                <span>{submitting ? 'Starting…' : 'Go Live'}</span>
-              </button>
-            </div>
-            <p className="mt-2 flex items-center gap-1.5 text-[10px] text-slate-500 sm:hidden">
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-500 opacity-60" />
-                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-rose-500" />
-              </span>
-              <span className="truncate">{modeSummary}</span>
-            </p>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-fuchsia-500 via-violet-600 to-sky-500 text-sm font-bold text-white shadow-[0_18px_44px_-18px_rgba(139,92,246,0.95)] transition hover:brightness-110 active:scale-[0.99] disabled:opacity-50 disabled:shadow-none"
+            >
+              {submitting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Radio className="h-4 w-4" />
+              )}
+              <span>{submitting ? 'Starting…' : 'Go Live'}</span>
+            </button>
           </div>
         </form>
       </div>

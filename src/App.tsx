@@ -1840,23 +1840,6 @@ export default function App() {
           onInviteViewer={handleInviteRoomViewer}
           onReportUser={handleReportRoomUser}
           onToggleBlock={handleToggleBlock}
-          onShareRoom={(r) => {
-            const url = `${window.location.origin}${window.location.pathname}?room=${r.roomId}`;
-            if (navigator.clipboard?.writeText) {
-              navigator.clipboard
-                .writeText(url)
-                .then(() => pushToast('Room link copied', r.title, 'success'))
-                .catch(() => {
-                  window.prompt('Copy this room link', url);
-                });
-            } else {
-              window.prompt('Copy this room link', url);
-            }
-          }}
-          onOpenReportRoom={(r) => {
-            if (!requireSignedIn()) return;
-            setReportTarget({ type: 'ROOM', id: r.roomId, label: r.title });
-          }}
           onOpenProfile={(u) => setInspectedUser(u)}
           onOpenAuth={() => setAuthOpen(true)}
         />
