@@ -25,7 +25,10 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
       title="Download Android APK (AddaBuzz Live)"
     >
       <Download className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
-      <span>{compact ? 'Download APK' : 'Download Android APK'}</span>
+      <span className={compact ? 'hidden min-[480px]:inline' : undefined}>
+        {compact ? 'Download APK' : 'Download Android APK'}
+      </span>
+      {compact && <span className="min-[480px]:hidden">APK</span>}
     </a>
   );
 

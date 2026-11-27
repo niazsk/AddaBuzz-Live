@@ -27,7 +27,9 @@ android {
 }
 
 val syncWebAssets by tasks.registering(Sync::class) {
-    from(rootProject.file("../dist"))
+    from(rootProject.file("../dist")) {
+        exclude("addabuzz-live.apk")
+    }
     into(layout.projectDirectory.dir("src/main/assets"))
 }
 

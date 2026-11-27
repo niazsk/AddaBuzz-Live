@@ -647,19 +647,15 @@ html.light aside {
 }
 
 html.light header {
-  background: rgba(255, 255, 255, 0.88) !important;
+  background: rgba(255, 255, 255, 0.95) !important;
   background-image: none !important;
-  backdrop-filter: blur(22px) saturate(1.1);
-  -webkit-backdrop-filter: blur(22px) saturate(1.1);
   border-color: var(--lt-border) !important;
   box-shadow: 0 10px 30px -26px rgba(15, 23, 42, 0.3) !important;
 }
 
 html.light nav[aria-label="Mobile navigation"] {
-  background: rgba(255, 255, 255, 0.94) !important;
+  background: rgba(255, 255, 255, 0.97) !important;
   background-image: none !important;
-  backdrop-filter: blur(22px) saturate(1.1);
-  -webkit-backdrop-filter: blur(22px) saturate(1.1);
   border-color: var(--lt-border) !important;
   box-shadow: 0 -14px 40px -32px rgba(15, 23, 42, 0.34) !important;
 }

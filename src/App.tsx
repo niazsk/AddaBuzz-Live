@@ -2025,7 +2025,7 @@ export default function App() {
           isAdminUser={isAdminUser && !isBdAgent}
         />
 
-        <main className="flex-1 min-w-0 px-4 sm:px-6 lg:px-8 pt-6 pb-24 lg:pb-10">
+        <main className="flex-1 min-w-0 px-4 sm:px-6 lg:px-8 pt-6 pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-10">
           <div key={activeSection} className="page-enter">
           {activeSection === 'discover' && (
             <DiscoverView

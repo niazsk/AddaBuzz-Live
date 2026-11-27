@@ -33,7 +33,7 @@ export const MobileTopBar: React.FC<MobileNavProps> = ({
   isSignedIn = false,
 }) => {
   return (
-    <header className="lg:hidden sticky top-0 z-30 h-13 px-4 flex items-center justify-between bg-[#08090E]/85 backdrop-blur-xl border-b border-white/[0.07] shadow-[0_16px_40px_-32px_rgba(56,189,248,0.7)]">
+    <header className="lg:hidden sticky top-0 z-30 min-h-13 px-3 sm:px-4 pt-[env(safe-area-inset-top)] flex items-center justify-between bg-[#08090E]/95 border-b border-white/[0.07] shadow-[0_16px_40px_-32px_rgba(56,189,248,0.7)]">
       <BrandLogo />
       <div className="flex items-center gap-1.5">
         <ThemeToggle compact />
@@ -138,7 +138,7 @@ export const MobileBottomBar: React.FC<MobileNavProps> = ({
   return (
     <nav
       aria-label="Mobile navigation"
-      className="lg:hidden fixed bottom-0 left-0 right-0 z-30 h-[62px] bg-[#0A0C13]/92 backdrop-blur-xl border-t border-white/[0.08] grid grid-cols-5 items-center px-1 pb-[env(safe-area-inset-bottom)] shadow-[0_-16px_40px_-30px_rgba(0,0,0,0.95)]"
+      className="lg:hidden fixed bottom-0 left-0 right-0 z-30 h-[calc(62px+env(safe-area-inset-bottom))] bg-[#0A0C13]/95 border-t border-white/[0.08] grid grid-cols-5 items-center px-1 pb-[env(safe-area-inset-bottom)] shadow-[0_-16px_40px_-30px_rgba(0,0,0,0.95)]"
     >
       <Tab
         label="Home"
